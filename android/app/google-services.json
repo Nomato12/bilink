@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "926130951089",
+    "project_id": "bilink-9381c",
+    "storage_bucket": "bilink-9381c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:926130951089:android:eeae9b3f562c78f4ea2390",
+        "android_client_info": {
+          "package_name": "com.example.bilink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6zlYVbIncRlsF5zrLryz-4sZ0Mx3_hXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
