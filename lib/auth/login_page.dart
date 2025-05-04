@@ -107,10 +107,9 @@ class _LoginPageState extends State<LoginPage>
 
   Widget _buildAppLogo() {
     return Container(
-      height: 80,
-      width: 80,
+      height: 150,
+      width: 150,
       decoration: BoxDecoration(
-        color: Colors.white,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -121,8 +120,9 @@ class _LoginPageState extends State<LoginPage>
           ),
         ],
       ),
-      child: Center(
-        child: Icon(Icons.link, size: 40, color: Color(0xFF9B59B6)),
+      child: Image.asset(
+        'assets/images/Design sans titre.png',
+        fit: BoxFit.contain,
       ),
     );
   }

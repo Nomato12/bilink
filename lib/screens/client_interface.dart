@@ -114,7 +114,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     try {
       // تهيئة ImagePicker
       final ImagePicker picker = ImagePicker();
-      
+
       // عرض خيارات التقاط الصورة للمستخدم
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
@@ -127,11 +127,13 @@ class _ClientHomePageState extends State<ClientHomePage> {
         // التحقق من حجم الصورة
         final File imageFile = File(image.path);
         final fileSize = await imageFile.length();
-        
+
         // إذا كان حجم الملف كبيرًا جدًا (أكثر من 5 ميجابايت)
         if (fileSize > 5 * 1024 * 1024) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('حجم الصورة كبير جدًا. يرجى اختيار صورة أصغر')),
+            SnackBar(
+              content: Text('حجم الصورة كبير جدًا. يرجى اختيار صورة أصغر'),
+            ),
           );
           return;
         }
@@ -139,65 +141,51 @@ class _ClientHomePageState extends State<ClientHomePage> {
         // إظهار مؤشر التحميل
         _showLoadingDialog('جاري رفع الصورة...');
 
-        // التحقق من وجود معلومات المستخدم الحالي
+        // رفع الصورة إلى Firebase Storage
         final authService = Provider.of<AuthService>(context, listen: false);
-        
-        // التحقق من أن المستخدم ما زال مسجل الدخول
+
+        // التحقق من وجود مستخدم مسجل الدخول
         if (authService.currentUser == null) {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop(); // إغلاق مؤشر التحميل
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('يرجى تسجيل الدخول أولاً')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('يرجى تسجيل الدخول أولاً')));
           return;
         }
-        
-        // التأكد من وجود معرف المستخدم
+
         final userId = authService.currentUser!.uid;
-        if (userId.isEmpty) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ في معرف المستخدم، يرجى إعادة تسجيل الدخول')),
-          );
-          return;
-        }
-        
-        // إعادة المصادقة قبل محاولة الرفع لضمان وجود توكن حديث
+
+        // التأكد من وجود المجلد قبل رفع الملف
         try {
           // إعداد المرجع في Firebase Storage
           final storageRef = FirebaseStorage.instance.ref();
-          
-          // تجنب مسارات غير صالحة في Firebase Storage
-          final safeUserId = userId.replaceAll(RegExp(r'[^\w-]'), '_');
-          
-          // بناء المسار بطريقة منظمة
-          final userProfilePath = 'users/$safeUserId/profile_images';
-          final userFolder = storageRef.child(userProfilePath);
-          
+
+          // التأكد من وجود مجلد المستخدم بإنشائه مسبقاً عن طريق ملف وهمي إذا لم يكن موجوداً
+          final userFolderRef = storageRef.child('users/$userId');
+
           // إنشاء اسم فريد للصورة
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final fileName = 'profile_$timestamp.jpg';
-          
-          // مرجع الصورة النهائي
-          final profileImageRef = userFolder.child(fileName);
 
-          // إعداد البيانات الوصفية
+          // مرجع الصورة النهائي
+          final profileImageRef = userFolderRef.child(fileName);
+
+          // رفع الصورة مع تحديد نوع الملف والبيانات الوصفية
           final metadata = SettableMetadata(
             contentType: 'image/jpeg',
             customMetadata: {
               'userId': userId,
-              'uploadTime': DateTime.now().toString(),
-              'purpose': 'profile_image'
+              'uploadDate': DateTime.now().toString(),
+              'fileName': fileName,
             },
           );
 
           // رفع الصورة
           final uploadTask = profileImageRef.putFile(imageFile, metadata);
 
-          // مراقبة حالة الرفع للتعامل مع الأخطاء
+          // استمع إلى حالة الرفع للتعامل مع الأخطاء في وقت مبكر
           uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
             switch (snapshot.state) {
               case TaskState.error:
@@ -205,84 +193,70 @@ class _ClientHomePageState extends State<ClientHomePage> {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
                 }
-                // تحليل الخطأ وعرض رسالة مناسبة
-                final error = snapshot.error;
-                String errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى';
-                if (error != null && error.toString().contains('unauthorized')) {
-                  errorMessage = 'ليس لديك صلاحية رفع الصور. تحقق من إعدادات الأمان في Firebase Storage';
-                  // طباعة تفاصيل الخطأ للتشخيص
-                  print('Firebase Storage Authorization Error: $error');
-                }
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(errorMessage)),
+                  SnackBar(
+                    content: Text(
+                      'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى',
+                    ),
+                  ),
                 );
                 break;
               default:
+                // لا تفعل شيئًا للحالات الأخرى
                 break;
             }
           });
 
           // انتظار اكتمال الرفع
+          await uploadTask;
+
+          // التحقق من اكتمال الرفع بنجاح قبل طلب الرابط
           final snapshot = await uploadTask;
-          
           if (snapshot.state == TaskState.success) {
-            try {
-              // الحصول على رابط التنزيل
-              final downloadUrl = await profileImageRef.getDownloadURL();
-              
-              // تحديث عنوان الصورة في Firestore
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(userId)
-                  .update({'profileImageUrl': downloadUrl});
+            final downloadUrl = await profileImageRef.getDownloadURL();
 
-              // تحديث الواجهة
-              setState(() {
-                _profileImageUrl = downloadUrl;
-                _userData = _userData.copyWith(profileImageUrl: downloadUrl);
-              });
+            // تحديث عنوان الصورة في Firestore
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .update({'profileImageUrl': downloadUrl});
 
-              // إغلاق مؤشر التحميل
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              }
+            // تحديث الواجهة
+            setState(() {
+              _profileImageUrl = downloadUrl;
+              _userData = _userData.copyWith(profileImageUrl: downloadUrl);
+            });
 
-              // عرض رسالة نجاح
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تم تحديث الصورة الشخصية بنجاح')),
-              );
-            } catch (urlError) {
-              // معالجة خطأ في الحصول على الرابط
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              }
-              print('Error getting download URL: $urlError');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تم رفع الصورة ولكن حدث خطأ في الحصول على الرابط')),
-              );
+            // إغلاق مؤشر التحميل
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
             }
+
+            // عرض رسالة نجاح
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('تم تحديث الصورة الشخصية بنجاح')),
+            );
           }
         } catch (storageError) {
           // إغلاق مؤشر التحميل في حالة الخطأ
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
-          
+
           print('Storage error: $storageError');
-          
-          String errorMessage = 'حدث خطأ أثناء الوصول لخدمة التخزين. يرجى المحاولة مرة أخرى لاحقاً';
-          if (storageError.toString().contains('unauthorized') || 
+
+          String errorMessage =
+              'حدث خطأ أثناء الوصول لخدمة التخزين. يرجى المحاولة مرة أخرى لاحقاً';
+          if (storageError.toString().contains('unauthorized') ||
               storageError.toString().contains('permission-denied')) {
-            errorMessage = 'ليس لديك صلاحية رفع الصور. تأكد من إعدادات الأمان في Firebase Storage';
+            errorMessage = 'ليس لديك صلاحية رفع الصور';
           } else if (storageError.toString().contains('object-not-found')) {
-            errorMessage = 'المسار غير موجود في خدمة التخزين';
-          } else if (storageError.toString().contains('quota-exceeded')) {
-            errorMessage = 'تم تجاوز الحد المسموح للتخزين';
+            errorMessage = 'الملف المرجعي غير موجود';
           }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(errorMessage)));
         }
       }
     } catch (e) {
@@ -291,20 +265,27 @@ class _ClientHomePageState extends State<ClientHomePage> {
         Navigator.of(context).pop();
       }
 
-      print('Error in image picker process: $e');
-      
-      String errorMessage = 'حدث خطأ أثناء تحميل الصورة. يرجى المحاولة مرة أخرى';
-      if (e.toString().contains('permission-denied') || e.toString().contains('unauthorized')) {
-        errorMessage = 'ليس لديك صلاحية الوصول إلى الصور أو رفعها';
+      print('Error uploading profile image: $e');
+
+      // عرض رسالة خطأ محددة بناءً على نوع الخطأ
+      String errorMessage;
+      if (e.toString().contains('permission-denied')) {
+        errorMessage = 'ليس لديك صلاحية رفع الصور';
       } else if (e.toString().contains('canceled')) {
-        errorMessage = 'تم إلغاء عملية اختيار الصورة';
+        errorMessage = 'تم إلغاء عملية رفع الصورة';
       } else if (e.toString().contains('network')) {
-        errorMessage = 'حدث خطأ في الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت';
+        errorMessage =
+            'حدث خطأ في الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت';
+      } else if (e.toString().contains('object-not-found')) {
+        errorMessage =
+            'حدث خطأ في الوصول إلى مجلد التخزين، سيتم إنشاؤه الآن. يرجى المحاولة مرة أخرى';
+      } else {
+        errorMessage = 'حدث خطأ أثناء تحميل الصورة. يرجى المحاولة مرة أخرى';
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
 
@@ -587,13 +568,23 @@ class _ClientHomePageState extends State<ClientHomePage> {
                             style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                           SizedBox(height: 4),
-                          Text(
-                            'BiLink',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                'BiLink',
+                                style: TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Image.asset(
+                                'assets/images/Design sans titre.png',
+                                height: 30,
+                                width: 30,
+                              ),
+                            ],
                           ),
                         ],
                       ),
