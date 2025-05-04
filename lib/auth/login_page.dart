@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'signup_page.dart';
 import '../models/home_page.dart';
+import '../screens/client_interface.dart'; // Import for ClientHomePage
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   _LoginPageState createState() => _LoginPageState();
 }
@@ -315,9 +318,7 @@ class _LoginPageState extends State<LoginPage>
                         value: _rememberMe,
                         onChanged:
                             (value) => setState(() => _rememberMe = value!),
-                        fillColor: MaterialStateProperty.all(
-                          Colors.transparent,
-                        ),
+                        fillColor: WidgetStateProperty.all(Colors.transparent),
                         checkColor: Colors.white,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(
@@ -598,7 +599,7 @@ class _LoginPageState extends State<LoginPage>
           color: backgroundColor,
           child: InkWell(
             onTap: onPressed,
-            child: Container(
+            child: SizedBox(
               width: 50,
               height: 50,
               child: Icon(icon, color: iconColor, size: 28),
@@ -644,10 +645,21 @@ class _LoginPageState extends State<LoginPage>
 
         // Wait for snackbar to show before navigating
         Future.delayed(Duration(milliseconds: 1200), () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => BiLinkHomePage()),
-          );
+          // Check if the user is a company user (has a company name)
+          if (authService.currentUser?.companyName != null &&
+              authService.currentUser!.companyName!.isNotEmpty) {
+            // Redirect to ClientHomePage if it's a company user
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => ClientHomePage()),
+            );
+          } else {
+            // Regular navigation to BiLinkHomePage for non-company users
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => BiLinkHomePage()),
+            );
+          }
         });
       }
     }

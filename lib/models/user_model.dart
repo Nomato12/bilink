@@ -13,6 +13,7 @@ class UserModel {
   final Map<String, dynamic> additionalData;
   final DateTime createdAt;
   final DateTime lastLogin;
+  final String profileImageUrl;
 
   UserModel({
     required this.uid,
@@ -25,6 +26,7 @@ class UserModel {
     this.additionalData = const {},
     DateTime? createdAt,
     DateTime? lastLogin,
+    this.profileImageUrl = '',
   }) : createdAt = createdAt ?? DateTime.now(),
        lastLogin = lastLogin ?? DateTime.now();
 
@@ -43,6 +45,7 @@ class UserModel {
       additionalData: data['additionalData'] ?? {},
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLogin: (data['lastLogin'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      profileImageUrl: data['profileImageUrl'] ?? '',
     );
   }
 
@@ -82,6 +85,7 @@ class UserModel {
       'additionalData': additionalData,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLogin': Timestamp.fromDate(lastLogin),
+      'profileImageUrl': profileImageUrl,
     };
   }
 
@@ -97,6 +101,7 @@ class UserModel {
     Map<String, dynamic>? additionalData,
     DateTime? createdAt,
     DateTime? lastLogin,
+    String? profileImageUrl,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -109,6 +114,7 @@ class UserModel {
       additionalData: additionalData ?? this.additionalData,
       createdAt: createdAt ?? this.createdAt,
       lastLogin: lastLogin ?? this.lastLogin,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
     );
   }
 }

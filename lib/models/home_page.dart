@@ -3,7 +3,7 @@ import '../auth/login_page.dart';
 import '../auth/signup_page.dart';
 
 class BiLinkHomePage extends StatefulWidget {
-  const BiLinkHomePage({Key? key}) : super(key: key);
+  const BiLinkHomePage({super.key});
 
   @override
   _BiLinkHomePageState createState() => _BiLinkHomePageState();

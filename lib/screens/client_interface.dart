@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
-import '../models/service_model.dart';
-import '../services/service_service.dart';
+import '../models/user_model.dart';
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -18,6 +21,16 @@ class _ClientHomePageState extends State<ClientHomePage> {
   String _selectedLocation = 'الكل';
   RangeValues _priceRange = RangeValues(100, 5000);
   double _minRating = 3.0;
+
+  // User data variables
+  late UserModel _userData;
+  bool _isUserDataLoaded = false;
+  String _profileImageUrl = '';
+
+  // Controllers for editing user information
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
 
   // الخدمات المميزة
   final List<Map<String, dynamic>> _featuredServices = [
@@ -54,9 +67,437 @@ class _ClientHomePageState extends State<ClientHomePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // دالة لتحميل بيانات المستخدم من قاعدة البيانات
+  Future<void> _loadUserData() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      // التأكد من وجود مستخدم مسجل الدخول
+      if (authService.currentUser != null) {
+        setState(() {
+          _userData = authService.currentUser!;
+          _isUserDataLoaded = true;
+
+          // تعبئة حقول التعديل بالمعلومات الحالية
+          _nameController.text = _userData.fullName;
+          _phoneController.text = _userData.phoneNumber;
+
+          // التحقق من وجود بيانات إضافية
+          if (_userData.additionalData.containsKey('address')) {
+            _addressController.text = _userData.additionalData['address'];
+          }
+
+          // التحقق من وجود صورة شخصية
+          if (_userData.profileImageUrl.isNotEmpty) {
+            _profileImageUrl = _userData.profileImageUrl;
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
+
+  // دالة لاختيار والتقاط صورة شخصية
+  Future<void> _pickAndUploadProfileImage() async {
+    try {
+      // تهيئة ImagePicker
+      final ImagePicker picker = ImagePicker();
+      
+      // عرض خيارات التقاط الصورة للمستخدم
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024, // تقليل حجم الصورة
+        maxHeight: 1024,
+        imageQuality: 85, // ضغط الصورة للتقليل من حجمها
+      );
+
+      if (image != null) {
+        // التحقق من حجم الصورة
+        final File imageFile = File(image.path);
+        final fileSize = await imageFile.length();
+        
+        // إذا كان حجم الملف كبيرًا جدًا (أكثر من 5 ميجابايت)
+        if (fileSize > 5 * 1024 * 1024) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('حجم الصورة كبير جدًا. يرجى اختيار صورة أصغر')),
+          );
+          return;
+        }
+
+        // إظهار مؤشر التحميل
+        _showLoadingDialog('جاري رفع الصورة...');
+
+        // التحقق من وجود معلومات المستخدم الحالي
+        final authService = Provider.of<AuthService>(context, listen: false);
+        
+        // التحقق من أن المستخدم ما زال مسجل الدخول
+        if (authService.currentUser == null) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(); // إغلاق مؤشر التحميل
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('يرجى تسجيل الدخول أولاً')),
+          );
+          return;
+        }
+        
+        // التأكد من وجود معرف المستخدم
+        final userId = authService.currentUser!.uid;
+        if (userId.isEmpty) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('خطأ في معرف المستخدم، يرجى إعادة تسجيل الدخول')),
+          );
+          return;
+        }
+        
+        // إعادة المصادقة قبل محاولة الرفع لضمان وجود توكن حديث
+        try {
+          // إعداد المرجع في Firebase Storage
+          final storageRef = FirebaseStorage.instance.ref();
+          
+          // تجنب مسارات غير صالحة في Firebase Storage
+          final safeUserId = userId.replaceAll(RegExp(r'[^\w-]'), '_');
+          
+          // بناء المسار بطريقة منظمة
+          final userProfilePath = 'users/$safeUserId/profile_images';
+          final userFolder = storageRef.child(userProfilePath);
+          
+          // إنشاء اسم فريد للصورة
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final fileName = 'profile_$timestamp.jpg';
+          
+          // مرجع الصورة النهائي
+          final profileImageRef = userFolder.child(fileName);
+
+          // إعداد البيانات الوصفية
+          final metadata = SettableMetadata(
+            contentType: 'image/jpeg',
+            customMetadata: {
+              'userId': userId,
+              'uploadTime': DateTime.now().toString(),
+              'purpose': 'profile_image'
+            },
+          );
+
+          // رفع الصورة
+          final uploadTask = profileImageRef.putFile(imageFile, metadata);
+
+          // مراقبة حالة الرفع للتعامل مع الأخطاء
+          uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+            switch (snapshot.state) {
+              case TaskState.error:
+                // إغلاق مؤشر التحميل في حالة الخطأ
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+                // تحليل الخطأ وعرض رسالة مناسبة
+                final error = snapshot.error;
+                String errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى';
+                if (error != null && error.toString().contains('unauthorized')) {
+                  errorMessage = 'ليس لديك صلاحية رفع الصور. تحقق من إعدادات الأمان في Firebase Storage';
+                  // طباعة تفاصيل الخطأ للتشخيص
+                  print('Firebase Storage Authorization Error: $error');
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(errorMessage)),
+                );
+                break;
+              default:
+                break;
+            }
+          });
+
+          // انتظار اكتمال الرفع
+          final snapshot = await uploadTask;
+          
+          if (snapshot.state == TaskState.success) {
+            try {
+              // الحصول على رابط التنزيل
+              final downloadUrl = await profileImageRef.getDownloadURL();
+              
+              // تحديث عنوان الصورة في Firestore
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(userId)
+                  .update({'profileImageUrl': downloadUrl});
+
+              // تحديث الواجهة
+              setState(() {
+                _profileImageUrl = downloadUrl;
+                _userData = _userData.copyWith(profileImageUrl: downloadUrl);
+              });
+
+              // إغلاق مؤشر التحميل
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+
+              // عرض رسالة نجاح
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تم تحديث الصورة الشخصية بنجاح')),
+              );
+            } catch (urlError) {
+              // معالجة خطأ في الحصول على الرابط
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+              print('Error getting download URL: $urlError');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تم رفع الصورة ولكن حدث خطأ في الحصول على الرابط')),
+              );
+            }
+          }
+        } catch (storageError) {
+          // إغلاق مؤشر التحميل في حالة الخطأ
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          
+          print('Storage error: $storageError');
+          
+          String errorMessage = 'حدث خطأ أثناء الوصول لخدمة التخزين. يرجى المحاولة مرة أخرى لاحقاً';
+          if (storageError.toString().contains('unauthorized') || 
+              storageError.toString().contains('permission-denied')) {
+            errorMessage = 'ليس لديك صلاحية رفع الصور. تأكد من إعدادات الأمان في Firebase Storage';
+          } else if (storageError.toString().contains('object-not-found')) {
+            errorMessage = 'المسار غير موجود في خدمة التخزين';
+          } else if (storageError.toString().contains('quota-exceeded')) {
+            errorMessage = 'تم تجاوز الحد المسموح للتخزين';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      }
+    } catch (e) {
+      // إغلاق مؤشر التحميل في حالة الخطأ
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      print('Error in image picker process: $e');
+      
+      String errorMessage = 'حدث خطأ أثناء تحميل الصورة. يرجى المحاولة مرة أخرى';
+      if (e.toString().contains('permission-denied') || e.toString().contains('unauthorized')) {
+        errorMessage = 'ليس لديك صلاحية الوصول إلى الصور أو رفعها';
+      } else if (e.toString().contains('canceled')) {
+        errorMessage = 'تم إلغاء عملية اختيار الصورة';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'حدث خطأ في الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  // دالة لتحديث بيانات المستخدم
+  Future<void> _updateUserInfo() async {
+    try {
+      // التحقق من صحة البيانات
+      if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('يرجى ملء جميع الحقول المطلوبة')),
+        );
+        return;
+      }
+
+      // إظهار مؤشر التحميل
+      _showLoadingDialog('جاري تحديث البيانات...');
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userId = authService.currentUser!.uid;
+
+      // تحديث البيانات الإضافية
+      Map<String, dynamic> additionalData = {..._userData.additionalData};
+
+      if (_addressController.text.isNotEmpty) {
+        additionalData['address'] = _addressController.text;
+      }
+
+      // تحديث بيانات المستخدم في Firestore
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId);
+      await userRef.update({
+        'fullName': _nameController.text,
+        'phoneNumber': _phoneController.text,
+        'additionalData': additionalData,
+      });
+
+      // إعادة تحميل بيانات المستخدم
+      await _loadUserData();
+
+      // إغلاق مؤشر التحميل
+      Navigator.of(context).pop();
+
+      // إغلاق نافذة التعديل إذا كانت مفتوحة
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      // عرض رسالة نجاح
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('تم تحديث البيانات بنجاح')));
+    } catch (e) {
+      // إغلاق مؤشر التحميل في حالة الخطأ
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      print('Error updating user info: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء تحديث البيانات')));
+    }
+  }
+
+  // عرض مؤشر التحميل
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(color: Color(0xFF9B59B6)),
+              SizedBox(width: 16),
+              Text(message),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // عرض مربع حوار تعديل الملف الشخصي
+  void _showEditProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Center(child: Text('تعديل البيانات الشخصية')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickAndUploadProfileImage();
+                  },
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF9B59B6).withOpacity(0.1),
+                      border: Border.all(color: Color(0xFF9B59B6), width: 2),
+                    ),
+                    child: Center(
+                      child:
+                          _profileImageUrl.isNotEmpty
+                              ? CircleAvatar(
+                                radius: 48,
+                                backgroundImage: CachedNetworkImageProvider(
+                                  _profileImageUrl,
+                                ),
+                              )
+                              : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo,
+                                    color: Color(0xFF9B59B6),
+                                    size: 32,
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'إضافة صورة',
+                                    style: TextStyle(
+                                      color: Color(0xFF9B59B6),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'الاسم الكامل',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'رقم الهاتف',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: _addressController,
+                  decoration: InputDecoration(
+                    labelText: 'العنوان',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateUserInfo();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF9B59B6),
+              ),
+              child: Text('حفظ التغييرات'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -1498,177 +1939,215 @@ class _ClientHomePageState extends State<ClientHomePage> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Color(0xFF9B59B6).withOpacity(0.1),
-            child: Text(
-              'أ م',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF9B59B6),
+      child:
+          _isUserDataLoaded
+              ? Column(
+                children: [
+                  // إظهار صورة المستخدم إذا كانت موجودة، وإلا إظهار الحروف الأولى من اسمه
+                  _profileImageUrl.isNotEmpty
+                      ? CircleAvatar(
+                        radius: 50,
+                        backgroundImage: CachedNetworkImageProvider(
+                          _profileImageUrl,
+                        ),
+                      )
+                      : CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Color(0xFF9B59B6).withOpacity(0.2),
+                        child: Text(
+                          _userData.fullName.isNotEmpty
+                              ? _userData.fullName
+                                  .split(' ')
+                                  .map((e) => e.isNotEmpty ? e[0] : '')
+                                  .take(2)
+                                  .join(' ')
+                              : 'U',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF9B59B6),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  SizedBox(height: 16),
+                  Text(
+                    _userData.fullName,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    _userData.email,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      _showEditProfileDialog();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF9B59B6).withOpacity(0.1),
+                      foregroundColor: Color(0xFF9B59B6),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text('تعديل الملف الشخصي'),
+                  ),
+                ],
+              )
+              : Center(
+                child: CircularProgressIndicator(color: Color(0xFF9B59B6)),
               ),
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'أحمد محمود',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'ahmed.mahmoud@example.com',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: () {
-              // Edit profile
-            },
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Color(0xFF9B59B6)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              'تعديل الحساب',
-              style: TextStyle(color: Color(0xFF9B59B6)),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _buildProfileMenu() {
     final menuItems = [
       {
-        'title': 'المعلومات الشخصية',
+        'title': 'معلوماتي الشخصية',
         'icon': Icons.person_outline,
-        'onTap': () {},
+        'color': Colors.blue,
       },
+      {'title': 'طرق الدفع', 'icon': Icons.credit_card, 'color': Colors.green},
       {
         'title': 'العناوين المحفوظة',
         'icon': Icons.location_on_outlined,
-        'onTap': () {},
-      },
-      {
-        'title': 'وسائل الدفع',
-        'icon': Icons.credit_card_outlined,
-        'onTap': () {},
+        'color': Colors.orange,
       },
       {
         'title': 'الخدمات المفضلة',
-        'icon': Icons.favorite_border,
-        'onTap': () {},
-      },
-      {
-        'title': 'التقييمات والمراجعات',
-        'icon': Icons.star_border,
-        'onTap': () {},
-      },
-      {'title': 'المساعدة والدعم', 'icon': Icons.help_outline, 'onTap': () {}},
-      {
-        'title': 'تسجيل الخروج',
-        'icon': Icons.logout,
-        'onTap': () {
-          // Handle logout
-          final authService = Provider.of<AuthService>(context, listen: false);
-          authService.signOut();
-        },
+        'icon': Icons.favorite_outline,
         'color': Colors.red,
       },
+      {
+        'title': 'الإشعارات',
+        'icon': Icons.notifications_none,
+        'color': Colors.purple,
+      },
+      {'title': 'الأمان', 'icon': Icons.lock_outline, 'color': Colors.teal},
+      {
+        'title': 'مساعدة ودعم',
+        'icon': Icons.help_outline,
+        'color': Colors.indigo,
+      },
+      {'title': 'تسجيل الخروج', 'icon': Icons.logout, 'color': Colors.grey},
     ];
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return Container(
+      padding: EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Text(
-              'إعدادات الحساب',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
-          ...menuItems.map(
-            (item) => _buildProfileMenuItem(
-              title: item['title'] as String,
-              icon: item['icon'] as IconData,
-              onTap: item['onTap'] as Function(),
-              color: item.containsKey('color') ? item['color'] as Color : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileMenuItem({
-    required String title,
-    required IconData icon,
-    required Function onTap,
-    Color? color,
-  }) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
-      child: ListTile(
-        leading: Icon(icon, color: color ?? Color(0xFF9B59B6)),
-        title: Text(
-          title,
-          style: TextStyle(fontWeight: FontWeight.w500, color: color),
-        ),
-        trailing: Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: () => onTap(),
+        children:
+            menuItems.map((item) {
+              return Container(
+                margin: EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 5,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (item['color'] as Color).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      item['icon'] as IconData,
+                      color: item['color'] as Color,
+                    ),
+                  ),
+                  title: Text(
+                    item['title'] as String,
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    if (item['title'] == 'تسجيل الخروج') {
+                      // Call logout
+                      final authService = Provider.of<AuthService>(
+                        context,
+                        listen: false,
+                      );
+                      authService.logout();
+                    } else {
+                      // Navigate to respective pages
+                    }
+                  },
+                ),
+              );
+            }).toList(),
       ),
     );
   }
 
   Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      onTap: (index) {
-        setState(() {
-          _currentIndex = index;
-        });
-      },
-      selectedItemColor: Color(0xFF9B59B6),
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
-      type: BottomNavigationBarType.fixed,
-      items: [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'الرئيسية',
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, -5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search_outlined),
-          activeIcon: Icon(Icons.search),
-          label: 'البحث',
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          selectedItemColor: Color(0xFF9B59B6),
+          unselectedItemColor: Colors.grey,
+          showUnselectedLabels: true,
+          type: BottomNavigationBarType.fixed,
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'الرئيسية',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.search_outlined),
+              activeIcon: Icon(Icons.search),
+              label: 'البحث',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_outlined),
+              activeIcon: Icon(Icons.receipt_long),
+              label: 'طلباتي',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'حسابي',
+            ),
+          ],
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.receipt_outlined),
-          activeIcon: Icon(Icons.receipt),
-          label: 'طلباتي',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'حسابي',
-        ),
-      ],
+      ),
     );
   }
 }
