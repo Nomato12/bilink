@@ -1,8 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'auth/login_page.dart';
 import 'auth/signup_page.dart';
@@ -13,6 +13,12 @@ import 'services/auth_service.dart';
 void main() async {
   // Asegurarse de que las vinculaciones de Flutter se inicialicen
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Increase Flutter channel buffer size to prevent message corruption
+  // This helps avoid "FormatException: Message corrupted" errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+  };
 
   // Configure the channel buffer size to avoid dropped messages
   const MethodChannel('flutter/lifecycle').setMethodCallHandler((
@@ -38,6 +44,16 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'BiLink',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('ar', 'SA'), // Set Arabic locale
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ar', 'SA'), // Arabic
+          Locale('en', 'US'), // English
+        ],
         theme: ThemeData(
           primarySwatch: Colors.deepPurple,
           fontFamily: 'Cairo',
@@ -60,32 +76,48 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
-    _checkAuthentication();
+
+    // إعداد الرسوم المتحركة للشعار
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+
+    // تشغيل الرسوم المتحركة
+    _animationController.forward();
+
+    // الانتقال مباشرة إلى الصفحة الرئيسية بعد عرض الشعار
+    _navigateToHomePage();
   }
 
-  Future<void> _checkAuthentication() async {
-    // Retardo artificial para mostrar la pantalla de splash
-    await Future.delayed(const Duration(seconds: 2));
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final isLoggedIn = await authService.checkPreviousLogin();
+  // دالة للانتقال مباشرة إلى الصفحة الرئيسية
+  Future<void> _navigateToHomePage() async {
+    // انتظار فترة قصيرة لإظهار الشعار
+    await Future.delayed(const Duration(milliseconds: 1800));
 
     if (mounted) {
-      if (isLoggedIn) {
-        // Usuario ya ha iniciado sesión, ir a página principal
-        Navigator.of(
-          context,
-        ).pushReplacement(MaterialPageRoute(builder: (_) => BiLinkHomePage()));
-      } else {
-        // Usuario no ha iniciado sesión, ir a página de inicio (welcome)
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const WelcomePage()),
-        );
-      }
+      // الانتقال مباشرة إلى الصفحة الرئيسية
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => BiLinkHomePage()));
     }
   }
 
@@ -102,33 +134,40 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo o icono de la aplicación
-              Icon(Icons.link_rounded, size: 120, color: Colors.white),
-              SizedBox(height: 24),
-              Text(
-                'BiLink',
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo o icono de la aplicación
+                Icon(Icons.link_rounded, size: 120, color: Colors.white),
+                SizedBox(height: 24),
+                Text(
+                  'BiLink',
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'ربط الأعمال بالخدمات اللوجستية',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white.withOpacity(0.9),
+                SizedBox(height: 8),
+                Text(
+                  'ربط الأعمال بالخدمات اللوجستية',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
                 ),
-              ),
-              SizedBox(height: 50),
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ],
+                // تم حذف دائرة التحميل لتجنب الشعور بالانتظار
+              ],
+            ),
           ),
         ),
       ),

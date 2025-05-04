@@ -10,8 +10,7 @@ import 'package:flutter/services.dart'; // Add import for haptic feedback
 class PhoneVerificationPage extends StatefulWidget {
   final String phoneNumber;
 
-  const PhoneVerificationPage({Key? key, required this.phoneNumber})
-    : super(key: key);
+  const PhoneVerificationPage({super.key, required this.phoneNumber});
 
   @override
   _PhoneVerificationPageState createState() => _PhoneVerificationPageState();
@@ -28,6 +27,8 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage>
   bool _verificationSuccess = false;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  // Add a flag to prevent multiple verification requests
+  bool _isVerifying = false;
 
   // Shake animation controller for error feedback
   late final AnimationController _shakeController;
@@ -594,6 +595,11 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage>
 
   Future<void> _verifyPhone(AuthService authService, String code) async {
     if (_formKey.currentState!.validate()) {
+      if (_isVerifying) return; // Prevent multiple verification requests
+      setState(() {
+        _isVerifying = true;
+      });
+
       final success = await authService.verifyPhoneCode(code);
 
       if (!success && mounted) {
@@ -638,10 +644,16 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage>
           }
         });
       }
+
+      setState(() {
+        _isVerifying = false;
+      });
     }
   }
 
   Future<void> _resendCode(AuthService authService) async {
+    if (_isResending) return; // Prevent multiple resend requests
+
     setState(() {
       _isResending = true;
     });

@@ -17,6 +17,10 @@ class AuthService extends ChangeNotifier {
   String? _verificationId;
   int? _resendToken;
 
+  // Variable para prevenir múltiples solicitudes de verificación
+  bool _isVerifying = false;
+  bool get isVerifying => _isVerifying;
+
   // Obtener el usuario actual
   UserModel? get currentUser => _currentUser;
 
@@ -194,7 +198,13 @@ class AuthService extends ChangeNotifier {
 
   // Método para enviar la verificación de teléfono
   Future<bool> sendPhoneVerification(String phoneNumber) async {
+    // Prevent multiple verification requests
+    if (_isVerifying) {
+      return false;
+    }
+
     try {
+      _isVerifying = true;
       errorMessage = null;
       isLoading = true;
       notifyListeners();
@@ -242,92 +252,87 @@ class AuthService extends ChangeNotifier {
 
           errorMessage = message;
           isLoading = false;
+          _isVerifying = false;
           notifyListeners();
         },
         codeSent: (String verificationId, int? resendToken) {
-          // Guardar el ID de verificación para usarlo al verificar el código
+          // Código enviado al número de teléfono
           _verificationId = verificationId;
           _resendToken = resendToken;
-
           isLoading = false;
+          _isVerifying = false; // Reset verification flag when code is sent
           notifyListeners();
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          // Volver a establecer el ID de verificación si expira
+          // Tiempo de espera para la recuperación automática del código
           _verificationId = verificationId;
+          isLoading = false;
+          _isVerifying = false; // Reset verification flag on timeout
           notifyListeners();
         },
-        timeout: Duration(seconds: 60),
         forceResendingToken: _resendToken,
       );
 
       return true;
     } catch (e) {
-      errorMessage = 'حدث خطأ أثناء إرسال رمز التحقق: $e';
       isLoading = false;
+      _isVerifying = false;
+      if (e is FirebaseAuthException) {
+        errorMessage = 'خطأ في إرسال رمز التحقق: ${e.message}';
+      } else {
+        errorMessage = 'خطأ في إرسال رمز التحقق: $e';
+      }
       notifyListeners();
       return false;
     }
   }
 
   // Método para verificar el código de teléfono
-  Future<bool> verifyPhoneCode(String code) async {
-    try {
-      if (_verificationId == null) {
-        throw Exception('لم يتم إرسال رمز التحقق بعد');
-      }
+  Future<bool> verifyPhoneCode(String smsCode) async {
+    // Prevent multiple verification attempts
+    if (_isVerifying || isLoading) {
+      return false;
+    }
 
+    try {
+      _isVerifying = true;
       errorMessage = null;
       isLoading = true;
       notifyListeners();
 
-      // Crear credencial con el código recibido y el ID de verificación
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: code,
-      );
-
-      // Iniciar sesión o vincular con la credencial
-      await _signInWithPhoneCredential(credential);
-
-      // Actualizar el estado de verificación en Firestore si tenemos un usuario
-      if (_currentUser != null) {
-        await _firestore.collection('users').doc(_currentUser!.uid).update({
-          'isPhoneVerified': true,
-        });
-
-        // Actualizar el usuario local
-        _currentUser = _currentUser!.copyWith(isPhoneVerified: true);
+      if (_verificationId == null) {
+        errorMessage = 'لم يتم إرسال رمز التحقق بعد';
+        isLoading = false;
+        _isVerifying = false;
+        notifyListeners();
+        return false;
       }
 
+      // Create credential with the verification ID and SMS code
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: smsCode,
+      );
+
+      // Sign in with the phone credential
+      await _signInWithPhoneCredential(credential);
+
       isLoading = false;
+      _isVerifying = false; // Reset the verification flag
       notifyListeners();
       return true;
     } catch (e) {
-      String message;
+      isLoading = false;
+      _isVerifying = false; // Reset the verification flag even on error
       if (e is FirebaseAuthException) {
-        switch (e.code) {
-          case 'invalid-verification-code':
-            message = 'فشل رمز التحقق - الرمز غير صحيح، يرجى المحاولة مرة أخرى';
-            break;
-          case 'code-expired':
-            message = 'انتهت صلاحية رمز التحقق، يرجى طلب رمز جديد';
-            break;
-          case 'invalid-verification-id':
-            message = 'معرف التحقق غير صالح، يرجى طلب رمز جديد';
-            break;
-          case 'too-many-requests':
-            message = 'تم إرسال العديد من الطلبات، يرجى المحاولة لاحقاً';
-            break;
-          default:
-            message = 'حدث خطأ أثناء التحقق من الرمز: ${e.message}';
+        if (e.code == 'invalid-verification-code') {
+          errorMessage = 'فشل رمز التحقق: الرمز غير صحيح';
+        } else {
+          errorMessage = 'حدث خطأ أثناء التحقق: ${e.message}';
         }
       } else {
-        message = 'حدث خطأ أثناء التحقق من الرمز: $e';
+        errorMessage = 'حدث خطأ أثناء التحقق: $e';
       }
-
-      errorMessage = message;
-      isLoading = false;
       notifyListeners();
       return false;
     }
@@ -354,7 +359,7 @@ class AuthService extends ChangeNotifier {
       if (e.code == 'credential-already-in-use') {
         throw Exception('رقم الهاتف مرتبط بالفعل بحساب آخر');
       } else {
-        throw e;
+        rethrow;
       }
     }
   }

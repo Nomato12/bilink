@@ -25,8 +25,8 @@ class UserModel {
     this.additionalData = const {},
     DateTime? createdAt,
     DateTime? lastLogin,
-  }) : this.createdAt = createdAt ?? DateTime.now(),
-       this.lastLogin = lastLogin ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       lastLogin = lastLogin ?? DateTime.now();
 
   // Factory constructor para crear un usuario desde un documento de Firestore
   factory UserModel.fromFirestore(DocumentSnapshot doc) {

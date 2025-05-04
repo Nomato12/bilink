@@ -9,6 +9,8 @@ import 'dart:async';
 enum UserType { client, provider }
 
 class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
+
   @override
   _SignupPageState createState() => _SignupPageState();
 }
