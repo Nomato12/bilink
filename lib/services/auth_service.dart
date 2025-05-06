@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/user_model.dart';
 
 class AuthService extends ChangeNotifier {
@@ -27,14 +30,69 @@ class AuthService extends ChangeNotifier {
   // Obtener el estado de autenticación
   bool get isAuthenticated => _currentUser != null;
 
-  // Método para verificar si hay un usuario ya loggeado
+  // Constantes para el manejo de sesión
+  static const String _lastLoginTimeKey = 'lastLoginTime';
+  static const String _lastLoginIpKey = 'lastLoginIp';
+  static const Duration _sessionDuration = Duration(
+    days: 14,
+  ); // 2 semanas de sesión por defecto
+
+  // Método para obtener la IP actual
+  Future<String?> _getCurrentIp() async {
+    try {
+      final response = await http.get(Uri.parse('https://api.ipify.org'));
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+    } catch (e) {
+      print('Error obteniendo la IP: $e');
+    }
+    return null;
+  }
+
+  // Método mejorado para verificar si hay un usuario ya loggeado
   Future<bool> checkPreviousLogin() async {
     try {
       final User? user = _auth.currentUser;
+      final prefs = await SharedPreferences.getInstance();
 
       if (user != null) {
-        // Buscar los datos del usuario en Firestore
+        // Verificar si hay datos de sesión guardados
+        final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+        if (!isLoggedIn) return false;
+
+        // Verificar el tiempo de la última sesión
+        final int? lastLoginTime = prefs.getInt(_lastLoginTimeKey);
+        if (lastLoginTime != null) {
+          final DateTime lastLogin = DateTime.fromMillisecondsSinceEpoch(
+            lastLoginTime,
+          );
+          final DateTime now = DateTime.now();
+
+          // Si ha pasado más tiempo que la duración máxima de la sesión, cerrar sesión
+          if (now.difference(lastLogin) > _sessionDuration) {
+            print('Sesión expirada por tiempo');
+            await logout();
+            return false;
+          }
+        }
+
+        // Verificar la IP de la última sesión
+        final String? lastIp = prefs.getString(_lastLoginIpKey);
+        final String? currentIp = await _getCurrentIp();
+
+        if (lastIp != null && currentIp != null && lastIp != currentIp) {
+          print('IP cambiada, cerrando sesión por seguridad');
+          await logout();
+          return false;
+        }
+
+        // Si todo está correcto, actualizar la información y cargar datos del usuario
         await _fetchUserData(user.uid);
+
+        // Actualizar timestamp de inicio de sesión
+        await _updateLoginTimestamp();
+
         return true;
       }
 
@@ -42,6 +100,81 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       print('Error checking previous login: $e');
       return false;
+    }
+  }
+
+  // Método para actualizar el timestamp de inicio de sesión
+  Future<void> _updateLoginTimestamp() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt(_lastLoginTimeKey, now);
+
+      // También actualizar la IP actual
+      final String? currentIp = await _getCurrentIp();
+      if (currentIp != null) {
+        await prefs.setString(_lastLoginIpKey, currentIp);
+      }
+
+      // Si hay un usuario autenticado, actualizar también la información en Firestore
+      if (_auth.currentUser != null) {
+        await _firestore.collection('users').doc(_auth.currentUser!.uid).update(
+          {'lastLogin': FieldValue.serverTimestamp(), 'lastIp': currentIp},
+        );
+      }
+    } catch (e) {
+      print('Error actualizando timestamp de sesión: $e');
+    }
+  }
+
+  // Método para cargar los datos del usuario desde Firestore
+  Future<void> _fetchUserData(String uid) async {
+    try {
+      // Obtener los datos del usuario desde Firestore
+      final DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(uid).get();
+
+      // Verificar si el documento existe
+      if (userDoc.exists) {
+        // Convertir los datos a un mapa
+        final Map<String, dynamic> userData =
+            userDoc.data() as Map<String, dynamic>;
+
+        // Crear una instancia de UserModel con los datos obtenidos
+        _currentUser = UserModel.fromMap(userData);
+
+        // Notificar a los listeners sobre el cambio de estado
+        notifyListeners();
+      } else {
+        // Si el usuario no existe en Firestore pero sí en Authentication
+        print('Usuario autenticado no encontrado en Firestore: $uid');
+
+        // Obtener datos básicos del usuario desde Authentication
+        final User? authUser = _auth.currentUser;
+        if (authUser != null) {
+          // Crear un modelo básico con la información disponible
+          _currentUser = UserModel(
+            uid: authUser.uid,
+            email: authUser.email ?? '',
+            fullName: authUser.displayName ?? '',
+            phoneNumber: authUser.phoneNumber ?? '',
+            role: UserRole.client, // Rol por defecto
+            isPhoneVerified: authUser.phoneNumber != null,
+          );
+
+          // Opcionalmente, guardar estos datos básicos en Firestore
+          await _firestore
+              .collection('users')
+              .doc(uid)
+              .set(_currentUser!.toMap());
+
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      print('Error obteniendo datos del usuario: $e');
+      errorMessage = 'حدث خطأ في جلب بيانات المستخدم';
+      notifyListeners();
     }
   }
 
@@ -62,16 +195,13 @@ class AuthService extends ChangeNotifier {
       if (userCredential.user != null) {
         await _fetchUserData(userCredential.user!.uid);
 
-        // Actualizar la fecha de último inicio de sesión
-        await _firestore
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .update({'lastLogin': FieldValue.serverTimestamp()});
-
         // Guardar la información de sesión localmente
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('userId', userCredential.user!.uid);
+
+        // Actualizar timestamp e IP de inicio de sesión
+        await _updateLoginTimestamp();
 
         isLoading = false;
         notifyListeners();
@@ -317,6 +447,9 @@ class AuthService extends ChangeNotifier {
       // Sign in with the phone credential
       await _signInWithPhoneCredential(credential);
 
+      // Actualizar timestamp e IP de inicio de sesión
+      await _updateLoginTimestamp();
+
       isLoading = false;
       _isVerifying = false; // Reset the verification flag
       notifyListeners();
@@ -346,13 +479,34 @@ class AuthService extends ChangeNotifier {
       if (_auth.currentUser != null) {
         // Si ya hay un usuario autenticado, vincular el número de teléfono a la cuenta
         await _auth.currentUser!.linkWithCredential(credential);
+
+        // Actualizar los datos del usuario en Firestore para indicar que el teléfono está verificado
+        await _firestore.collection('users').doc(_auth.currentUser!.uid).update(
+          {'isPhoneVerified': true},
+        );
+
+        // Actualizar el modelo de usuario local
+        if (_currentUser != null) {
+          _currentUser = _currentUser!.copyWith(isPhoneVerified: true);
+          notifyListeners();
+        }
       } else {
         // Si no hay usuario, iniciar sesión con la credencial de teléfono
         final UserCredential userCredential = await _auth.signInWithCredential(
           credential,
         );
+
         if (userCredential.user != null) {
+          // Buscar los datos del usuario en Firestore
           await _fetchUserData(userCredential.user!.uid);
+
+          // Actualizar información de sesión
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setString('userId', userCredential.user!.uid);
+
+          // Actualizar timestamp e IP
+          await _updateLoginTimestamp();
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -364,6 +518,27 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Método para cerrar sesión
+  Future<void> logout() async {
+    try {
+      await _auth.signOut();
+
+      // Borrar el estado de sesión local
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', false);
+      await prefs.remove('userId');
+
+      // Eliminar también los datos de IP y timestamp
+      await prefs.remove(_lastLoginTimeKey);
+      await prefs.remove(_lastLoginIpKey);
+
+      _currentUser = null;
+      notifyListeners();
+    } catch (e) {
+      print('Error logging out: $e');
+    }
+  }
+
   // Método para restablecer la contraseña
   Future<bool> resetPassword(String email) async {
     try {
@@ -371,6 +546,7 @@ class AuthService extends ChangeNotifier {
       isLoading = true;
       notifyListeners();
 
+      // Enviar correo para restablecer contraseña
       await _auth.sendPasswordResetEmail(email: email);
 
       isLoading = false;
@@ -400,58 +576,6 @@ class AuthService extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
       return false;
-    }
-  }
-
-  // Método para cerrar sesión
-  Future<void> logout() async {
-    try {
-      await _auth.signOut();
-
-      // Borrar el estado de sesión local
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', false);
-      await prefs.remove('userId');
-
-      _currentUser = null;
-      notifyListeners();
-    } catch (e) {
-      print('Error logging out: $e');
-    }
-  }
-
-  // Método para obtener los datos del usuario desde Firestore
-  Future<void> _fetchUserData(String uid) async {
-    try {
-      final DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
-
-      if (doc.exists) {
-        _currentUser = UserModel.fromFirestore(doc);
-      } else {
-        // Si el documento no existe pero el usuario está autenticado
-        final User? user = _auth.currentUser;
-        if (user != null) {
-          // Crear un documento básico para el usuario
-          final UserModel newUser = UserModel(
-            uid: user.uid,
-            email: user.email ?? '',
-            fullName: user.displayName ?? '',
-            phoneNumber: user.phoneNumber ?? '',
-            role: UserRole.client,
-          );
-
-          await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .set(newUser.toMap());
-          _currentUser = newUser;
-        }
-      }
-
-      notifyListeners();
-    } catch (e) {
-      print('Error fetching user data: $e');
     }
   }
 }
