@@ -27,12 +27,8 @@ void main() async {
     );
   };
 
-<<<<<<< HEAD
   // Actualizar a la configuración de la UI más reciente para mejorar el rendimiento
   // Uso del API no-deprecado para manejar errores de plataforma
-=======
-  // Ajustar la configuración de la UI para mejorar el rendimiento
->>>>>>> cfa4dbe6d2158a4a677c9dc9147a8bcce65beed2
   ui.PlatformDispatcher.instance.onError = (error, stack) {
     developer.log('Platform error caught', error: error, stackTrace: stack);
     return true;
