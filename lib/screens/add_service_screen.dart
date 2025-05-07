@@ -25,7 +25,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
     with SingleTickerProviderStateMixin {
   // متغيرات إدارة الواجهة
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
+  final bool _isLoading = false;
   late TabController _tabController;
   int _currentStep = 0;
   final int _totalSteps = 3;
@@ -62,7 +62,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   // متغيرات خاصة بالموقع
   double? _locationLatitude;
   double? _locationLongitude;
-  String _locationAddress = "";
+  final String _locationAddress = "";
 
   // متغيرات إضافة خدمة جديدة
   final _titleController = TextEditingController();
@@ -1450,7 +1450,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
           // عرض الصور المختارة
           if (images.isNotEmpty) ...[
-            Container(
+            SizedBox(
               height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
