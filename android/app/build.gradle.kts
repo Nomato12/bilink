@@ -10,7 +10,7 @@ plugins {
 android {
     namespace = "com.example.bilink"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"  // Updated NDK version
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -30,6 +30,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Configuración correcta de manifestPlaceholders en Kotlin DSL
+        manifestPlaceholders["MAPS_API_KEY"] = "AIzaSyCSsMQzPwR92-RwufaNA9kPpi0nB4XjAtw"
     }
 
     buildTypes {

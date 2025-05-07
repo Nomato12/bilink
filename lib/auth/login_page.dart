@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'signup_page.dart';
 import '../models/home_page.dart';
-import '../screens/client_interface.dart'; // Import for ClientHomePage
+// Import for ClientHomePage
+import '../utils/navigation_helper.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -645,16 +646,14 @@ class _LoginPageState extends State<LoginPage>
 
         // Wait for snackbar to show before navigating
         Future.delayed(Duration(milliseconds: 1200), () {
-          // Check if the user is a company user (has a company name)
-          if (authService.currentUser?.companyName != null &&
-              authService.currentUser!.companyName!.isNotEmpty) {
-            // Redirect to ClientHomePage if it's a company user
-            Navigator.pushReplacement(
+          if (authService.currentUser != null) {
+            // Usar NavigationHelper para redirigir según el rol del usuario
+            NavigationHelper.navigateBasedOnRole(
               context,
-              MaterialPageRoute(builder: (context) => ClientHomePage()),
+              authService.currentUser!.role,
             );
           } else {
-            // Regular navigation to BiLinkHomePage for non-company users
+            // En caso de error, navegar a la página de inicio predeterminada
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => BiLinkHomePage()),

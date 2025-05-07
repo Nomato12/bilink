@@ -25,6 +25,13 @@ dependencies:
   lottie: ^2.6.0
   cached_network_image: ^3.3.1   # ✅ تمت الإضافة هنا 👌
   image_picker: ^1.0.7
+  google_maps_flutter: ^2.6.0
+  location: ^5.0.3
+  geolocator: ^11.0.0
+  geocoding: ^2.1.1
+  flutter_spinkit: ^5.2.0  # Added for loading animations
+  google_fonts: ^5.1.0     # Added for text styling
+  flutter_polyline_points: ^2.0.0  # Added for drawing routes on maps
 
 dev_dependencies:
   flutter_test:

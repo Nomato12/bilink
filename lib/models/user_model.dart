@@ -89,6 +89,23 @@ class UserModel {
     };
   }
 
+  // Crear modelo desde un Map
+  factory UserModel.fromMap(Map<String, dynamic> data) {
+    return UserModel(
+      uid: data['uid'] ?? '',
+      email: data['email'] ?? '',
+      fullName: data['fullName'] ?? '',
+      phoneNumber: data['phoneNumber'] ?? '',
+      role: _parseRole(data['role']),
+      companyName: data['companyName'],
+      isPhoneVerified: data['isPhoneVerified'] ?? false,
+      additionalData: data['additionalData'] ?? {},
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastLogin: (data['lastLogin'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      profileImageUrl: data['profileImageUrl'] ?? '',
+    );
+  }
+
   // Copiar el modelo con nuevos valores
   UserModel copyWith({
     String? uid,

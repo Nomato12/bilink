@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -28,13 +27,8 @@ void main() async {
     );
   };
 
-  // Ajustar la configuración de la UI para mejorar el rendimiento
-  ui.PlatformDispatcher.instance.onError = (error, stack) {
-    developer.log('Platform error caught', error: error, stackTrace: stack);
-    return true;
-  };
-
-  // Usar ui.PlatformDispatcher en lugar de PlatformDispatcher
+  // Actualizar a la configuración de la UI más reciente para mejorar el rendimiento
+  // Uso del API no-deprecado para manejar errores de plataforma
   ui.PlatformDispatcher.instance.onError = (error, stack) {
     developer.log('Platform error caught', error: error, stackTrace: stack);
     return true;
@@ -210,8 +204,8 @@ class _SplashScreenState extends State<SplashScreen>
     // تسلسل الرسوم المتحركة
     _startAnimationSequence();
 
-    // الانتقال للصفحة الرئيسية بعد انتهاء الرسوم المتحركة
-    _navigateToHomePage();
+    // الانتقال للصفحة المناسبة بعد انتهاء الرسوم المتحركة
+    _checkAuthAndNavigate();
   }
 
   void _createParticles() {
@@ -253,13 +247,25 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  // دالة للانتقال إلى الصفحة الرئيسية
-  Future<void> _navigateToHomePage() async {
+  // التحقق من حالة تسجيل الدخول وتوجيه المستخدم للصفحة المناسبة
+  Future<void> _checkAuthAndNavigate() async {
     // زيادة فترة عرض الشاشة الافتتاحية ليستمتع المستخدم بالتأثيرات المرئية
     await Future.delayed(const Duration(milliseconds: 4800));
 
     if (mounted) {
-      // الانتقال إلى الصفحة الرئيسية
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      // التحقق من وجود مستخدم مسجل الدخول مسبقًا - نغير الإعداد هنا لعرض صفحة البداية دائمًا
+      // Comentamos esta línea para solucionar el problema de redirección automática
+      // final bool isLoggedIn = await authService.checkPreviousLogin();
+
+      // Forzar que siempre muestre la página de inicio/login
+      const bool isLoggedIn = false;
+
+      // Imprimimos información de depuración
+      print("Navigating to home screen - Auth check bypassed");
+
+      // إذا لم يكن هناك مستخدم مسجل، ننتقل للصفحة الرئيسية
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 1200),
@@ -308,6 +314,64 @@ class _SplashScreenState extends State<SplashScreen>
                     ],
                     stops: [0.0, 0.5, 1.0],
                   ),
+                ),
+                child: Stack(
+                  children: [
+                    // زخارف دائرية متوهجة للخلفية
+                    Positioned(
+                      top: -80,
+                      right: -50,
+                      child: Container(
+                        width: 250,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF9F7AEA).withOpacity(0.2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFF9F7AEA).withOpacity(0.3),
+                              blurRadius: 80,
+                              spreadRadius: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -120,
+                      left: -60,
+                      child: Container(
+                        width: 300,
+                        height: 300,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF7C3AED).withOpacity(0.15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFF7C3AED).withOpacity(0.2),
+                              blurRadius: 100,
+                              spreadRadius: 30,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // مؤثرات شبكية للخلفية
+                    Opacity(
+                      opacity: 0.07,
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/images/grid_pattern.png'),
+                            repeat: ImageRepeat.repeat,
+                            scale: 4.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
