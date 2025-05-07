@@ -222,24 +222,45 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _startAnimationSequence() async {
+    if (!mounted) return;
+    // تحقق من أن الـ widget لا يزال مثبتًا قبل بدء الرسوم المتحركة
+
     // بدء الرسوم المتحركة للجسيمات
+    if (!mounted) return;
     _particlesAnimationController.forward();
 
     // بدء الرسوم المتحركة للشعار
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     _logoAnimationController.forward();
 
     // بدء الرسوم المتحركة للنص
     await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
     _textAnimationController.forward();
 
     // بدء الرسوم المتحركة لشريط التقدم
     await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     _progressAnimationController.forward();
   }
 
   @override
   void dispose() {
+    // إيقاف جميع الرسوم المتحركة قبل التخلص منها
+    if (_logoAnimationController.isAnimating) {
+      _logoAnimationController.stop();
+    }
+    if (_textAnimationController.isAnimating) {
+      _textAnimationController.stop();
+    }
+    if (_particlesAnimationController.isAnimating) {
+      _particlesAnimationController.stop();
+    }
+    if (_progressAnimationController.isAnimating) {
+      _progressAnimationController.stop();
+    }
+
     _logoAnimationController.dispose();
     _textAnimationController.dispose();
     _particlesAnimationController.dispose();
