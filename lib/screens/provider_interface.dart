@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart'; // Corrected import path
+import '../models/home_page.dart';
 
 class ServiceProviderHomePage extends StatefulWidget {
   const ServiceProviderHomePage({super.key});
@@ -2158,168 +2159,197 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   }
 
   Widget _buildProfilePage() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // معلومات الملف الشخصي
-          Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
+    return SingleChildScrollView(
+      child: Container(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // معلومات الملف الشخصي
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // الصورة الشخصية
+                  Container(
+                    padding: EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Color(0xFF9B59B6), width: 2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Color(0xFF9B59B6).withOpacity(0.1),
+                      child: Icon(
+                        Icons.person,
+                        size: 60,
+                        color: Color(0xFF9B59B6),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+
+                  // الاسم والبريد الإلكتروني
+                  Text(
+                    "اسم المستخدم",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "user@example.com",
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 20),
+
+                  // زر تعديل الملف الشخصي
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // تعديل الملف الشخصي
+                          },
+                          icon: Icon(Icons.edit),
+                          label: Text("تعديل الملف الشخصي"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF9B59B6),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      // إضافة زر تسجيل الخروج بجانب زر التعديل
+                      ElevatedButton.icon(
+                        onPressed: _logout,
+                        icon: Icon(Icons.logout),
+                        label: Text("تسجيل الخروج"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              children: [
-                // الصورة الشخصية
-                Container(
-                  padding: EdgeInsets.all(4),
+            SizedBox(height: 20),
+
+            // قائمة الإعدادات
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildSettingsItem(
+                    icon: Icons.payment,
+                    title: "طرق الدفع",
+                    subtitle: "إدارة طرق الدفع المقبولة",
+                    iconColor: Color(0xFF2ECC71),
+                  ),
+                  Divider(height: 1),
+                  _buildSettingsItem(
+                    icon: Icons.notifications,
+                    title: "الإشعارات",
+                    subtitle: "إدارة إعدادات الإشعارات",
+                    iconColor: Color(0xFFE74C3C),
+                  ),
+                  Divider(height: 1),
+                  _buildSettingsItem(
+                    icon: Icons.language,
+                    title: "اللغة",
+                    subtitle: "تغيير لغة التطبيق",
+                    iconColor: Color(0xFF3498DB),
+                  ),
+                  Divider(height: 1),
+                  _buildSettingsItem(
+                    icon: Icons.security,
+                    title: "الأمان",
+                    subtitle: "إدارة إعدادات الأمان",
+                    iconColor: Color(0xFFF1C40F),
+                  ),
+                  Divider(height: 1),
+                  _buildSettingsItem(
+                    icon: Icons.help,
+                    title: "المساعدة والدعم",
+                    subtitle: "تواصل مع فريق الدعم",
+                    iconColor: Color(0xFF9B59B6),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
+
+            // زر تسجيل الخروج
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
                   decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Color(0xFF9B59B6), width: 2),
                   ),
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Color(0xFF9B59B6).withOpacity(0.1),
-                    child: Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Color(0xFF9B59B6),
-                    ),
+                  child: Icon(Icons.logout, color: Colors.red),
+                ),
+                title: Text(
+                  "تسجيل الخروج",
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 16),
-
-                // الاسم والبريد الإلكتروني
-                Text(
-                  "اسم المستخدم",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "user@example.com",
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                SizedBox(height: 20),
-
-                // زر تعديل الملف الشخصي
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // تعديل الملف الشخصي
-                  },
-                  icon: Icon(Icons.edit),
-                  label: Text("تعديل الملف الشخصي"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF9B59B6),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 20),
-
-          // قائمة الإعدادات
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildSettingsItem(
-                  icon: Icons.payment,
-                  title: "طرق الدفع",
-                  subtitle: "إدارة طرق الدفع المقبولة",
-                  iconColor: Color(0xFF2ECC71),
-                ),
-                Divider(height: 1),
-                _buildSettingsItem(
-                  icon: Icons.notifications,
-                  title: "الإشعارات",
-                  subtitle: "إدارة إعدادات الإشعارات",
-                  iconColor: Color(0xFFE74C3C),
-                ),
-                Divider(height: 1),
-                _buildSettingsItem(
-                  icon: Icons.language,
-                  title: "اللغة",
-                  subtitle: "تغيير لغة التطبيق",
-                  iconColor: Color(0xFF3498DB),
-                ),
-                Divider(height: 1),
-                _buildSettingsItem(
-                  icon: Icons.security,
-                  title: "الأمان",
-                  subtitle: "إدارة إعدادات الأمان",
-                  iconColor: Color(0xFFF1C40F),
-                ),
-                Divider(height: 1),
-                _buildSettingsItem(
-                  icon: Icons.help,
-                  title: "المساعدة والدعم",
-                  subtitle: "تواصل مع فريق الدعم",
-                  iconColor: Color(0xFF9B59B6),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 20),
-
-          // زر تسجيل الخروج
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            child: ListTile(
-              leading: Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.logout, color: Colors.red),
+                onTap: () {
+                  _logout();
+                },
               ),
-              title: Text(
-                "تسجيل الخروج",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onTap: () {
-                // تسجيل الخروج
-              },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2350,6 +2380,101 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         // فتح صفحة الإعدادات المحددة
       },
     );
+  }
+
+  // وظيفة تسجيل الخروج
+  Future<void> _logout() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // إظهار حوار تأكيد تسجيل الخروج
+      bool confirmLogout =
+          await showDialog(
+            context: context,
+            builder:
+                (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: Row(
+                    children: [
+                      Icon(Icons.logout, color: Colors.red),
+                      SizedBox(width: 10),
+                      Text('تأكيد تسجيل الخروج'),
+                    ],
+                  ),
+                  content: Text(
+                    'هل أنت متأكد من رغبتك في تسجيل الخروج من حسابك؟',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text('إلغاء'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: Text(
+                        'تسجيل الخروج',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+          ) ??
+          false;
+
+      if (!confirmLogout) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // تنفيذ تسجيل الخروج
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.logout();
+
+      // إضافة طباعة للتأكد من تنفيذ عملية تسجيل الخروج
+      print('تم تسجيل الخروج بنجاح');
+
+      // الانتقال إلى الصفحة الرئيسية بطريقتين مختلفتين للتأكد من عمل إحداهما
+      if (mounted) {
+        // الطريقة الأولى
+        print('محاولة العودة للصفحة الرئيسية باستخدام pushNamedAndRemoveUntil');
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
+        // في حال لم تعمل الطريقة الأولى، نجرب الطريقة الثانية بعد تأخير قصير
+        await Future.delayed(Duration(milliseconds: 100));
+        if (mounted) {
+          print(
+            'محاولة العودة للصفحة الرئيسية باستخدام Navigator.pushAndRemoveUntil',
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => BiLinkHomePage()),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      print('Error logging out: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء تسجيل الخروج: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Widget _buildBottomNavigationBar() {

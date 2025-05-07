@@ -252,20 +252,26 @@ class _SplashScreenState extends State<SplashScreen>
     // زيادة فترة عرض الشاشة الافتتاحية ليستمتع المستخدم بالتأثيرات المرئية
     await Future.delayed(const Duration(milliseconds: 4800));
 
+    // Verificar si el widget aún está montado antes de continuar
+    if (!mounted) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // Forzar que siempre muestre la página de inicio/login
+    const bool isLoggedIn = false;
+
+    // Imprimimos información de depuración
+    print("Navigating to home screen - Auth check bypassed");
+
+    // إذا لم يكن هناك مستخدم مسجل، ننتقل للصفحة الرئيسية
+    // Asegurarse de que el widget todavía esté montado antes de navegar
     if (mounted) {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      // Detenemos todas las animaciones antes de navegar para evitar errores
+      _logoAnimationController.stop();
+      _textAnimationController.stop();
+      _particlesAnimationController.stop();
+      _progressAnimationController.stop();
 
-      // التحقق من وجود مستخدم مسجل الدخول مسبقًا - نغير الإعداد هنا لعرض صفحة البداية دائمًا
-      // Comentamos esta línea para solucionar el problema de redirección automática
-      // final bool isLoggedIn = await authService.checkPreviousLogin();
-
-      // Forzar que siempre muestre la página de inicio/login
-      const bool isLoggedIn = false;
-
-      // Imprimimos información de depuración
-      print("Navigating to home screen - Auth check bypassed");
-
-      // إذا لم يكن هناك مستخدم مسجل، ننتقل للصفحة الرئيسية
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 1200),
@@ -610,116 +616,5 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       );
     }).toList();
-  }
-}
-
-class WelcomePage extends StatelessWidget {
-  const WelcomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFF6B3B), Color(0xFFFF5775), Color(0xFF9B59B6)],
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(flex: 2),
-                // شعار التطبيق
-                SizedBox(
-                  width: 150,
-                  height: 150,
-                  child: Image.asset(
-                    'assets/images/Design sans titre.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'BiLink',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'ربط الأعمال بالخدمات اللوجستية',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-                const Spacer(flex: 1),
-                const Text(
-                  'منصة متخصصة تربط الشركات بمقدمي الخدمات اللوجستية',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SignupPage()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF9B59B6),
-                    minimumSize: const Size(double.infinity, 55),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'إنشاء حساب',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => LoginPage()),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 55),
-                    side: const BorderSide(color: Colors.white, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                  child: const Text(
-                    'تسجيل الدخول',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const Spacer(flex: 2),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -32,8 +32,8 @@ class AuthService extends ChangeNotifier {
   static const String _lastLoginTimeKey = 'lastLoginTime';
   static const String _lastLoginIpKey = 'lastLoginIp';
   static const Duration _sessionDuration = Duration(
-    days: 14,
-  ); // 2 semanas de sesión por defecto
+    days: 30,
+  ); // مدة الجلسة 30 يوم للحفاظ على تسجيل الدخول لفترة أطول
 
   // Método para obtener la IP actual
   Future<String?> _getCurrentIp() async {

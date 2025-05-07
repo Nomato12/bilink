@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../auth/login_page.dart';
 import '../auth/signup_page.dart';
+import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../utils/navigation_helper.dart';
 
 class BiLinkHomePage extends StatefulWidget {
   const BiLinkHomePage({super.key});
@@ -12,10 +15,14 @@ class BiLinkHomePage extends StatefulWidget {
 class _BiLinkHomePageState extends State<BiLinkHomePage> {
   final PageController _pageController = PageController(initialPage: 0);
   int _currentPage = 0;
+  bool _checkingAuth = true;
 
   @override
   void initState() {
     super.initState();
+    // التحقق من حالة تسجيل الدخول عند فتح الصفحة
+    _checkAuthStatus();
+
     // إضافة استدعاء التأخير لضمان تهيئة كافة الويدجت قبل التحديث
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -24,6 +31,29 @@ class _BiLinkHomePageState extends State<BiLinkHomePage> {
         });
       }
     });
+  }
+
+  // دالة التحقق من حالة تسجيل الدخول
+  Future<void> _checkAuthStatus() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // التحقق من وجود جلسة تسجيل دخول نشطة
+    final bool isLoggedIn = await authService.checkPreviousLogin();
+
+    if (isLoggedIn && mounted) {
+      // إذا كان المستخدم مسجل الدخول، توجيهه للصفحة المناسبة حسب نوع المستخدم
+      NavigationHelper.navigateBasedOnRole(
+        context,
+        authService.currentUser!.role,
+      );
+    } else {
+      // تحديث حالة الفحص إذا لم يكن هناك تسجيل دخول
+      if (mounted) {
+        setState(() {
+          _checkingAuth = false;
+        });
+      }
+    }
   }
 
   @override
@@ -36,6 +66,32 @@ class _BiLinkHomePageState extends State<BiLinkHomePage> {
   Widget build(BuildContext context) {
     // Get screen size to adapt layout
     final screenSize = MediaQuery.of(context).size;
+
+    // إظهار مؤشر تحميل أثناء التحقق من حالة تسجيل الدخول
+    if (_checkingAuth) {
+      return Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF7C3AED), // أرجواني داكن عصري
+                Color(0xFF5B21B6), // أرجواني متوسط
+              ],
+            ),
+          ),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       body: Container(
