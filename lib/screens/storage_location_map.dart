@@ -36,6 +36,10 @@ class _StorageLocationMapPageState extends State<StorageLocationMapPage> {
   bool _isLoading = true;
   final Set<Marker> _markers = {};
 
+  // متغير البحث الجديد
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+
   // متغيرات الصور
   final List<File> _locationImages = [];
   bool _isUploading = false;
@@ -44,6 +48,12 @@ class _StorageLocationMapPageState extends State<StorageLocationMapPage> {
   void initState() {
     super.initState();
     _getCurrentLocation();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   // الحصول على إذن الموقع والموقع الحالي
@@ -208,6 +218,63 @@ class _StorageLocationMapPageState extends State<StorageLocationMapPage> {
       print('Error getting address: $e');
       setState(() {
         _selectedAddress = 'تعذر الحصول على العنوان';
+      });
+    }
+  }
+
+  // دالة البحث عن موقع
+  Future<void> _searchLocation() async {
+    final String searchQuery = _searchController.text.trim();
+    if (searchQuery.isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final List<Location> locations = await locationFromAddress(
+        searchQuery,
+        localeIdentifier: 'ar',
+      );
+
+      if (locations.isNotEmpty) {
+        final Location location = locations.first;
+        final LatLng newLocation = LatLng(
+          location.latitude,
+          location.longitude,
+        );
+
+        setState(() {
+          _selectedLocation = newLocation;
+        });
+
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(newLocation, 15),
+        );
+
+        await _updateMarkerAndAddress();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'لم يتم العثور على الموقع. يرجى التحقق من العنوان المدخل',
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ في البحث: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSearching = false;
       });
     }
   }
@@ -410,6 +477,56 @@ class _StorageLocationMapPageState extends State<StorageLocationMapPage> {
                   _updateMarkerAndAddress();
                 },
               ),
+
+          // شريط البحث
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 5,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                textDirection: TextDirection.rtl,
+                decoration: InputDecoration(
+                  hintText: 'ابحث عن موقع أو عنوان...',
+                  hintTextDirection: TextDirection.rtl,
+                  prefixIcon:
+                      _isSearching
+                          ? Container(
+                            padding: EdgeInsets.all(10),
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF5DADE2),
+                            ),
+                          )
+                          : IconButton(
+                            icon: Icon(Icons.search),
+                            onPressed: _searchLocation,
+                            color: Color(0xFF5DADE2),
+                          ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 12,
+                  ),
+                ),
+                onSubmitted: (_) => _searchLocation(),
+              ),
+            ),
+          ),
 
           // بطاقة معلومات الموقع المحدد
           if (_selectedLocation != null)

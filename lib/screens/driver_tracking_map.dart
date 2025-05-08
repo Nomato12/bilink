@@ -16,7 +16,7 @@ class DriverTrackingMapPage extends StatefulWidget {
   const DriverTrackingMapPage({
     super.key,
     required this.serviceId,
-    this.autoStartTracking = false,
+    this.autoStartTracking = true, // تغيير القيمة الافتراضية إلى true
   });
 
   @override
@@ -47,7 +47,6 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
 
   // متغيرات الصور ورفع الملفات
   final List<File> _originImages = [];
-  final List<File> _destinationImages = [];
   bool _isUploading = false;
 
   // متغيرات التتبع المباشر
@@ -492,34 +491,6 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
     }
   }
 
-  // إضافة صور لموقع الوصول
-  Future<void> _pickDestinationImages() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final List<XFile> images = await picker.pickMultiImage(
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-
-      if (images.isNotEmpty) {
-        setState(() {
-          _destinationImages.addAll(
-            images.map((xFile) => File(xFile.path)).toList(),
-          );
-        });
-      }
-    } catch (e) {
-      print('Error picking destination images: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء اختيار الصور: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   // بدء/إيقاف التتبع المباشر
   void _toggleLiveTracking() {
     if (_isLiveTracking) {
@@ -627,19 +598,6 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
       return;
     }
 
-    // في حالة التتبع المباشر، لا نحتاج إلى تحديد نقطة وصول
-    bool isLiveTrackingMode = widget.autoStartTracking || _isLiveTracking;
-    if (_destinationLocation == null && !isLiveTrackingMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('الرجاء تحديد موقع الوصول'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     try {
       setState(() {
         _isLoading = true;
@@ -695,56 +653,8 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
           ),
           'imageUrls': originImageUrls,
         },
+        'isLiveTracking': _isLiveTracking || widget.autoStartTracking,
       };
-
-      // إضافة معلومات الوجهة فقط إذا كانت محددة
-      if (_destinationLocation != null) {
-        // تحميل صور موقع الوصول (إذا كانت موجودة)
-        final List<String> destinationImageUrls = [];
-
-        if (_destinationImages.isNotEmpty) {
-          for (var imageFile in _destinationImages) {
-            try {
-              final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final imageName =
-                  'destination_${timestamp}_${destinationImageUrls.length}.jpg';
-              final storageRef = FirebaseStorage.instance.ref().child(
-                'routes/${widget.serviceId}/destination/$imageName',
-              );
-
-              final uploadTask = storageRef.putFile(
-                imageFile,
-                SettableMetadata(
-                  contentType: 'image/jpeg',
-                  customMetadata: {
-                    'latitude': _destinationLocation!.latitude.toString(),
-                    'longitude': _destinationLocation!.longitude.toString(),
-                    'address': _destinationAddress,
-                  },
-                ),
-              );
-
-              final TaskSnapshot snapshot = await uploadTask;
-              final String imageUrl = await snapshot.ref.getDownloadURL();
-              destinationImageUrls.add(imageUrl);
-            } catch (e) {
-              print('Error uploading destination image: $e');
-              continue;
-            }
-          }
-        }
-
-        routeData['destination'] = {
-          'latitude': _destinationLocation!.latitude,
-          'longitude': _destinationLocation!.longitude,
-          'address': _destinationAddress,
-          'geoPoint': GeoPoint(
-            _destinationLocation!.latitude,
-            _destinationLocation!.longitude,
-          ),
-          'imageUrls': destinationImageUrls,
-        };
-      }
 
       // إضافة بيانات مسار التتبع إذا كان موجوداً
       if (_trackingHistory.isNotEmpty) {
@@ -776,7 +686,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
       // عرض رسالة نجاح وإغلاق الصفحة
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم حفظ بيانات المسار بنجاح'),
+          content: Text('تم تفعيل تتبع الموقع بنجاح'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -789,16 +699,8 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
           'longitude': _originLocation!.longitude,
           'address': _originAddress,
         },
+        'isLiveTracking': true,
       };
-
-      // إضافة بيانات الوجهة إذا كانت متوفرة
-      if (_destinationLocation != null) {
-        result['destination'] = {
-          'latitude': _destinationLocation!.latitude,
-          'longitude': _destinationLocation!.longitude,
-          'address': _destinationAddress,
-        };
-      }
 
       Navigator.of(context).pop(result);
     } catch (e) {
@@ -821,7 +723,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('خريطة مسار النقل'),
+        title: Text('تفعيل تتبع موقع الشحنة'),
         backgroundColor: _primaryColor,
         centerTitle: true,
         elevation: 0,
@@ -868,23 +770,15 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                   });
                 },
                 onTap: (LatLng location) {
-                  // تحديد موقعي الانطلاق والوصول
-                  if (_originLocation == null) {
-                    setState(() {
-                      _originLocation = location;
-                    });
-                    _updateMarkerAndAddress();
-                  } else if (_destinationLocation == null) {
-                    setState(() {
-                      _destinationLocation = location;
-                    });
-                    _updateMarkerAndAddress();
-                    _getPolylinePoints();
-                  }
+                  // تم تغيير السلوك ليكون فقط لتحديد موقع الانطلاق
+                  setState(() {
+                    _originLocation = location;
+                  });
+                  _updateMarkerAndAddress();
                 },
               ),
 
-          // واجهة التحكم بالطريق ونقاط الانطلاق والوصول
+          // واجهة التحكم بالطريق ونقاط الانطلاق
           Positioned(
             left: 0,
             right: 0,
@@ -903,54 +797,19 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                         onPressed: () {
                           setState(() {
                             _originLocation = null;
-                            _destinationLocation = null;
                             _markers.clear();
                             _polylines.clear();
                             _polylineCoordinates.clear();
                             _originImages.clear();
-                            _destinationImages.clear();
                             _trackingHistory.clear();
                             _isLiveTracking = false;
                           });
                           _locationUpdateTimer?.cancel();
                         },
                         backgroundColor: Colors.red,
-                        tooltip: 'مسح المسار',
+                        tooltip: 'مسح الموقع',
                         child: Icon(Icons.clear, color: Colors.white),
                       ),
-
-                      // زر تبديل نقاط الانطلاق والوصول
-                      if (_originLocation != null &&
-                          _destinationLocation != null)
-                        FloatingActionButton.small(
-                          heroTag: 'swap_locations',
-                          onPressed: () {
-                            setState(() {
-                              // تبديل المواقع
-                              LatLng tempLocation = _originLocation!;
-                              _originLocation = _destinationLocation;
-                              _destinationLocation = tempLocation;
-
-                              // تبديل العناوين
-                              String tempAddress = _originAddress;
-                              _originAddress = _destinationAddress;
-                              _destinationAddress = tempAddress;
-
-                              // تبديل الصور
-                              List<File> tempImages = List.from(_originImages);
-                              _originImages.clear();
-                              _originImages.addAll(_destinationImages);
-                              _destinationImages.clear();
-                              _destinationImages.addAll(tempImages);
-                            });
-
-                            _updateMarkerAndAddress();
-                            _getPolylinePoints();
-                          },
-                          backgroundColor: Colors.orange,
-                          tooltip: 'تبديل نقاط الانطلاق والوصول',
-                          child: Icon(Icons.swap_vert, color: Colors.white),
-                        ),
 
                       // زر التتبع المباشر
                       FloatingActionButton.small(
@@ -989,10 +848,10 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                         // عنوان البطاقة
                         Row(
                           children: [
-                            Icon(Icons.route, color: _primaryColor),
+                            Icon(Icons.location_on, color: _primaryColor),
                             SizedBox(width: 8),
                             Text(
-                              'تفاصيل المسار',
+                              'تفاصيل التتبع المباشر',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1014,7 +873,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
-                                Icons.play_circle_filled,
+                                Icons.my_location,
                                 color: Colors.green,
                                 size: 20,
                               ),
@@ -1025,7 +884,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'نقطة الانطلاق:',
+                                    'موقعك الحالي:',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -1035,7 +894,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                                   SizedBox(height: 4),
                                   Text(
                                     _originLocation == null
-                                        ? 'اضغط على الخريطة لتحديد نقطة الانطلاق'
+                                        ? 'سيتم استخدام موقعك الحالي للتتبع المباشر'
                                         : _originAddress,
                                     style: TextStyle(fontSize: 13),
                                   ),
@@ -1121,130 +980,6 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                             ),
                           ),
 
-                        SizedBox(height: 16),
-
-                        // موقع الوصول - إظهاره فقط إذا لم يكن في وضع التتبع المباشر
-                        if (_originLocation != null &&
-                            (!widget.autoStartTracking ||
-                                _destinationLocation != null))
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.stop_circle,
-                                  color: Colors.red,
-                                  size: 20,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'نقطة الوصول:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      _destinationLocation == null
-                                          ? 'اضغط على الخريطة لتحديد نقطة الوصول'
-                                          : _destinationAddress,
-                                      style: TextStyle(fontSize: 13),
-                                    ),
-                                    if (_destinationLocation != null) ...[
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'الإحداثيات: ${_destinationLocation!.latitude.toStringAsFixed(6)}, ${_destinationLocation!.longitude.toStringAsFixed(6)}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                        // زر إضافة صور لموقع الوصول
-                        if (_destinationLocation != null &&
-                            _destinationImages.isEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(top: 8, right: 40),
-                            child: OutlinedButton.icon(
-                              onPressed: _pickDestinationImages,
-                              icon: Icon(
-                                Icons.add_a_photo,
-                                size: 16,
-                                color: Colors.red,
-                              ),
-                              label: Text(
-                                'إضافة صور للموقع',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                side: BorderSide(color: Colors.red),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // عرض الصور المحددة لموقع الوصول
-                        if (_destinationImages.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(top: 8, right: 40),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Colors.red,
-                                  size: 14,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'تم اختيار ${_destinationImages.length} صورة',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Spacer(),
-                                InkWell(
-                                  onTap: _pickDestinationImages,
-                                  child: Text(
-                                    'إضافة المزيد',
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
                         if (_trackingHistory.isNotEmpty) ...[
                           SizedBox(height: 16),
                           Row(
@@ -1267,16 +1002,50 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                           ),
                         ],
 
+                        if (_isLiveTracking || widget.autoStartTracking) ...[
+                          SizedBox(height: 16),
+                          Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'التتبع المباشر مفعل. سيتم إرسال موقعك تلقائيًا للعملاء كل 10 ثوانٍ.',
+                                    style: TextStyle(
+                                      color: Colors.green[800],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         SizedBox(height: 20),
 
-                        // زر حفظ المسار (تم تعديله للعمل في وضع التتبع المباشر)
+                        // زر حفظ التتبع
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed:
-                                (_originLocation != null ||
-                                        (_isLiveTracking ||
-                                            widget.autoStartTracking))
+                                _originLocation != null ||
+                                        _isLiveTracking ||
+                                        widget.autoStartTracking
                                     ? _saveRoute
                                     : null,
                             style: ElevatedButton.styleFrom(
@@ -1307,7 +1076,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
                                         Text('جاري الحفظ...'),
                                       ],
                                     )
-                                    : Text('حفظ المسار'),
+                                    : Text('تأكيد تفعيل التتبع'),
                           ),
                         ),
                       ],

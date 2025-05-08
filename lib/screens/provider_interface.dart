@@ -125,37 +125,113 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     try {
       setState(() {
         _isLoading = true;
+        // تأكد من أن القائمة فارغة قبل البدء
+        _servicesList.clear();
       });
 
       final authService = Provider.of<AuthService>(context, listen: false);
       if (authService.currentUser != null) {
         final userId = authService.currentUser!.uid;
 
-        final servicesSnapshot =
+        print('جاري البحث عن خدمات للمستخدم: $userId');
+        print('نوع المستخدم: ${authService.currentUser!.role.toString()}');
+
+        // استعلام مباشر للخدمات التي تتطابق مع معرف المستخدم
+        final userServicesSnapshot =
             await FirebaseFirestore.instance
                 .collection('services')
-                .where('providerId', isEqualTo: userId)
+                .where('userId', isEqualTo: userId)
                 .get();
 
-        final List<Map<String, dynamic>> servicesList = [];
+        print(
+          'تم العثور على ${userServicesSnapshot.docs.length} خدمة من استعلام userId المباشر',
+        );
 
-        for (var doc in servicesSnapshot.docs) {
+        // إنشاء قائمة مؤقتة لتخزين الخدمات المطابقة
+        List<Map<String, dynamic>> matchingServices = [];
+
+        // إضافة الخدمات من الاستعلام المباشر
+        for (var doc in userServicesSnapshot.docs) {
           final data = doc.data();
-          data['id'] = doc.id; // إضافة معرف الوثيقة
-          servicesList.add(data);
+          // إضافة معرف المستند إلى البيانات
+          final serviceData = Map<String, dynamic>.from(data);
+          serviceData['id'] = doc.id;
+          matchingServices.add(serviceData);
+          print(
+            'تمت إضافة خدمة للقائمة من الاستعلام المباشر: ${data['title']}',
+          );
         }
 
-        setState(() {
-          _servicesList.clear();
-          _servicesList.addAll(servicesList);
-          _isLoading = false;
+        // استعلام إضافي للتأكد من عدم فقدان أي خدمات (قد تكون مخزنة بطريقة مختلفة)
+        if (matchingServices.isEmpty) {
+          print(
+            'لم يتم العثور على خدمات في الاستعلام المباشر، جاري البحث في كل الخدمات',
+          );
 
-          // تحديث الإحصائيات
-          _loadStatistics();
+          // جلب جميع الخدمات
+          final allServicesSnapshot =
+              await FirebaseFirestore.instance.collection('services').get();
+
+          print(
+            'إجمالي الخدمات في قاعدة البيانات: ${allServicesSnapshot.docs.length}',
+          );
+
+          for (var doc in allServicesSnapshot.docs) {
+            final data = doc.data();
+            // طباعة بيانات كل خدمة للتشخيص
+            print(
+              'خدمة: ${doc.id} - userId: ${data['userId']}, providerId: ${data['providerId']}',
+            );
+
+            // تحقق منطقي من التطابق (تحويل المتغيرات إلى نصوص للمقارنة الآمنة)
+            final docUserId = data['userId']?.toString() ?? '';
+            final docProviderId = data['providerId']?.toString() ?? '';
+            final docUid = data['uid']?.toString() ?? '';
+            final docuserId = data['user_id']?.toString() ?? '';
+            final docproviderId = data['provider_id']?.toString() ?? '';
+
+            print('مقارنة: "$docUserId" مع "$userId"');
+
+            if (docUserId == userId ||
+                docProviderId == userId ||
+                docUid == userId ||
+                docuserId == userId ||
+                docproviderId == userId) {
+              // إضافة معرف المستند إلى البيانات
+              final serviceData = Map<String, dynamic>.from(data);
+              serviceData['id'] = doc.id;
+              matchingServices.add(serviceData);
+              print(
+                'تمت إضافة خدمة للقائمة من البحث الشامل: ${data['title'] ?? doc.id}',
+              );
+            }
+          }
+        }
+
+        print(
+          'تم العثور على ${matchingServices.length} خدمة تطابق معرف المستخدم',
+        );
+
+        // تحديث القائمة المرئية مرة واحدة بعد الانتهاء من البحث
+        setState(() {
+          _servicesList.addAll(matchingServices);
+          _isLoading = false;
+          _totalServices = _servicesList.length;
+          print('تم تحميل ${_servicesList.length} خدمة في القائمة المرئية');
+        });
+
+        // تحديث الإحصائيات بعد تحميل الخدمات
+        _loadStatistics();
+      } else {
+        print('لا يوجد مستخدم مسجل الدخول حاليًا');
+        setState(() {
+          _isLoading = false;
         });
       }
     } catch (e) {
       print('Error loading provider services: $e');
+      print('Error details: ${e.toString()}');
+
       setState(() {
         _isLoading = false;
       });
@@ -292,7 +368,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         'currency': _currency,
         'type': _selectedServiceType,
         'region': _selectedRegion,
-        'providerId': userId,
+        'userId':
+            userId, // تغيير من providerId إلى userId لتتوافق مع add_service_screen.dart
         'imageUrls': imageUrls,
         'rating': 0.0,
         'reviewCount': 0,
@@ -534,12 +611,18 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         builder:
             (context) => AddServiceScreen(
               onServiceAdded: () {
-                // إعادة تحميل الخدمات بعد إضافة خدمة جديدة
+                // إعادة تحميل الخدمات فور إضافة خدمة جديدة
+                print('تمت الإضافة بنجاح، جاري تحديث القائمة...');
                 _loadProviderServices();
               },
             ),
       ),
-    );
+    ).then((_) {
+      // إعادة تحميل الخدمات عند العودة من صفحة إضافة الخدمة
+      // هذا يضمن تحديث القائمة حتى إذا لم يتم استدعاء onServiceAdded
+      print('العودة من صفحة إضافة الخدمة، جاري تحديث القائمة...');
+      _loadProviderServices();
+    });
   }
 
   // حذف الخدمة
@@ -1416,6 +1499,12 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       locationData = service['location'];
     }
 
+    // طباعة عناوين الصور للتشخيص
+    print('عناوين الصور للخدمة $title:');
+    for (var url in imageUrls) {
+      print('URL: $url');
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -1503,47 +1592,47 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           // صورة الخدمة
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(5),
-                  bottomRight: Radius.circular(5),
+              Container(
+                height: 180,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(5),
+                    bottomRight: Radius.circular(5),
+                  ),
                 ),
-                child:
-                    imageUrls.isNotEmpty
-                        ? Image.network(
-                          imageUrls[0],
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 180,
-                              color: Colors.grey[200],
-                              child: Center(
-                                child: Icon(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(5),
+                    bottomRight: Radius.circular(5),
+                  ),
+                  child:
+                      imageUrls.isNotEmpty
+                          ? _buildServiceImage(imageUrls.first, type)
+                          : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
                                   type == 'تخزين'
                                       ? Icons.warehouse
                                       : Icons.local_shipping,
                                   size: 60,
                                   color: Colors.grey[400],
                                 ),
-                              ),
-                            );
-                          },
-                        )
-                        : Container(
-                          height: 180,
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: Icon(
-                              type == 'تخزين'
-                                  ? Icons.warehouse
-                                  : Icons.local_shipping,
-                              size: 60,
-                              color: Colors.grey[400],
+                                SizedBox(height: 8),
+                                Text(
+                                  'لا توجد صورة',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                ),
               ),
 
               // شريط التقييم
@@ -1838,6 +1927,64 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  // دالة مساعدة لعرض صور الخدمة
+  Widget _buildServiceImage(String imageUrl, String serviceType) {
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          return child;
+        }
+        return Container(
+          color: Colors.grey[300],
+          height: 180,
+          width: double.infinity,
+          child: Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B59B6)),
+              value:
+                  loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        print('خطأ في تحميل الصورة: $error');
+        print('العنوان: $imageUrl');
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                serviceType == 'تخزين' ? Icons.warehouse : Icons.local_shipping,
+                size: 60,
+                color: Colors.grey[400],
+              ),
+              SizedBox(height: 8),
+              Text(
+                'فشل تحميل الصورة',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              IconButton(
+                icon: Icon(Icons.refresh, color: Color(0xFF9B59B6)),
+                onPressed: () {
+                  // إعادة تحميل الصفحة
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

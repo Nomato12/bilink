@@ -7,8 +7,6 @@ import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'auth/login_page.dart';
-import 'auth/signup_page.dart';
 import 'firebase_options.dart'; // Importar opciones de Firebase
 import 'models/home_page.dart';
 import 'services/auth_service.dart';

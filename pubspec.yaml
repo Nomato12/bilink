@@ -32,6 +32,8 @@ dependencies:
   flutter_spinkit: ^5.2.0  # Added for loading animations
   google_fonts: ^5.1.0     # Added for text styling
   flutter_polyline_points: ^2.0.0  # Added for drawing routes on maps
+  carousel_slider: ^4.0.0  # Using a specific version to avoid conflicts
+  url_launcher: ^6.2.4     # Added for launching URLs (maps, phone, etc.)
 
 dev_dependencies:
   flutter_test:

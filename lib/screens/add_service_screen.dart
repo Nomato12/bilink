@@ -1,16 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // استيراد الخدمات المطلوبة
-import '../services/auth_service.dart';
 
 // استيراد صفحات الخرائط
-import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
+import 'driver_tracking_map.dart';
 
 class AddServiceScreen extends StatefulWidget {
   final Function onServiceAdded;
@@ -25,7 +24,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
     with SingleTickerProviderStateMixin {
   // متغيرات إدارة الواجهة
   final _formKey = GlobalKey<FormState>();
-  final bool _isLoading = false;
+  bool _isLoading = false; // تغيير من final إلى متغير عادي ليمكن تعديله
   late TabController _tabController;
   int _currentStep = 0;
   final int _totalSteps = 3;
@@ -62,7 +61,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   // متغيرات خاصة بالموقع
   double? _locationLatitude;
   double? _locationLongitude;
-  final String _locationAddress = "";
+  String _locationAddress = "";
 
   // متغيرات إضافة خدمة جديدة
   final _titleController = TextEditingController();
@@ -122,7 +121,24 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
   // إعادة تعيين نموذج إضافة الخدمة
   void _resetForm() {
-    // ...existing code...
+    setState(() {
+      _currentStep = 0;
+      _titleController.clear();
+      _descriptionController.clear();
+      _priceController.clear();
+      _locationLatitude = null;
+      _locationLongitude = null;
+      _locationAddress = "";
+      _selectedImages.clear();
+      _storageLocationImages.clear();
+      _vehicleMakeController.clear();
+      _vehicleYearController.clear();
+      _vehiclePlateController.clear();
+      _vehicleCapacityController.clear();
+      _vehicleDimensionsController.clear();
+      _vehicleSpecialFeaturesController.clear();
+      _vehicleImages.clear();
+    });
   }
 
   // التحقق من الخطوة الحالية
@@ -147,10 +163,16 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
       return true;
     } else if (_currentStep == 1) {
-      // التحقق من الموقع
-      return _locationLatitude != null &&
-          _locationLongitude != null &&
-          _locationAddress.isNotEmpty;
+      // التحقق من الموقع - للخدمات من نوع "تخزين" فقط
+      if (_selectedServiceType == 'تخزين') {
+        return _locationLatitude != null &&
+            _locationLongitude != null &&
+            _locationAddress.isNotEmpty;
+      } else {
+        // لخدمات النقل، نسمح بالانتقال للخطوة التالية حتى لو لم يتم تحديد الموقع
+        // لأن التتبع المباشر سيتم تفعيله لاحقاً
+        return true;
+      }
     } else if (_currentStep == 2) {
       if (_selectedServiceType == 'تخزين') {
         // التحقق من صور مكان التخزين
@@ -216,25 +238,435 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
   // وظائف اختيار الصور
   Future<void> _pickImages() async {
-    // ...existing code...
+    try {
+      final ImagePicker picker = ImagePicker();
+      final List<XFile> images = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1200,
+      );
+
+      if (images.isNotEmpty) {
+        setState(() {
+          for (var image in images) {
+            _selectedImages.add(File(image.path));
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء اختيار الصور: $e'),
+          backgroundColor: _errorColor,
+        ),
+      );
+    }
   }
 
   Future<void> _pickVehicleImages() async {
-    // ...existing code...
+    try {
+      final ImagePicker picker = ImagePicker();
+      final List<XFile> images = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1200,
+      );
+
+      if (images.isNotEmpty) {
+        setState(() {
+          for (var image in images) {
+            _vehicleImages.add(File(image.path));
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء اختيار صور المركبة: $e'),
+          backgroundColor: _errorColor,
+        ),
+      );
+    }
   }
 
   Future<void> _pickStorageLocationImages() async {
-    // ...existing code...
+    try {
+      final ImagePicker picker = ImagePicker();
+      final List<XFile> images = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1200,
+      );
+
+      if (images.isNotEmpty) {
+        setState(() {
+          for (var image in images) {
+            _storageLocationImages.add(File(image.path));
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء اختيار صور مكان التخزين: $e'),
+          backgroundColor: _errorColor,
+        ),
+      );
+    }
   }
 
   // فتح صفحة الخريطة المناسبة
   void _openMapPage() async {
-    // ...existing code...
+    // إنشاء معرّف مؤقت للخدمة
+    final tempServiceId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+
+    if (_selectedServiceType == 'تخزين') {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => StorageLocationMapPage(
+                serviceId: tempServiceId,
+                onLocationSelected: (lat, lng, address) {
+                  // إضافة دالة callback للتعامل مع بيانات الموقع المحددة
+                  setState(() {
+                    _locationLatitude = lat;
+                    _locationLongitude = lng;
+                    _locationAddress = address;
+                  });
+                },
+              ),
+        ),
+      );
+      // التحقق من النتيجة المُعادة مباشرة من صفحة الخريطة
+      if (result != null && result is Map<String, dynamic>) {
+        setState(() {
+          _locationLatitude = result['latitude'];
+          _locationLongitude = result['longitude'];
+          // تحقق من أن العنوان ليس بقيمة null
+          _locationAddress =
+              result['address'] ??
+              'موقع محدد'; // استخدام قيمة افتراضية إذا كانت null
+        });
+      }
+    } else {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DriverTrackingMapPage(serviceId: tempServiceId),
+        ),
+      );
+      if (result != null && result is Map<String, dynamic>) {
+        setState(() {
+          _locationLatitude = result['latitude'];
+          _locationLongitude = result['longitude'];
+          // تحقق من أن العنوان ليس بقيمة null
+          _locationAddress =
+              result['address'] ??
+              'موقع تتبع مباشر'; // استخدام قيمة افتراضية إذا كانت null
+        });
+      }
+    }
   }
 
   // إضافة خدمة جديدة
   Future<void> _addNewService() async {
-    // ...existing code...
+    // تحقق من صحة البيانات قبل الإرسال مرة أخرى (كإجراء احترازي)
+    if (!_validateCurrentStep()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 10),
+              Text('يرجى إكمال جميع المعلومات المطلوبة قبل إضافة الخدمة'),
+            ],
+          ),
+          backgroundColor: _errorColor,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(10),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // تفعيل مؤشر التحميل لإظهاره للمستخدم أثناء معالجة الإضافة
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // التحقق من وجود مستخدم مسجل الدخول
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.account_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Text('يرجى تسجيل الدخول أولاً لإضافة خدمة جديدة'),
+              ],
+            ),
+            backgroundColor: _errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: EdgeInsets.all(10),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // إعداد البيانات الأساسية
+      final serviceData = {
+        'userId': user.uid,
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.parse(_priceController.text),
+        'currency': _currency,
+        'region': _selectedRegion,
+        'type': _selectedServiceType, // تعديل من serviceType إلى type للتوافق
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'isActive': true,
+        'userDisplayName': user.displayName ?? 'مستخدم',
+        'userEmail': user.email ?? '',
+        'userPhotoURL': user.photoURL ?? '',
+        'rating': 0.0,
+        'reviewCount': 0,
+      };
+
+      // إضافة بيانات الموقع إذا كانت متوفرة
+      if (_locationLatitude != null && _locationLongitude != null) {
+        serviceData['location'] = {
+          'latitude': _locationLatitude,
+          'longitude': _locationLongitude,
+          'address': _locationAddress,
+          'geopoint': GeoPoint(
+            _locationLatitude!,
+            _locationLongitude!,
+          ), // إضافة نقطة جغرافية لتسهيل البحث المكاني
+        };
+      }
+
+      // إضافة بيانات المركبة إذا كانت خدمة نقل
+      if (_selectedServiceType == 'نقل') {
+        final bool isMotorcycle = _selectedVehicleType == 'دراجة نارية';
+
+        Map<String, dynamic> vehicleInfo = {
+          'type': _selectedVehicleType,
+          'make': _vehicleMakeController.text.trim(),
+          'year': _vehicleYearController.text.trim(),
+          'plate':
+              _vehiclePlateController.text
+                  .trim(), // تعديل من plateNumber إلى plate
+          'specialFeatures': _vehicleSpecialFeaturesController.text.trim(),
+        };
+
+        // إضافة معلومات قدرة المركبة فقط إذا لم تكن دراجة نارية
+        if (!isMotorcycle) {
+          vehicleInfo['capacity'] = _vehicleCapacityController.text.trim();
+          vehicleInfo['dimensions'] = _vehicleDimensionsController.text.trim();
+        }
+
+        serviceData['vehicle'] =
+            vehicleInfo; // تعديل من vehicleInfo إلى vehicle
+      }
+
+      // إنشاء مستند جديد في Firestore
+      final docRef = await FirebaseFirestore.instance
+          .collection('services')
+          .add(serviceData);
+      final serviceId = docRef.id;
+
+      // إضافة حقل الـ ID في البيانات للرجوع إليه بسهولة
+      await docRef.update({'id': serviceId});
+
+      // مصفوفات لتخزين روابط الصور المختلفة
+      List<String> imageUrls = [];
+      List<String> storageLocationImageUrls = [];
+      List<String> vehicleImageUrls = [];
+
+      // رفع الصور العامة
+      if (_selectedImages.isNotEmpty) {
+        for (var i = 0; i < _selectedImages.length; i++) {
+          var image = _selectedImages[i];
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          // إنشاء مسار فريد لكل صورة باستخدام الوقت والـ ID
+          final imageRef = FirebaseStorage.instance
+              .ref()
+              .child('services')
+              .child(serviceId)
+              .child('general')
+              .child('image_${i}_$timestamp.jpg');
+
+          try {
+            // رفع الصورة
+            await imageRef.putFile(
+              image,
+              SettableMetadata(contentType: 'image/jpeg'),
+            );
+
+            // الحصول على رابط الصورة
+            final imageUrl = await imageRef.getDownloadURL();
+            imageUrls.add(imageUrl);
+            print('تم رفع الصورة بنجاح: $imageUrl');
+          } catch (e) {
+            print('خطأ في رفع الصورة: $e');
+          }
+        }
+
+        // تحديث المستند مع روابط الصور - مهم استخدام imageUrls وليس images
+        await docRef.update({'imageUrls': imageUrls});
+      }
+
+      // رفع صور مكان التخزين إذا كانت خدمة تخزين
+      if (_selectedServiceType == 'تخزين' &&
+          _storageLocationImages.isNotEmpty) {
+        for (var i = 0; i < _storageLocationImages.length; i++) {
+          var image = _storageLocationImages[i];
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final imageRef = FirebaseStorage.instance
+              .ref()
+              .child('services')
+              .child(serviceId)
+              .child('storageLocation')
+              .child('storage_${i}_$timestamp.jpg');
+
+          try {
+            await imageRef.putFile(
+              image,
+              SettableMetadata(contentType: 'image/jpeg'),
+            );
+            final imageUrl = await imageRef.getDownloadURL();
+            storageLocationImageUrls.add(imageUrl);
+            print('تم رفع صورة مكان التخزين بنجاح: $imageUrl');
+          } catch (e) {
+            print('خطأ في رفع صورة مكان التخزين: $e');
+          }
+        }
+
+        // تحديث المستند مع روابط صور مكان التخزين
+        await docRef.update({
+          'storageLocationImageUrls': storageLocationImageUrls,
+        });
+      }
+
+      // رفع صور المركبة إذا كانت خدمة نقل
+      if (_selectedServiceType == 'نقل' && _vehicleImages.isNotEmpty) {
+        for (var i = 0; i < _vehicleImages.length; i++) {
+          var image = _vehicleImages[i];
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final imageRef = FirebaseStorage.instance
+              .ref()
+              .child('services')
+              .child(serviceId)
+              .child('vehicle')
+              .child('vehicle_${i}_$timestamp.jpg');
+
+          try {
+            await imageRef.putFile(
+              image,
+              SettableMetadata(contentType: 'image/jpeg'),
+            );
+            final imageUrl = await imageRef.getDownloadURL();
+            vehicleImageUrls.add(imageUrl);
+            print('تم رفع صورة المركبة بنجاح: $imageUrl');
+          } catch (e) {
+            print('خطأ في رفع صورة المركبة: $e');
+          }
+        }
+
+        // تحديث المستند مع روابط صور المركبة - اسم الحقل تم تغييره ليتناسب مع بقية التطبيق
+        if (vehicleImageUrls.isNotEmpty) {
+          // تحديث بيانات المركبة مع الصور
+          await docRef.update({'vehicle.imageUrls': vehicleImageUrls});
+        }
+      }
+
+      // إضافة الخدمة إلى قائمة خدمات المستخدم
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('services')
+          .doc(serviceId)
+          .set({
+            'serviceId': serviceId,
+            'createdAt': FieldValue.serverTimestamp(),
+            'title': _titleController.text.trim(),
+            'serviceType': _selectedServiceType,
+            'region': _selectedRegion,
+            'isActive': true,
+          });
+
+      // إظهار رسالة نجاح وإغلاق الصفحة
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text('تمت إضافة الخدمة بنجاح'),
+            ],
+          ),
+          backgroundColor: _successColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: EdgeInsets.all(10),
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      // استدعاء الدالة الخارجية للإبلاغ عن إضافة الخدمة بنجاح
+      widget.onServiceAdded();
+
+      // إعادة تعيين النموذج وعودة للوضع الأصلي
+      _resetForm();
+    } catch (e) {
+      // معالجة الأخطاء بشكل أكثر تفصيلاً
+      String errorMessage = 'حدث خطأ أثناء إضافة الخدمة';
+
+      if (e.toString().contains('permission-denied')) {
+        errorMessage = 'ليس لديك صلاحية لإضافة خدمة جديدة';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'يرجى التحقق من اتصالك بالإنترنت';
+      } else if (e.toString().contains('storage')) {
+        errorMessage = 'حدث خطأ أثناء رفع الصور، يرجى المحاولة مرة أخرى';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(child: Text(errorMessage)),
+            ],
+          ),
+          backgroundColor: _errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: EdgeInsets.all(10),
+          duration: Duration(seconds: 5),
+        ),
+      );
+
+      // تسجيل الخطأ للتشخيص
+      print('Error adding service: $e');
+    } finally {
+      // إيقاف مؤشر التحميل بعد الانتهاء سواء بنجاح أو بخطأ
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -284,8 +716,9 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
       bottom: PreferredSize(
-        preferredSize: Size.fromHeight(70),
+        preferredSize: Size.fromHeight(70.0),
         child: Container(
+          height: 70.0, // تحديد ارتفاع ثابت للحاوية
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -919,7 +1352,9 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // تعديل هذا الصف لمنع التجاوز
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: EdgeInsets.all(10),
@@ -949,19 +1384,34 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                         fontSize: 16,
                         color: _primaryColor,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 4),
                     Text(
                       'يمكنك تغيير الموقع في أي وقت',
                       style: TextStyle(fontSize: 12, color: _greyDark),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: _openMapPage,
-                icon: Icon(Icons.edit_location_alt, color: serviceColor),
-                tooltip: 'تعديل الموقع',
+              // تصغير حجم الزر وجعله أكثر كفاءة في المساحة
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: IconButton(
+                  onPressed: _openMapPage,
+                  icon: Icon(
+                    Icons.edit_location_alt,
+                    color: serviceColor,
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                  tooltip: 'تعديل الموقع',
+                ),
               ),
             ],
           ),
@@ -983,16 +1433,20 @@ class _AddServiceScreenState extends State<AddServiceScreen>
           ),
           SizedBox(height: 10),
           if (_locationLatitude != null && _locationLongitude != null)
+            // تحسين هذا الصف أيضًا لمنع احتمال التجاوز
             Row(
               children: [
-                Icon(Icons.info_outline, color: _greyDark, size: 18),
-                SizedBox(width: 12),
-                Text(
-                  'الإحداثيات: ${_locationLatitude!.toStringAsFixed(6)}, ${_locationLongitude!.toStringAsFixed(6)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _greyDark,
-                    fontFamily: 'monospace',
+                Icon(Icons.info_outline, color: _greyDark, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'الإحداثيات: ${_locationLatitude!.toStringAsFixed(6)}, ${_locationLongitude!.toStringAsFixed(6)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _greyDark,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1265,6 +1719,9 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
   // حقول إدخال معلومات المركبة
   Widget _buildVehicleInfoInputs(Color serviceColor) {
+    // تحقق مما إذا كان نوع المركبة دراجة نارية
+    bool isMotorcycle = _selectedVehicleType == 'دراجة نارية';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1282,7 +1739,16 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ماركة المركبة
+          // ماركة المركبة - حقل منفصل في صف كامل
+          Text(
+            'ماركة المركبة',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: _primaryColor,
+            ),
+          ),
+          SizedBox(height: 8),
           _buildInputField(
             controller: _vehicleMakeController,
             label: 'ماركة المركبة',
@@ -1297,86 +1763,109 @@ class _AddServiceScreenState extends State<AddServiceScreen>
               return null;
             },
           ),
-          SizedBox(height: 16),
+          SizedBox(height: 20),
 
-          // صف لسنة الصنع ورقم اللوحة
-          Row(
-            children: [
-              // سنة الصنع
-              Expanded(
-                child: _buildInputField(
-                  controller: _vehicleYearController,
-                  label: 'سنة الصنع',
-                  hint: 'مثال: 2020',
-                  prefixIcon: Icons.date_range,
-                  color: serviceColor,
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (_selectedServiceType == 'نقل' &&
-                        (value == null || value.isEmpty)) {
-                      return 'أدخل سنة الصنع';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              SizedBox(width: 16),
+          // عنوان للقسم الخاص بسنة الصنع ورقم اللوحة
+          Text(
+            'معلومات هوية المركبة',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: _primaryColor,
+            ),
+          ),
+          SizedBox(height: 8),
 
-              // رقم اللوحة
-              Expanded(
-                child: _buildInputField(
-                  controller: _vehiclePlateController,
-                  label: 'رقم اللوحة',
-                  hint: 'أدخل رقم اللوحة',
-                  prefixIcon: Icons.confirmation_number,
-                  color: serviceColor,
-                  validator: (value) {
-                    if (_selectedServiceType == 'نقل' &&
-                        (value == null || value.isEmpty)) {
-                      return 'أدخل رقم اللوحة';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
+          // سنة الصنع - حقل منفصل
+          _buildInputField(
+            controller: _vehicleYearController,
+            label: 'سنة الصنع',
+            hint: 'مثال: 2020',
+            prefixIcon: Icons.date_range,
+            color: serviceColor,
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (_selectedServiceType == 'نقل' &&
+                  (value == null || value.isEmpty)) {
+                return 'أدخل سنة الصنع';
+              }
+              return null;
+            },
           ),
           SizedBox(height: 16),
 
-          // صف للحمولة والأبعاد
-          Row(
-            children: [
-              // الحمولة
-              Expanded(
-                child: _buildInputField(
-                  controller: _vehicleCapacityController,
-                  label: 'الحمولة',
-                  hint: 'مثال: 3 طن',
-                  prefixIcon: Icons.line_weight,
-                  color: serviceColor,
-                ),
-              ),
-              SizedBox(width: 16),
-
-              // الأبعاد
-              Expanded(
-                child: _buildInputField(
-                  controller: _vehicleDimensionsController,
-                  label: 'الأبعاد',
-                  hint: 'مثال: 4×2×2 متر',
-                  prefixIcon: Icons.straighten,
-                  color: serviceColor,
-                ),
-              ),
-            ],
+          // رقم اللوحة - حقل منفصل
+          _buildInputField(
+            controller: _vehiclePlateController,
+            label: 'رقم اللوحة',
+            hint: 'أدخل رقم اللوحة',
+            prefixIcon: Icons.confirmation_number,
+            color: serviceColor,
+            validator: (value) {
+              if (_selectedServiceType == 'نقل' &&
+                  (value == null || value.isEmpty)) {
+                return 'أدخل رقم اللوحة';
+              }
+              return null;
+            },
           ),
-          SizedBox(height: 16),
 
-          // ميزات خاصة
+          // إظهار قسم معلومات قدرة المركبة فقط إذا لم تكن دراجة نارية
+          if (!isMotorcycle) ...[
+            SizedBox(height: 20),
+
+            // عنوان للقسم الخاص بالحمولة والأبعاد
+            Text(
+              'معلومات قدرة المركبة',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: _primaryColor,
+              ),
+            ),
+            SizedBox(height: 8),
+
+            // الحمولة - حقل منفصل
+            _buildInputField(
+              controller: _vehicleCapacityController,
+              label: 'الحمولة',
+              hint: 'مثال: 3 طن',
+              prefixIcon: Icons.line_weight,
+              color: serviceColor,
+            ),
+            SizedBox(height: 16),
+
+            // الأبعاد - حقل منفصل
+            _buildInputField(
+              controller: _vehicleDimensionsController,
+              label: 'الأبعاد',
+              hint: 'مثال: 4×2×2 متر',
+              prefixIcon: Icons.straighten,
+              color: serviceColor,
+            ),
+          ],
+
+          SizedBox(height: 20),
+
+          // عنوان للقسم الخاص بالميزات الخاصة
+          Text(
+            'ميزات إضافية للمركبة',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: _primaryColor,
+            ),
+          ),
+          SizedBox(height: 8),
+
+          // ميزات خاصة - حقل منفصل في صف كامل
           _buildInputField(
             controller: _vehicleSpecialFeaturesController,
             label: 'ميزات خاصة',
-            hint: 'مثال: تبريد، رافعة، نظام تتبع، إلخ',
+            hint:
+                isMotorcycle
+                    ? 'مثال: حقيبة أمتعة، نظام GPS، إلخ'
+                    : 'مثال: تبريد، رافعة، نظام تتبع، إلخ',
             prefixIcon: Icons.star,
             color: serviceColor,
             maxLines: 2,
@@ -1794,14 +2283,25 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         items: items,
         onChanged: onChanged,
         dropdownColor: Colors.white,
-        style: TextStyle(color: _primaryColor, fontSize: 16),
+        isExpanded: true, // إضافة هذه الخاصية لمنع تجاوز الحدود
+        style: TextStyle(
+          color: _primaryColor,
+          fontSize: 15,
+        ), // تقليل حجم الخط لمنع الإزدحام
         decoration: InputDecoration(
-          contentPadding: EdgeInsets.all(16),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 16,
+          ), // تقليل الهوامش الأفقية
           labelText: label,
           hintText: hint,
           hintStyle: TextStyle(color: _greyDark.withOpacity(0.6), fontSize: 14),
           labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
-          prefixIcon: Icon(prefixIcon, color: color, size: 20),
+          prefixIcon: Icon(
+            prefixIcon,
+            color: color,
+            size: 18,
+          ), // تقليل حجم الأيقونة
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
@@ -1813,7 +2313,11 @@ class _AddServiceScreenState extends State<AddServiceScreen>
             borderSide: BorderSide(color: color, width: 2),
           ),
         ),
-        icon: Icon(Icons.keyboard_arrow_down, color: color),
+        icon: Icon(
+          Icons.keyboard_arrow_down,
+          color: color,
+          size: 20,
+        ), // تقليل حجم أيقونة السهم
       ),
     );
   }
