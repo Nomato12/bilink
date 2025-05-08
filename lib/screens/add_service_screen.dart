@@ -83,6 +83,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
     'أخرى',
   ];
   final List<File> _selectedImages = [];
+  String _storageDurationType = 'شهري';
 
   // متغيرات خاصة بمعلومات المركبة (للنقل)
   String _selectedVehicleType = 'شاحنة صغيرة';
@@ -213,7 +214,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 10),
-              Text('يرجى إكمال جميع المعلومات المطلوبة في هذه الخطوة'),
+              Text('يرجى إكمال جميع المعلومات المطلوبة'),
             ],
           ),
           backgroundColor: _errorColor,
@@ -591,7 +592,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
       // إضافة الخدمة إلى قائمة خدمات المستخدم
       print('إضافة الخدمة إلى قائمة خدمات المستخدم بمعرف: ${user.uid}');
-      
+
       // إنشاء بيانات الخدمة للمستخدم
       Map<String, dynamic> userServiceData = {
         'serviceId': serviceId,
@@ -600,9 +601,9 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         'serviceType': _selectedServiceType,
         'region': _selectedRegion,
         'isActive': true,
-        'providerId': user.uid,  // إضافة معرف المزود للتأكد من وجوده في كل مكان
+        'providerId': user.uid, // إضافة معرف المزود للتأكد من وجوده في كل مكان
       };
-      
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -1088,12 +1089,16 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       children: [
         Icon(icon, size: 18, color: color),
         SizedBox(width: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: _primaryColor,
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: _primaryColor,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -1123,17 +1128,44 @@ class _AddServiceScreenState extends State<AddServiceScreen>
             child: Row(
               children: [
                 Icon(Icons.monetization_on, color: serviceColor, size: 22),
-                SizedBox(width: 12),
-                Text(
-                  _selectedServiceType == 'تخزين'
-                      ? 'أدخل سعر التخزين الشهري'
-                      : 'أدخل سعر خدمة النقل',
-                  style: TextStyle(
-                    color: _primaryColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _selectedServiceType == 'تخزين'
+                        ? 'أدخل سعر التخزين'
+                        : 'أدخل سعر خدمة النقل',
+                    style: TextStyle(
+                      color: _primaryColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (_selectedServiceType == 'تخزين') ...[
+                  SizedBox(width: 8),
+                  SizedBox(
+                    width: 90,
+                    child: DropdownButton<String>(
+                      value: _storageDurationType,
+                      items: [
+                        DropdownMenuItem(value: 'شهري', child: Text('شهري')),
+                        DropdownMenuItem(value: 'سنوي', child: Text('سنوي')),
+                        DropdownMenuItem(value: 'يومي', child: Text('يومي')),
+                      ],
+                      onChanged: (val) {
+                        setState(() => _storageDurationType = val!);
+                      },
+                      underline: SizedBox(),
+                      isExpanded: true,
+                      style: TextStyle(
+                        color: serviceColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1179,32 +1211,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                   },
                 ),
               ),
-
-              // خط فاصل عمودي
-              Container(height: 40, width: 1, color: _greyLight),
-
-              // العملة
-              Expanded(
-                flex: 2,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.paid, color: serviceColor, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        _currency,
-                        style: TextStyle(
-                          color: _primaryColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // لا تعرض العملة أبداً
             ],
           ),
         ],
@@ -1359,12 +1366,11 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // تعديل هذا الصف لمنع التجاوز
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: EdgeInsets.all(10),
+                padding: EdgeInsets.all(8), // Reducido de 10 a 8
                 decoration: BoxDecoration(
                   color: serviceColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -1374,10 +1380,10 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                       ? Icons.check_circle
                       : Icons.gps_fixed,
                   color: serviceColor,
-                  size: 20,
+                  size: 18, // Reducido de 20 a 18
                 ),
               ),
-              SizedBox(width: 12),
+              SizedBox(width: 8), // Reducido de 12 a 8
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1388,7 +1394,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                           : 'تم تفعيل التتبع المباشر',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 14, // Reducido de 16 a 14
                         color: _primaryColor,
                       ),
                       maxLines: 1,
@@ -1404,20 +1410,22 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                   ],
                 ),
               ),
-              // تصغير حجم الزر وجعله أكثر كفاءة في المساحة
-              SizedBox(
-                width: 40,
-                height: 40,
+              // Botón de edición más pequeño y eficiente
+              Container(
+                width: 32, // Reducido de 40 a 32
+                height: 32, // Reducido de 40 a 32
                 child: IconButton(
                   onPressed: _openMapPage,
                   icon: Icon(
                     Icons.edit_location_alt,
                     color: serviceColor,
-                    size: 20,
+                    size: 16, // Reducido de 20 a 16
                   ),
                   padding: EdgeInsets.zero,
                   constraints: BoxConstraints(),
                   tooltip: 'تعديل الموقع',
+                  visualDensity:
+                      VisualDensity.compact, // Hacer el botón más compacto
                 ),
               ),
             ],
@@ -1440,7 +1448,6 @@ class _AddServiceScreenState extends State<AddServiceScreen>
           ),
           SizedBox(height: 10),
           if (_locationLatitude != null && _locationLongitude != null)
-            // تحسين هذا الصف أيضًا لمنع احتمال التجاوز
             Row(
               children: [
                 Icon(Icons.info_outline, color: _greyDark, size: 16),
@@ -1920,23 +1927,29 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                 child: Icon(icon, color: color, size: 20),
               ),
               SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: _primaryColor,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: _primaryColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(fontSize: 12, color: _greyDark),
-                  ),
-                ],
+                    SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(fontSize: 12, color: _greyDark),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2101,40 +2114,87 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   Widget _buildNavigationButtons(Color serviceColor) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        children: [
-          // زر الرجوع
-          if (_currentStep > 0) ...[
-            Expanded(
-              flex: 2,
-              child: _buildNavigationButton(
-                onPressed: _previousStep,
-                label: 'السابق',
-                icon: Icons.arrow_back,
-                color: Colors.white,
-                backgroundColor: _greyDark,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // إذا كانت المساحة صغيرة جداً استخدم Wrap بدلاً من Row
+          if (constraints.maxWidth < 350) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (_currentStep > 0)
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildNavigationButton(
+                      onPressed: _previousStep,
+                      label: 'السابق',
+                      icon: Icons.arrow_back,
+                      color: Colors.white,
+                      backgroundColor: _greyDark,
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  child: _buildNavigationButton(
+                    onPressed:
+                        _currentStep < _totalSteps - 1
+                            ? _nextStep
+                            : _addNewService,
+                    label:
+                        _currentStep < _totalSteps - 1
+                            ? 'التالي'
+                            : 'إضافة الخدمة',
+                    icon:
+                        _currentStep < _totalSteps - 1
+                            ? Icons.arrow_forward
+                            : Icons.check,
+                    color: Colors.white,
+                    backgroundColor: serviceColor,
+                    isLoading: _isLoading,
+                  ),
+                ),
+              ],
+            );
+          }
+          // الوضع الطبيعي: استخدم Row مع Expanded
+          return Row(
+            children: [
+              if (_currentStep > 0) ...[
+                Expanded(
+                  flex: 2,
+                  child: _buildNavigationButton(
+                    onPressed: _previousStep,
+                    label: 'السابق',
+                    icon: Icons.arrow_back,
+                    color: Colors.white,
+                    backgroundColor: _greyDark,
+                  ),
+                ),
+                SizedBox(width: 8),
+              ],
+              Expanded(
+                flex: 3,
+                child: _buildNavigationButton(
+                  onPressed:
+                      _currentStep < _totalSteps - 1
+                          ? _nextStep
+                          : _addNewService,
+                  label:
+                      _currentStep < _totalSteps - 1
+                          ? 'التالي'
+                          : 'إضافة الخدمة',
+                  icon:
+                      _currentStep < _totalSteps - 1
+                          ? Icons.arrow_forward
+                          : Icons.check,
+                  color: Colors.white,
+                  backgroundColor: serviceColor,
+                  isLoading: _isLoading,
+                ),
               ),
-            ),
-            SizedBox(width: 16),
-          ],
-
-          // زر التالي أو الإضافة
-          Expanded(
-            flex: 3,
-            child: _buildNavigationButton(
-              onPressed:
-                  _currentStep < _totalSteps - 1 ? _nextStep : _addNewService,
-              label: _currentStep < _totalSteps - 1 ? 'التالي' : 'إضافة الخدمة',
-              icon:
-                  _currentStep < _totalSteps - 1
-                      ? Icons.arrow_forward
-                      : Icons.check,
-              color: Colors.white,
-              backgroundColor: serviceColor,
-              isLoading: _isLoading,
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

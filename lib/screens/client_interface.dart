@@ -628,7 +628,6 @@ class _ClientHomePageState extends State<ClientHomePage> {
     final String type = service['type'] ?? 'غير محدد';
     final String region = service['region'] ?? 'غير محدد';
     final double price = (service['price'] as num?)?.toDouble() ?? 0.0;
-    final String currency = service['currency'] ?? 'دينار جزائري';
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
     final List<dynamic> imageUrls = service['imageUrls'] ?? [];
@@ -855,7 +854,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                             ),
                           ),
                           Text(
-                            "$price $currency",
+                            '$price',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

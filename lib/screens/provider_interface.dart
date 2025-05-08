@@ -2466,7 +2466,6 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     final List<dynamic> imageUrls = service['imageUrls'] ?? [];
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
-    final String currency = service['currency'] ?? 'دينار جزائري';
     final Color typeColor =
         type == 'تخزين' ? Color(0xFF60A5FA) : Color(0xFFF472B6);
     final IconData typeIcon =
@@ -2607,7 +2606,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                   Row(
                     children: [
                       Text(
-                        '$price $currency',
+                        '$price',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: typeColor,
