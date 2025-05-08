@@ -276,11 +276,19 @@ class _SplashScreenState extends State<SplashScreen>
 
     final authService = Provider.of<AuthService>(context, listen: false);
 
-    // Forzar que siempre muestre la página de inicio/login
-    const bool isLoggedIn = false;
-
-    // Imprimimos información de depuración
-    print("Navigating to home screen - Auth check bypassed");
+    // Properly check if user is logged in
+    bool isLoggedIn = false;
+    try {
+      isLoggedIn = await authService.checkPreviousLogin();
+      print("Auth check result: User is " + (isLoggedIn ? "logged in" : "not logged in"));
+      if (isLoggedIn && authService.currentUser != null) {
+        print("Logged in user ID: ${authService.currentUser!.uid}");
+        print("User role: ${authService.currentUser!.role}");
+      }
+    } catch (e) {
+      print("Error checking authentication: $e");
+      isLoggedIn = false;
+    }
 
     // إذا لم يكن هناك مستخدم مسجل، ننتقل للصفحة الرئيسية
     // Asegurarse de que el widget todavía esté montado antes de navegar

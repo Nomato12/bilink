@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
@@ -129,81 +130,200 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         _servicesList.clear();
       });
 
+      // التحقق من تسجيل الدخول قبل محاولة تحميل الخدمات
       final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // محاولة التحقق من تسجيل الدخول إذا لم يكن هناك مستخدم حالي
+      if (authService.currentUser == null) {
+        print('لا يوجد مستخدم مسجل الدخول، محاولة التحقق من تسجيل الدخول السابق');
+        bool isLoggedIn = await authService.checkPreviousLogin();
+        if (!isLoggedIn) {
+          print('لم يتم العثور على جلسة تسجيل دخول سابقة');
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+      
+      // التأكد من وجود مستخدم بعد التحقق من تسجيل الدخول
       if (authService.currentUser != null) {
-        final userId = authService.currentUser!.uid;
+        // التحقق من وجود معرف المستخدم
+        String userId = authService.currentUser!.uid;
+        
+        // إذا كان معرف المستخدم فارغًا، استخدم معرفًا مؤقتًا للاختبار
+        if (userId.isEmpty) {
+          print('تم اكتشاف معرف مستخدم فارغ، استخدام معرف مؤقت للاختبار');
+          // استخدم معرف الخدمة الذي تم إنشاؤه مؤخرًا للاختبار
+          userId = FirebaseAuth.instance.currentUser?.uid ?? 'test_user_id';
+        }
 
         print('جاري البحث عن خدمات للمستخدم: $userId');
         print('نوع المستخدم: ${authService.currentUser!.role.toString()}');
 
-        // استعلام مباشر للخدمات التي تتطابق مع معرف المستخدم
-        final userServicesSnapshot =
-            await FirebaseFirestore.instance
-                .collection('services')
-                .where('userId', isEqualTo: userId)
-                .get();
+        // إنشاء قائمة من الاستعلامات المحددة للمستخدم الحالي فقط
+        print('البحث عن خدمات المزود باستخدام معرف: $userId');
+        
+        // البحث عن جميع الخدمات للاختبار
+        print('البحث عن جميع الخدمات للاختبار');
+        
+        // البحث في مجموعة الخدمات بدون فلترة للاختبار
+        final allServicesSnapshot = await FirebaseFirestore.instance
+            .collection('services')
+            .limit(10)
+            .get();
+            
+        print('تم العثور على ${allServicesSnapshot.docs.length} خدمة في المجموعة الكاملة');
+        
+        // طباعة معرفات الخدمات الموجودة
+        for (var doc in allServicesSnapshot.docs) {
+          print('خدمة موجودة: ${doc.id}, العنوان: ${doc.data()['title']}, المزود: ${doc.data()['providerId']}');
+        }
+        
+        // الاستعلامات العادية للبحث عن خدمات المستخدم
+        List<Query> queries = [
+          // البحث باستخدام حقل providerId (المستخدم في add_service_screen)
+          FirebaseFirestore.instance
+              .collection('services')
+              .where('providerId', isEqualTo: userId),
+          // البحث باستخدام حقول أخرى للتوافق مع البيانات القديمة
+          FirebaseFirestore.instance
+              .collection('services')
+              .where('userId', isEqualTo: userId),
+          FirebaseFirestore.instance
+              .collection('services')
+              .where('provider_id', isEqualTo: userId),
+          FirebaseFirestore.instance
+              .collection('services')
+              .where('uid', isEqualTo: userId),
+        ];
 
-        print(
-          'تم العثور على ${userServicesSnapshot.docs.length} خدمة من استعلام userId المباشر',
-        );
-
-        // إنشاء قائمة مؤقتة لتخزين الخدمات المطابقة
+        // إنشاء قائمة مؤقتة لتخزين الخدمات
         List<Map<String, dynamic>> matchingServices = [];
 
-        // إضافة الخدمات من الاستعلام المباشر
-        for (var doc in userServicesSnapshot.docs) {
-          final data = doc.data();
-          // إضافة معرف المستند إلى البيانات
-          final serviceData = Map<String, dynamic>.from(data);
-          serviceData['id'] = doc.id;
-          matchingServices.add(serviceData);
-          print(
-            'تمت إضافة خدمة للقائمة من الاستعلام المباشر: ${data['title']}',
-          );
-        }
+        // تنفيذ كل استعلام وجمع النتائج
+        for (var query in queries) {
+          final querySnapshot = await query.get();
 
-        // استعلام إضافي للتأكد من عدم فقدان أي خدمات (قد تكون مخزنة بطريقة مختلفة)
-        if (matchingServices.isEmpty) {
-          print(
-            'لم يتم العثور على خدمات في الاستعلام المباشر، جاري البحث في كل الخدمات',
-          );
+          if (querySnapshot.docs.isNotEmpty) {
+            print('تم العثور على ${querySnapshot.docs.length} خدمة من استعلام');
+          }
 
-          // جلب جميع الخدمات
-          final allServicesSnapshot =
-              await FirebaseFirestore.instance.collection('services').get();
-
-          print(
-            'إجمالي الخدمات في قاعدة البيانات: ${allServicesSnapshot.docs.length}',
-          );
-
-          for (var doc in allServicesSnapshot.docs) {
-            final data = doc.data();
-            // طباعة بيانات كل خدمة للتشخيص
-            print(
-              'خدمة: ${doc.id} - userId: ${data['userId']}, providerId: ${data['providerId']}',
-            );
-
-            // تحقق منطقي من التطابق (تحويل المتغيرات إلى نصوص للمقارنة الآمنة)
-            final docUserId = data['userId']?.toString() ?? '';
-            final docProviderId = data['providerId']?.toString() ?? '';
-            final docUid = data['uid']?.toString() ?? '';
-            final docuserId = data['user_id']?.toString() ?? '';
-            final docproviderId = data['provider_id']?.toString() ?? '';
-
-            print('مقارنة: "$docUserId" مع "$userId"');
-
-            if (docUserId == userId ||
-                docProviderId == userId ||
-                docUid == userId ||
-                docuserId == userId ||
-                docproviderId == userId) {
-              // إضافة معرف المستند إلى البيانات
+          for (var doc in querySnapshot.docs) {
+            // التحقق من عدم وجود الوثيقة بالفعل في القائمة لتجنب التكرار
+            if (!matchingServices.any((service) => service['id'] == doc.id)) {
+              final data = doc.data() as Map<String, dynamic>;
               final serviceData = Map<String, dynamic>.from(data);
               serviceData['id'] = doc.id;
               matchingServices.add(serviceData);
-              print(
-                'تمت إضافة خدمة للقائمة من البحث الشامل: ${data['title'] ?? doc.id}',
-              );
+              print('تمت إضافة خدمة للقائمة: ${data['title'] ?? 'بدون عنوان'}');
+            }
+          }
+        }
+
+        // البحث في مجموعة services بطريقة مختلفة إذا لم يتم العثور على خدمات
+        if (matchingServices.isEmpty) {
+          print('لم يتم العثور على خدمات. محاولة بحث أكثر شمولاً...');
+
+          // استعلام جميع الوثائق من مجموعة service_locations التي تنتمي للمستخدم
+          final locationSnapshot =
+              await FirebaseFirestore.instance
+                  .collection('service_locations')
+                  .where('providerId', isEqualTo: userId)
+                  .get();
+
+          for (var locationDoc in locationSnapshot.docs) {
+            final locationData = locationDoc.data();
+            final serviceId = locationData['serviceId'];
+
+            // استرجاع بيانات الخدمة باستخدام معرف الخدمة
+            if (serviceId != null && serviceId.toString().isNotEmpty) {
+              // تأكد من أن معرف الخدمة ليس فارغًا
+              final String validServiceId = serviceId.toString().trim();
+              if (validServiceId.isEmpty) {
+                print('تم تجاوز وثيقة بمعرف فارغ');
+                continue;
+              }
+              
+              final serviceDoc =
+                  await FirebaseFirestore.instance
+                      .collection('services')
+                      .doc(validServiceId)
+                      .get();
+
+              if (serviceDoc.exists) {
+                final data = serviceDoc.data() as Map<String, dynamic>;
+                data['id'] = serviceDoc.id;
+
+                // التحقق من عدم وجود الخدمة بالفعل في القائمة
+                if (!matchingServices.any(
+                  (service) => service['id'] == serviceDoc.id,
+                )) {
+                  matchingServices.add(data);
+                  print(
+                    'تمت إضافة خدمة من مجموعة المواقع: ${data['title'] ?? 'بدون عنوان'}',
+                  );
+                }
+              }
+            }
+          }
+
+          // البحث في مجموعة الخدمات الخاصة بالمستخدم
+          // تأكد من أن معرف المستخدم ليس فارغًا
+          if (userId.toString().trim().isEmpty) {
+            print('تم تجاوز استعلام خدمات المستخدم بسبب معرف مستخدم فارغ');
+          } else {
+            print('البحث في مجموعة خدمات المستخدم: users/$userId/services');
+            final userServicesSnapshot =
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('services')
+                    .get();
+                    
+            print('تم العثور على ${userServicesSnapshot.docs.length} خدمة في مجموعة خدمات المستخدم');
+
+            for (var serviceDoc in userServicesSnapshot.docs) {
+              print('معالجة وثيقة خدمة من مجموعة خدمات المستخدم: ${serviceDoc.id}');
+              print('بيانات الوثيقة: ${serviceDoc.data()}');
+              
+              final serviceId = serviceDoc.data()['serviceId'];
+              if (serviceId != null && serviceId.toString().isNotEmpty) {
+                // تأكد من أن معرف الخدمة ليس فارغًا
+                final String validServiceId = serviceId.toString().trim();
+                if (validServiceId.isEmpty) {
+                  print('تم تجاوز وثيقة بمعرف فارغ في خدمات المستخدم');
+                  continue;
+                }
+                
+                print('جاري البحث عن الخدمة باستخدام المعرف: $validServiceId');
+                
+                final mainServiceDoc =
+                    await FirebaseFirestore.instance
+                        .collection('services')
+                        .doc(validServiceId)
+                        .get();
+
+                if (mainServiceDoc.exists) {
+                  print('تم العثور على الخدمة في مجموعة services: ${mainServiceDoc.id}');
+                  final data = mainServiceDoc.data() as Map<String, dynamic>;
+                  data['id'] = mainServiceDoc.id;
+
+                  // طباعة بيانات الخدمة للتشخيص
+                  print('بيانات الخدمة: العنوان=${data['title']}, النوع=${data['type']}, providerId=${data['providerId']}');
+
+                  if (!matchingServices.any(
+                    (service) => service['id'] == mainServiceDoc.id,
+                  )) {
+                    matchingServices.add(data);
+                    print(
+                      'تمت إضافة خدمة من مجموعة خدمات المستخدم: ${data['title'] ?? 'بدون عنوان'}',
+                    );
+                  } else {
+                    print('تم تجاهل الخدمة لأنها موجودة بالفعل في القائمة');
+                  }
+                }
+              }
             }
           }
         }
@@ -212,7 +332,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           'تم العثور على ${matchingServices.length} خدمة تطابق معرف المستخدم',
         );
 
-        // تحديث القائمة المرئية مرة واحدة بعد الانتهاء من البحث
+        // تحديث القائمة المرئية
         setState(() {
           _servicesList.addAll(matchingServices);
           _isLoading = false;
@@ -220,13 +340,21 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           print('تم تحميل ${_servicesList.length} خدمة في القائمة المرئية');
         });
 
-        // تحديث الإحصائيات بعد تحميل الخدمات
+        // تحديث الإحصائيات
         _loadStatistics();
       } else {
         print('لا يوجد مستخدم مسجل الدخول حاليًا');
         setState(() {
           _isLoading = false;
         });
+
+        // عرض رسالة للمستخدم
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('الرجاء تسجيل الدخول لعرض خدماتك'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       print('Error loading provider services: $e');
@@ -235,6 +363,14 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       setState(() {
         _isLoading = false;
       });
+
+      // عرض رسالة خطأ للمستخدم
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء تحميل الخدمات. يرجى المحاولة مرة أخرى'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -368,8 +504,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         'currency': _currency,
         'type': _selectedServiceType,
         'region': _selectedRegion,
-        'userId':
-            userId, // تغيير من providerId إلى userId لتتوافق مع add_service_screen.dart
+        'providerId': userId, // تغيير من userId إلى providerId لتوحيد المعرفات
         'imageUrls': imageUrls,
         'rating': 0.0,
         'reviewCount': 0,

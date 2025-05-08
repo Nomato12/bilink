@@ -423,7 +423,8 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
       // إعداد البيانات الأساسية
       final serviceData = {
-        'userId': user.uid,
+        'providerId':
+            user.uid, // تغيير من userId إلى providerId لتوحيد المعرفات
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
         'price': double.parse(_priceController.text),
@@ -589,19 +590,25 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       }
 
       // إضافة الخدمة إلى قائمة خدمات المستخدم
+      print('إضافة الخدمة إلى قائمة خدمات المستخدم بمعرف: ${user.uid}');
+      
+      // إنشاء بيانات الخدمة للمستخدم
+      Map<String, dynamic> userServiceData = {
+        'serviceId': serviceId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'title': _titleController.text.trim(),
+        'serviceType': _selectedServiceType,
+        'region': _selectedRegion,
+        'isActive': true,
+        'providerId': user.uid,  // إضافة معرف المزود للتأكد من وجوده في كل مكان
+      };
+      
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('services')
           .doc(serviceId)
-          .set({
-            'serviceId': serviceId,
-            'createdAt': FieldValue.serverTimestamp(),
-            'title': _titleController.text.trim(),
-            'serviceType': _selectedServiceType,
-            'region': _selectedRegion,
-            'isActive': true,
-          });
+          .set(userServiceData);
 
       // إظهار رسالة نجاح وإغلاق الصفحة
       ScaffoldMessenger.of(context).showSnackBar(

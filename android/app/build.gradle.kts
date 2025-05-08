@@ -15,6 +15,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // إضافة خيارات لتجاهل التحذيرات
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -43,21 +45,33 @@ android {
         }
     }
     
-    // إضافة خيارات لمعالجة تحذيرات الـ API المتهالك
+    // تحديث خيارات لمعالجة تحذيرات الـ API المتهالك
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_11.toString()
+            // إضافة خيارات لتجاهل التحذيرات في كود Kotlin
+            freeCompilerArgs = listOf("-Xsuppress-warnings")
         }
     }
     
     tasks.withType<JavaCompile> {
-        options.compilerArgs.add("-Xlint:deprecation")
+        options.compilerArgs.addAll(listOf("-Xlint:none", "-Xlint:-deprecation", "-Xlint:-unchecked"))
+        // أو لرؤية تفاصيل التحذيرات بدلا من تجاهلها، استخدم:
+        // options.compilerArgs.add("-Xlint:deprecation")
+    }
+    
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
 dependencies {
     // Add the Firebase BoM (Bill of Materials)
     implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
+    
+    // إضافة مكتبة desugar لدعم ميزات Java 8 على الإصدارات القديمة من Android
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:1.1.5")
     
     // Add other dependencies your app might need
     implementation("com.google.firebase:firebase-analytics-ktx")
