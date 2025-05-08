@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../models/user_model.dart'; // Importación añadida para resolver UserRole
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart'; // Corrected import path
@@ -132,10 +133,12 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       // التحقق من تسجيل الدخول قبل محاولة تحميل الخدمات
       final authService = Provider.of<AuthService>(context, listen: false);
-      
+
       // محاولة التحقق من تسجيل الدخول إذا لم يكن هناك مستخدم حالي
       if (authService.currentUser == null) {
-        print('لا يوجد مستخدم مسجل الدخول، محاولة التحقق من تسجيل الدخول السابق');
+        print(
+          'لا يوجد مستخدم مسجل الدخول، محاولة التحقق من تسجيل الدخول السابق',
+        );
         bool isLoggedIn = await authService.checkPreviousLogin();
         if (!isLoggedIn) {
           print('لم يتم العثور على جلسة تسجيل دخول سابقة');
@@ -145,12 +148,12 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           return;
         }
       }
-      
+
       // التأكد من وجود مستخدم بعد التحقق من تسجيل الدخول
       if (authService.currentUser != null) {
         // التحقق من وجود معرف المستخدم
         String userId = authService.currentUser!.uid;
-        
+
         // إذا كان معرف المستخدم فارغًا، استخدم معرفًا مؤقتًا للاختبار
         if (userId.isEmpty) {
           print('تم اكتشاف معرف مستخدم فارغ، استخدام معرف مؤقت للاختبار');
@@ -163,23 +166,28 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
         // إنشاء قائمة من الاستعلامات المحددة للمستخدم الحالي فقط
         print('البحث عن خدمات المزود باستخدام معرف: $userId');
-        
+
         // البحث عن جميع الخدمات للاختبار
         print('البحث عن جميع الخدمات للاختبار');
-        
+
         // البحث في مجموعة الخدمات بدون فلترة للاختبار
-        final allServicesSnapshot = await FirebaseFirestore.instance
-            .collection('services')
-            .limit(10)
-            .get();
-            
-        print('تم العثور على ${allServicesSnapshot.docs.length} خدمة في المجموعة الكاملة');
-        
+        final allServicesSnapshot =
+            await FirebaseFirestore.instance
+                .collection('services')
+                .limit(10)
+                .get();
+
+        print(
+          'تم العثور على ${allServicesSnapshot.docs.length} خدمة في المجموعة الكاملة',
+        );
+
         // طباعة معرفات الخدمات الموجودة
         for (var doc in allServicesSnapshot.docs) {
-          print('خدمة موجودة: ${doc.id}, العنوان: ${doc.data()['title']}, المزود: ${doc.data()['providerId']}');
+          print(
+            'خدمة موجودة: ${doc.id}, العنوان: ${doc.data()['title']}, المزود: ${doc.data()['providerId']}',
+          );
         }
-        
+
         // الاستعلامات العادية للبحث عن خدمات المستخدم
         List<Query> queries = [
           // البحث باستخدام حقل providerId (المستخدم في add_service_screen)
@@ -244,7 +252,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                 print('تم تجاوز وثيقة بمعرف فارغ');
                 continue;
               }
-              
+
               final serviceDoc =
                   await FirebaseFirestore.instance
                       .collection('services')
@@ -280,13 +288,17 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                     .doc(userId)
                     .collection('services')
                     .get();
-                    
-            print('تم العثور على ${userServicesSnapshot.docs.length} خدمة في مجموعة خدمات المستخدم');
+
+            print(
+              'تم العثور على ${userServicesSnapshot.docs.length} خدمة في مجموعة خدمات المستخدم',
+            );
 
             for (var serviceDoc in userServicesSnapshot.docs) {
-              print('معالجة وثيقة خدمة من مجموعة خدمات المستخدم: ${serviceDoc.id}');
+              print(
+                'معالجة وثيقة خدمة من مجموعة خدمات المستخدم: ${serviceDoc.id}',
+              );
               print('بيانات الوثيقة: ${serviceDoc.data()}');
-              
+
               final serviceId = serviceDoc.data()['serviceId'];
               if (serviceId != null && serviceId.toString().isNotEmpty) {
                 // تأكد من أن معرف الخدمة ليس فارغًا
@@ -295,9 +307,9 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                   print('تم تجاوز وثيقة بمعرف فارغ في خدمات المستخدم');
                   continue;
                 }
-                
+
                 print('جاري البحث عن الخدمة باستخدام المعرف: $validServiceId');
-                
+
                 final mainServiceDoc =
                     await FirebaseFirestore.instance
                         .collection('services')
@@ -305,12 +317,16 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                         .get();
 
                 if (mainServiceDoc.exists) {
-                  print('تم العثور على الخدمة في مجموعة services: ${mainServiceDoc.id}');
+                  print(
+                    'تم العثور على الخدمة في مجموعة services: ${mainServiceDoc.id}',
+                  );
                   final data = mainServiceDoc.data() as Map<String, dynamic>;
                   data['id'] = mainServiceDoc.id;
 
                   // طباعة بيانات الخدمة للتشخيص
-                  print('بيانات الخدمة: العنوان=${data['title']}, النوع=${data['type']}, providerId=${data['providerId']}');
+                  print(
+                    'بيانات الخدمة: العنوان=${data['title']}, النوع=${data['type']}, providerId=${data['providerId']}',
+                  );
 
                   if (!matchingServices.any(
                     (service) => service['id'] == mainServiceDoc.id,
@@ -1486,66 +1502,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('مزود الخدمة'),
-        backgroundColor: Color(0xFF9B59B6),
-      ),
-      body:
-          _isLoading
-              ? Center(child: CircularProgressIndicator())
-              : _currentIndex == 0
-              ? _buildServicesPage()
-              : _currentIndex == 1
-              ? _buildRequestsPage()
-              : _currentIndex == 2
-              ? _buildAnalyticsPage()
-              : _currentIndex == 3
-              ? _buildProfilePage()
-              : Container(),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton:
-          _currentIndex == 0
-              ? FloatingActionButton(
-                onPressed: _openAddServiceScreen,
-                backgroundColor: Color(0xFF9B59B6), // تغيير استدعاء الدالة هنا
-                child: Icon(Icons.add),
-              )
-              : null,
-    );
-  }
-
-  Widget _buildServicesPage() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child:
-          _servicesList.isEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.info_outline, size: 80, color: Colors.grey[400]),
-                    SizedBox(height: 20),
-                    Text(
-                      'لا توجد خدمات مضافة بعد',
-                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              )
-              : ListView.builder(
-                itemCount: _servicesList.length,
-                itemBuilder: (context, index) {
-                  final service = _servicesList[index];
-                  return _buildServiceCard(service);
-                },
-              ),
-    );
-  }
-
-  // بطاقة إحصائية
+  // بطاقة إحصائية عصرية
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -1553,1221 +1510,56 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     required Color color,
   }) {
     return Container(
-      width: 160,
-      margin: EdgeInsets.symmetric(horizontal: 8),
-      padding: EdgeInsets.all(16),
+      width: 100,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: color.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              Spacer(),
-              SizedBox(
-                height: 25,
-                width: 40,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    color: color.withOpacity(0.1),
-                    child: CustomPaint(painter: MiniChartPainter(color: color)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 15),
-          Text(title, style: TextStyle(color: Colors.grey[700], fontSize: 14)),
-          SizedBox(height: 5),
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              color: Colors.black,
+              fontWeight: FontWeight.bold,
               fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // رسم مخطط صغير
-  Widget _buildServiceCard(Map<String, dynamic> service) {
-    final String title = service['title'] ?? 'خدمة بدون عنوان';
-    final String type = service['type'] ?? 'غير محدد';
-    final String region = service['region'] ?? 'غير محدد';
-    final double price = service['price'] ?? 0.0;
-    final bool isActive = service['isActive'] ?? true;
-    final List<dynamic> imageUrls = service['imageUrls'] ?? [];
-    final double rating = service['rating'] ?? 0.0;
-    final int reviewCount = service['reviewCount'] ?? 0;
-    final String currency = service['currency'] ?? 'دينار جزائري';
-
-    // بيانات المركبة إذا كانت خدمة نقل
-    Map<String, dynamic>? vehicleData;
-    if (type == 'نقل') {
-      vehicleData = service['vehicle'];
-    }
-
-    // بيانات الموقع
-    Map<String, dynamic>? locationData;
-    if (service.containsKey('location')) {
-      locationData = service['location'];
-    }
-
-    // طباعة عناوين الصور للتشخيص
-    print('عناوين الصور للخدمة $title:');
-    for (var url in imageUrls) {
-      print('URL: $url');
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // شريط الحالة في الأعلى
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 6, horizontal: 15),
-            decoration: BoxDecoration(
-              color: isActive ? Colors.green : Colors.red,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      isActive ? Icons.check_circle : Icons.cancel,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      isActive ? 'نشط' : 'غير نشط',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        type == 'تخزين'
-                            ? Icons.warehouse
-                            : Icons.local_shipping,
-                        color:
-                            type == 'تخزين'
-                                ? Color(0xFF3498DB)
-                                : Color(0xFFE67E22),
-                        size: 14,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        type,
-                        style: TextStyle(
-                          color:
-                              type == 'تخزين'
-                                  ? Color(0xFF3498DB)
-                                  : Color(0xFFE67E22),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // صورة الخدمة
-          Stack(
-            children: [
-              Container(
-                height: 180,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(5),
-                    bottomRight: Radius.circular(5),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(5),
-                    bottomRight: Radius.circular(5),
-                  ),
-                  child:
-                      imageUrls.isNotEmpty
-                          ? _buildServiceImage(imageUrls.first, type)
-                          : Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  type == 'تخزين'
-                                      ? Icons.warehouse
-                                      : Icons.local_shipping,
-                                  size: 60,
-                                  color: Colors.grey[400],
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'لا توجد صورة',
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                ),
-              ),
-
-              // شريط التقييم
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.star, color: Color(0xFFF1C40F), size: 18),
-                          SizedBox(width: 4),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '($reviewCount)',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            region,
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // معلومات الخدمة
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // العنوان
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 10),
-
-                // السعر
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF9B59B6).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Color(0xFF9B59B6).withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    '${price.toStringAsFixed(0)} $currency',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF9B59B6),
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 15),
-
-                // معلومات إضافية حسب نوع الخدمة
-                if (type == 'تخزين') ...[
-                  // معلومات خدمة التخزين
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Color(0xFF3498DB).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warehouse, color: Color(0xFF3498DB)),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'خدمة تخزين',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF3498DB),
-                                ),
-                              ),
-                              if (locationData != null) ...[
-                                SizedBox(height: 4),
-                                Text(
-                                  locationData['address'] ?? 'غير محدد',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (type == 'نقل' && vehicleData != null) ...[
-                  // معلومات خدمة النقل
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFE67E22).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.local_shipping, color: Color(0xFFE67E22)),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'المركبة: ${vehicleData['make'] ?? ''} ${vehicleData['type'] ?? ''}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFFE67E22),
-                                    ),
-                                  ),
-                                  Text(
-                                    vehicleData['year'] ?? '',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.scale,
-                                    size: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'الحمولة: ${vehicleData['capacity'] ?? 'غير محدد'}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Icon(
-                                    Icons.straighten,
-                                    size: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      'الأبعاد: ${vehicleData['dimensions'] ?? 'غير محدد'}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                SizedBox(height: 15),
-
-                // أزرار التحكم
-                Row(
-                  children: [
-                    // زر التعديل
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _loadServiceForEdit(service);
-                        },
-                        icon: Icon(Icons.edit, size: 18),
-                        label: Text('تعديل'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF3498DB),
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-
-                    // زر التفعيل/التعطيل
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _toggleServiceStatus(service['id'], isActive);
-                        },
-                        icon: Icon(
-                          isActive ? Icons.cancel : Icons.check_circle,
-                          size: 18,
-                        ),
-                        label: Text(isActive ? 'تعطيل' : 'تفعيل'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isActive ? Colors.grey : Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-
-                    // زر الحذف
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: IconButton(
-                        onPressed: () {
-                          _deleteService(service['id']);
-                        },
-                        icon: Icon(Icons.delete, color: Colors.white),
-                        padding: EdgeInsets.all(8),
-                        constraints: BoxConstraints(),
-                        splashRadius: 24,
-                        tooltip: 'حذف الخدمة',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // دالة مساعدة لعرض صور الخدمة
-  Widget _buildServiceImage(String imageUrl, String serviceType) {
-    return Image.network(
-      imageUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          return child;
-        }
-        return Container(
-          color: Colors.grey[300],
-          height: 180,
-          width: double.infinity,
-          child: Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B59B6)),
-              value:
-                  loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        print('خطأ في تحميل الصورة: $error');
-        print('العنوان: $imageUrl');
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                serviceType == 'تخزين' ? Icons.warehouse : Icons.local_shipping,
-                size: 60,
-                color: Colors.grey[400],
-              ),
-              SizedBox(height: 8),
-              Text(
-                'فشل تحميل الصورة',
-                style: TextStyle(color: Colors.grey[500], fontSize: 14),
-              ),
-              SizedBox(height: 4),
-              IconButton(
-                icon: Icon(Icons.refresh, color: Color(0xFF9B59B6)),
-                onPressed: () {
-                  // إعادة تحميل الصفحة
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRequestsPage() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: Color(0xFF9B59B6).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.assignment,
-                size: 70,
-                color: Color(0xFF9B59B6).withOpacity(0.7),
-              ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              "صفحة الطلبات",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF333333),
-              ),
-            ),
-            SizedBox(height: 15),
-            Text(
-              "هنا ستظهر طلبات العملاء الخاصة بك",
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () {
-                // تحديث الطلبات
-              },
-              icon: Icon(Icons.refresh),
-              label: Text("تحديث الطلبات"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF9B59B6),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsPage() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "التحليلات والإحصائيات",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF9B59B6),
-            ),
-          ),
-          SizedBox(height: 20),
-
-          // بطاقة الإيرادات
-          _buildAnalyticsCard(
-            title: "الإيرادات",
-            value: "${_totalEarnings.toStringAsFixed(0)} دج",
-            icon: Icons.monetization_on,
-            color: Color(0xFF2ECC71),
-            content: SizedBox(
-              height: 160,
-              child: CustomPaint(painter: ChartPainter(), child: Container()),
-            ),
-          ),
-          SizedBox(height: 16),
-
-          // بطاقة التقييمات
-          _buildAnalyticsCard(
-            title: "تقييمات العملاء",
-            value: "${_averageRating.toStringAsFixed(1)} / 5.0",
-            icon: Icons.star,
-            color: Color(0xFFF1C40F),
-            content: Container(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildRatingBar(5, 0.7, 0.7),
-                  _buildRatingBar(4, 0.2, 0.2),
-                  _buildRatingBar(3, 0.05, 0.05),
-                  _buildRatingBar(2, 0.03, 0.03),
-                  _buildRatingBar(1, 0.02, 0.02),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
-
-          // بطاقة الطلبات
-          _buildAnalyticsCard(
-            title: "نشاط الطلبات",
-            value: "$_totalRequests طلب",
-            icon: Icons.assignment,
-            color: Color(0xFF3498DB),
-            content: Container(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatColumn("جاري التنفيذ", "5", Colors.orange),
-                  _buildStatColumn("مكتملة", "7", Colors.green),
-                  _buildStatColumn("ملغاة", "0", Colors.red),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // بطاقة تحليلات
-  Widget _buildAnalyticsCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required Widget content,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // العنوان والقيمة
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: color),
-                ),
-                SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                    ),
-                    Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-                Spacer(),
-                PopupMenuButton(
-                  icon: Icon(Icons.more_vert, color: Colors.grey),
-                  itemBuilder:
-                      (context) => [
-                        PopupMenuItem(
-                          value: 'print',
-                          child: Row(
-                            children: [
-                              Icon(Icons.print, color: color),
-                              SizedBox(width: 8),
-                              Text('طباعة التقرير'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'download',
-                          child: Row(
-                            children: [
-                              Icon(Icons.download, color: color),
-                              SizedBox(width: 8),
-                              Text('تصدير كملف Excel'),
-                            ],
-                          ),
-                        ),
-                      ],
-                ),
-              ],
-            ),
-          ),
-
-          // خط فاصل
-          Divider(color: Colors.grey.withOpacity(0.2), height: 1),
-
-          // المحتوى
-          content,
-
-          // زر عرض التفاصيل
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(15),
-                bottomRight: Radius.circular(15),
-              ),
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "عرض التفاصيل",
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, size: 16, color: color),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // شريط تقييم
-  Widget _buildRatingBar(int stars, double percentage, double value) {
-    return Column(
-      children: [
-        Text(
-          '$stars',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: 8),
-        Container(
-          width: 30,
-          height: 100,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              Container(
-                height: 100 * value,
-                width: 30,
-                decoration: BoxDecoration(
-                  color: Color(0xFFF1C40F),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          '${(percentage * 100).toInt()}%',
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-        ),
-      ],
-    );
-  }
-
-  // عمود إحصائيات
-  Widget _buildStatColumn(String label, String value, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-        ),
-        SizedBox(height: 8),
-        Text(label, style: TextStyle(color: Colors.grey[700])),
-      ],
-    );
-  }
-
-  Widget _buildProfilePage() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // معلومات الملف الشخصي
-            Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // الصورة الشخصية
-                  Container(
-                    padding: EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Color(0xFF9B59B6), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Color(0xFF9B59B6).withOpacity(0.1),
-                      child: Icon(
-                        Icons.person,
-                        size: 60,
-                        color: Color(0xFF9B59B6),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-
-                  // الاسم والبريد الإلكتروني
-                  Text(
-                    "اسم المستخدم",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    "user@example.com",
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 20),
-
-                  // زر تعديل الملف الشخصي
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // تعديل الملف الشخصي
-                          },
-                          icon: Icon(Icons.edit),
-                          label: Text("تعديل الملف الشخصي"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF9B59B6),
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      // إضافة زر تسجيل الخروج بجانب زر التعديل
-                      ElevatedButton.icon(
-                        onPressed: _logout,
-                        icon: Icon(Icons.logout),
-                        label: Text("تسجيل الخروج"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 20),
-
-            // قائمة الإعدادات
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _buildSettingsItem(
-                    icon: Icons.payment,
-                    title: "طرق الدفع",
-                    subtitle: "إدارة طرق الدفع المقبولة",
-                    iconColor: Color(0xFF2ECC71),
-                  ),
-                  Divider(height: 1),
-                  _buildSettingsItem(
-                    icon: Icons.notifications,
-                    title: "الإشعارات",
-                    subtitle: "إدارة إعدادات الإشعارات",
-                    iconColor: Color(0xFFE74C3C),
-                  ),
-                  Divider(height: 1),
-                  _buildSettingsItem(
-                    icon: Icons.language,
-                    title: "اللغة",
-                    subtitle: "تغيير لغة التطبيق",
-                    iconColor: Color(0xFF3498DB),
-                  ),
-                  Divider(height: 1),
-                  _buildSettingsItem(
-                    icon: Icons.security,
-                    title: "الأمان",
-                    subtitle: "إدارة إعدادات الأمان",
-                    iconColor: Color(0xFFF1C40F),
-                  ),
-                  Divider(height: 1),
-                  _buildSettingsItem(
-                    icon: Icons.help,
-                    title: "المساعدة والدعم",
-                    subtitle: "تواصل مع فريق الدعم",
-                    iconColor: Color(0xFF9B59B6),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 20),
-
-            // زر تسجيل الخروج
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.logout, color: Colors.red),
-                ),
-                title: Text(
-                  "تسجيل الخروج",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onTap: () {
-                  _logout();
-                },
-              ),
-            ),
-          ],
-        ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 13, color: Colors.black87),
+          ),
+        ],
       ),
     );
   }
 
-  // عنصر في قائمة الإعدادات
-  Widget _buildSettingsItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color iconColor,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor),
-      ),
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-      ),
-      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-      onTap: () {
-        // فتح صفحة الإعدادات المحددة
-      },
-    );
-  }
-
-  // وظيفة تسجيل الخروج
-  Future<void> _logout() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // إظهار حوار تأكيد تسجيل الخروج
-      bool confirmLogout =
-          await showDialog(
-            context: context,
-            builder:
-                (context) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  title: Row(
-                    children: [
-                      Icon(Icons.logout, color: Colors.red),
-                      SizedBox(width: 10),
-                      Text('تأكيد تسجيل الخروج'),
-                    ],
-                  ),
-                  content: Text(
-                    'هل أنت متأكد من رغبتك في تسجيل الخروج من حسابك؟',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text('إلغاء'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      child: Text(
-                        'تسجيل الخروج',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-          ) ??
-          false;
-
-      if (!confirmLogout) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // تنفيذ تسجيل الخروج
-      final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.logout();
-
-      // إضافة طباعة للتأكد من تنفيذ عملية تسجيل الخروج
-      print('تم تسجيل الخروج بنجاح');
-
-      // الانتقال إلى الصفحة الرئيسية بطريقتين مختلفتين للتأكد من عمل إحداهما
-      if (mounted) {
-        // الطريقة الأولى
-        print('محاولة العودة للصفحة الرئيسية باستخدام pushNamedAndRemoveUntil');
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-
-        // في حال لم تعمل الطريقة الأولى، نجرب الطريقة الثانية بعد تأخير قصير
-        await Future.delayed(Duration(milliseconds: 100));
-        if (mounted) {
-          print(
-            'محاولة العودة للصفحة الرئيسية باستخدام Navigator.pushAndRemoveUntil',
-          );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => BiLinkHomePage()),
-            (route) => false,
-          );
-        }
-      }
-    } catch (e) {
-      print('Error logging out: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء تسجيل الخروج: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
+  // شريط تنقل سفلي حديث
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 10,
-            offset: Offset(0, -5),
+            offset: const Offset(0, -5),
           ),
         ],
       ),
@@ -2778,200 +1570,1078 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
             _currentIndex = index;
           });
         },
-        selectedItemColor: Color(0xFF9B59B6),
+        selectedItemColor: const Color(0xFF8B5CF6),
         unselectedItemColor: Colors.grey[400],
         backgroundColor: Colors.transparent,
         elevation: 0,
         type: BottomNavigationBarType.fixed,
         showUnselectedLabels: true,
-        items: [
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'خدماتي'),
           BottomNavigationBarItem(
-            icon: _buildNavIcon(
-              index: 0,
-              icon: Icons.list_alt,
-              label: 'خدماتي',
-            ),
-            label: '',
+            icon: Icon(Icons.assignment),
+            label: 'الطلبات',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon(
-              index: 1,
-              icon: Icons.assignment,
-              label: 'الطلبات',
-            ),
-            label: '',
+            icon: Icon(Icons.bar_chart),
+            label: 'الإحصائيات',
           ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(
-              index: 2,
-              icon: Icons.bar_chart,
-              label: 'التحليلات',
-            ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(index: 3, icon: Icons.person, label: 'حسابي'),
-            label: '',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
         ],
       ),
     );
   }
 
-  // أيقونة القائمة السفلية
-  Widget _buildNavIcon({
-    required int index,
+  // تبويب حسابي - تصميم عصري محسّن 2025
+  Widget _buildProfilePage() {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+    final nameController = TextEditingController(text: user?.fullName ?? '');
+    final emailController = TextEditingController(text: user?.email ?? '');
+    final phoneController = TextEditingController(
+      text: user?.phoneNumber ?? '',
+    );
+    final _formKeyProfile = GlobalKey<FormState>();
+    bool isSaving = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: SingleChildScrollView(
+            physics: BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // خلفية مع رمز المستخدم
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // خلفية لوجستية مميزة
+                    Container(
+                      height: 160,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          // زخارف خلفية شحن ولوجستيات
+                          Positioned(
+                            right: -15,
+                            top: 20,
+                            child: Icon(
+                              Icons.local_shipping_outlined,
+                              size: 80,
+                              color: Colors.white.withOpacity(0.1),
+                            ),
+                          ),
+                          Positioned(
+                            left: -5,
+                            bottom: 10,
+                            child: Icon(
+                              Icons.warehouse_outlined,
+                              size: 70,
+                              color: Colors.white.withOpacity(0.1),
+                            ),
+                          ),
+                          // معلومات أساسية
+                          Padding(
+                            padding: EdgeInsets.only(top: 30, right: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'مرحباً بك',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  user?.fullName ?? 'مزود خدمات',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 5),
+                                // استبدال النص برمز
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      user?.role == UserRole.provider
+                                          ? Icons.verified_rounded
+                                          : Icons.person_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      user?.role == UserRole.provider
+                                          ? Icons.local_shipping_outlined
+                                          : Icons.shopping_bag_outlined,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // صورة المستخدم
+                    Positioned(
+                      bottom: -50,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFF7C3AED).withOpacity(0.3),
+                              blurRadius: 20,
+                              offset: Offset(0, 10),
+                            ),
+                          ],
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
+                        child: CircleAvatar(
+                          radius: 55,
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 65),
+
+                // بطاقات أو أيقونات اختصارات
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildProfileQuickAction(
+                        icon: Icons.assignment,
+                        label: 'طلباتي',
+                        color: Color(0xFF60A5FA),
+                        onTap: () {
+                          setState(() => _currentIndex = 1);
+                        },
+                      ),
+                      _buildProfileQuickAction(
+                        icon: Icons.local_shipping,
+                        label: 'خدماتي',
+                        color: Color(0xFFF472B6),
+                        onTap: () {
+                          setState(() => _currentIndex = 0);
+                        },
+                      ),
+                      _buildProfileQuickAction(
+                        icon: Icons.bar_chart,
+                        label: 'الإحصائيات',
+                        color: Color(0xFF34D399),
+                        onTap: () {
+                          setState(() => _currentIndex = 2);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 30),
+
+                // بطاقة المعلومات الشخصية
+                Container(
+                  margin: EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 20,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKeyProfile,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // عنوان
+                          Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF7C3AED).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFF7C3AED),
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'المعلومات الشخصية',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          SizedBox(height: 25),
+
+                          // حقول البيانات
+                          _buildProfileField(
+                            controller: nameController,
+                            label: 'الاسم الكامل',
+                            icon: Icons.person,
+                            validator:
+                                (v) =>
+                                    v == null || v.trim().isEmpty
+                                        ? 'الاسم مطلوب'
+                                        : null,
+                          ),
+                          SizedBox(height: 18),
+                          _buildProfileField(
+                            controller: emailController,
+                            label: 'البريد الإلكتروني',
+                            icon: Icons.email,
+                            keyboardType: TextInputType.emailAddress,
+                            validator:
+                                (v) =>
+                                    v == null || !v.contains('@')
+                                        ? 'بريد إلكتروني غير صالح'
+                                        : null,
+                          ),
+                          SizedBox(height: 18),
+                          _buildProfileField(
+                            controller: phoneController,
+                            label: 'رقم الهاتف',
+                            icon: Icons.phone,
+                            keyboardType: TextInputType.phone,
+                            validator:
+                                (v) =>
+                                    v == null || v.trim().length < 8
+                                        ? 'رقم غير صالح'
+                                        : null,
+                          ),
+
+                          SizedBox(height: 25),
+
+                          // زر الحفظ
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  isSaving
+                                      ? null
+                                      : () async {
+                                        if (_formKeyProfile.currentState!
+                                            .validate()) {
+                                          setState(() => isSaving = true);
+                                          try {
+                                            await authService.updateProfile(
+                                              fullName:
+                                                  nameController.text.trim(),
+                                              email:
+                                                  emailController.text.trim(),
+                                              phone:
+                                                  phoneController.text.trim(),
+                                            );
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.check_circle,
+                                                        color: Colors.white,
+                                                      ),
+                                                      SizedBox(width: 10),
+                                                      Text(
+                                                        'تم تحديث البيانات بنجاح',
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                  behavior:
+                                                      SnackBarBehavior.floating,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  margin: EdgeInsets.all(10),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.error,
+                                                      color: Colors.white,
+                                                    ),
+                                                    SizedBox(width: 10),
+                                                    Text(
+                                                      'فشل تحديث البيانات: ${e.toString()}',
+                                                    ),
+                                                  ],
+                                                ),
+                                                backgroundColor: Colors.red,
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                margin: EdgeInsets.all(10),
+                                              ),
+                                            );
+                                          }
+                                          setState(() => isSaving = false);
+                                        }
+                                      },
+                              icon:
+                                  isSaving
+                                      ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : Icon(Icons.save_rounded),
+                              label: Text('حفظ التعديلات'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFF7C3AED),
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 25),
+
+                // معلومات إضافية
+                Container(
+                  margin: EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 20,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _buildSettingsItem(
+                        title: 'تغيير كلمة المرور',
+                        icon: Icons.lock_outline,
+                        iconColor: Color(0xFF60A5FA),
+                        onTap: () {
+                          // إظهار نافذة لتغيير كلمة المرور
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ستتوفر هذه الميزة قريباً'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                      Divider(height: 1, indent: 70),
+                      _buildSettingsItem(
+                        title: 'الإشعارات',
+                        icon: Icons.notifications_outlined,
+                        iconColor: Color(0xFFF472B6),
+                        onTap: () {
+                          // إظهار نافذة الإشعارات
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ستتوفر هذه الميزة قريباً'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                      Divider(height: 1, indent: 70),
+                      _buildSettingsItem(
+                        title: 'الدعم الفني',
+                        icon: Icons.headset_mic_outlined,
+                        iconColor: Color(0xFF34D399),
+                        onTap: () {
+                          // إظهار نافذة الدعم الفني
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ستتوفر هذه الميزة قريباً'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 25),
+
+                // زر تسجيل الخروج
+                Container(
+                  margin: EdgeInsets.symmetric(horizontal: 20),
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // إظهار مربع حوار لتأكيد تسجيل الخروج
+                      _showLogoutConfirmDialog();
+                    },
+                    icon: Icon(Icons.logout),
+                    label: Text('تسجيل الخروج'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 40),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // مربع حوار تأكيد تسجيل الخروج
+  void _showLogoutConfirmDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // جزء علوي
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFE53935), Color(0xFFD32F2F)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.logout_rounded,
+                          size: 50,
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'تسجيل الخروج',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // محتوى
+                  Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Text(
+                          'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        SizedBox(height: 25),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
+                                child: Text(
+                                  'إلغاء',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  await Provider.of<AuthService>(
+                                    context,
+                                    listen: false,
+                                  ).logout();
+                                  if (mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => BiLinkHomePage(),
+                                      ),
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade600,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  'تسجيل الخروج',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  // ويدجت عنصر الإعدادات
+  Widget _buildSettingsItem({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor),
+            ),
+            SizedBox(width: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            Spacer(),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ويدجت اختصار سريع في الملف الشخصي
+  Widget _buildProfileQuickAction({
     required IconData icon,
     required String label,
+    required Color color,
+    required VoidCallback onTap,
   }) {
-    final bool isSelected = _currentIndex == index;
-
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon),
-          SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+              ),
+              child: Icon(icon, color: color, size: 30),
             ),
-          ),
-        ],
+            SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-// رسام للمخطط الصغير
-class MiniChartPainter extends CustomPainter {
-  final Color color;
-
-  MiniChartPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..strokeWidth = 2
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    final width = size.width;
-    final height = size.height;
-
-    // رسم خط المخطط
-    path.moveTo(0, height * 0.7);
-    path.lineTo(width * 0.2, height * 0.5);
-    path.lineTo(width * 0.4, height * 0.8);
-    path.lineTo(width * 0.6, height * 0.3);
-    path.lineTo(width * 0.8, height * 0.6);
-    path.lineTo(width, height * 0.2);
-
-    canvas.drawPath(path, paint);
+  // حقل ملف شخصي عصري
+  Widget _buildProfileField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: TextStyle(
+        fontWeight: FontWeight.w500,
+        fontSize: 16,
+        color: Color(0xFF1F2937),
+      ),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Color(0xFF7C3AED)),
+        labelText: label,
+        labelStyle: TextStyle(
+          color: Color(0xFF7C3AED).withOpacity(0.7),
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: Color(0xFFF9FAFB),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.red, width: 1.5),
+        ),
+        contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      ),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
+  Widget build(BuildContext context) {
+    // خلفية لوجستية حديثة
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF8B5CF6), Color(0xFF60A5FA)],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('لوحة مزود الخدمات اللوجستية'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child:
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _currentIndex == 0
+                  ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // إحصائيات سريعة
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildStatCard(
+                              title: 'خدماتي',
+                              value: '$_totalServices',
+                              icon: Icons.list_alt,
+                              color: Color(0xFF60A5FA),
+                            ),
+                            _buildStatCard(
+                              title: 'الطلبات',
+                              value: '$_totalRequests',
+                              icon: Icons.assignment,
+                              color: Color(0xFFF472B6),
+                            ),
+                            _buildStatCard(
+                              title: 'الإيرادات',
+                              value: '${_totalEarnings.toStringAsFixed(0)} دج',
+                              icon: Icons.monetization_on,
+                              color: Color(0xFF34D399),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        // عنوان
+                        Row(
+                          children: const [
+                            Icon(
+                              Icons.local_shipping_rounded,
+                              color: Color(0xFF8B5CF6),
+                              size: 28,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'خدماتي اللوجستية',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // قائمة الخدمات
+                        _buildServicesList(),
+                      ],
+                    ),
+                  )
+                  : _currentIndex == 1
+                  ? Center(child: Text('صفحة الطلبات'))
+                  : _currentIndex == 2
+                  ? Center(child: Text('صفحة الإحصائيات'))
+                  : _buildProfilePage(),
+        ),
+        floatingActionButton:
+            _currentIndex == 0
+                ? FloatingActionButton.extended(
+                  onPressed: _openAddServiceScreen,
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة خدمة'),
+                )
+                : null,
+        bottomNavigationBar: _buildBottomNavigationBar(),
+      ),
+    );
   }
-}
 
-// رسام لمخطط كبير
-class ChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final width = size.width;
-    final height = size.height;
-
-    // رسم الشبكة
-    final gridPaint =
-        Paint()
-          ..color = Colors.grey.withOpacity(0.2)
-          ..strokeWidth = 1;
-
-    // رسم الخطوط الأفقية
-    for (int i = 1; i < 5; i++) {
-      final y = height * i / 5;
-      canvas.drawLine(Offset(0, y), Offset(width, y), gridPaint);
+  // قائمة الخدمات الحديثة
+  Widget _buildServicesList() {
+    if (_servicesList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            SizedBox(height: 40),
+            Icon(Icons.inbox, size: 80, color: Colors.white54),
+            SizedBox(height: 20),
+            Text(
+              'لا توجد خدمات لوجستية بعد',
+              style: TextStyle(fontSize: 18, color: Colors.white70),
+            ),
+          ],
+        ),
+      );
     }
-
-    // رسم الخطوط الرأسية
-    for (int i = 1; i < 7; i++) {
-      final x = width * i / 7;
-      canvas.drawLine(Offset(x, 0), Offset(x, height), gridPaint);
-    }
-
-    // رسم المخطط
-    final paint =
-        Paint()
-          ..color = Color(0xFF2ECC71)
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke;
-
-    final fillPaint =
-        Paint()
-          ..color = Color(0xFF2ECC71).withOpacity(0.2)
-          ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final fillPath = Path();
-
-    // نقاط البيانات (للتوضيح فقط)
-    final points = [
-      Offset(0, height * 0.7),
-      Offset(width / 6, height * 0.6),
-      Offset(width * 2 / 6, height * 0.8),
-      Offset(width * 3 / 6, height * 0.4),
-      Offset(width * 4 / 6, height * 0.5),
-      Offset(width * 5 / 6, height * 0.3),
-      Offset(width, height * 0.2),
-    ];
-
-    // رسم المسار
-    path.moveTo(points[0].dx, points[0].dy);
-    fillPath.moveTo(points[0].dx, height);
-    fillPath.lineTo(points[0].dx, points[0].dy);
-
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-      fillPath.lineTo(points[i].dx, points[i].dy);
-    }
-
-    fillPath.lineTo(width, height);
-    fillPath.lineTo(0, height);
-    fillPath.close();
-
-    // رسم المخطط والتظليل
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-
-    // رسم النقاط
-    final dotPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.fill;
-
-    final dotStrokePaint =
-        Paint()
-          ..color = Color(0xFF2ECC71)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2;
-
-    for (var point in points) {
-      canvas.drawCircle(point, 5, dotStrokePaint);
-      canvas.drawCircle(point, 3, dotPaint);
-    }
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _servicesList.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 18),
+      itemBuilder: (context, index) {
+        final service = _servicesList[index];
+        return _buildModernServiceCard(service);
+      },
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
+  // بطاقة خدمة حديثة
+  Widget _buildModernServiceCard(Map<String, dynamic> service) {
+    final String title = service['title'] ?? 'خدمة بدون عنوان';
+    final String type = service['type'] ?? 'غير محدد';
+    final String region = service['region'] ?? 'غير محدد';
+    final double price = (service['price'] as num?)?.toDouble() ?? 0.0;
+    final bool isActive = service['isActive'] ?? true;
+    final List<dynamic> imageUrls = service['imageUrls'] ?? [];
+    final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
+    final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
+    final String currency = service['currency'] ?? 'دينار جزائري';
+    final Color typeColor =
+        type == 'تخزين' ? Color(0xFF60A5FA) : Color(0xFFF472B6);
+    final IconData typeIcon =
+        type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: typeColor.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {}, // يمكن ربطها بصفحة التفاصيل
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // صورة الخدمة
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+              ),
+              child:
+                  imageUrls.isNotEmpty
+                      ? Image.network(
+                        imageUrls[0],
+                        height: 170,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
+                      : Container(
+                        height: 170,
+                        color: typeColor.withOpacity(0.08),
+                        child: Center(
+                          child: Icon(
+                            typeIcon,
+                            size: 60,
+                            color: typeColor.withOpacity(0.4),
+                          ),
+                        ),
+                      ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: typeColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(typeIcon, color: typeColor, size: 22),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isActive ? Colors.green[100] : Colors.red[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isActive ? Icons.check_circle : Icons.cancel,
+                              size: 16,
+                              color: isActive ? Colors.green : Colors.red,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isActive ? 'نشط' : 'غير نشط',
+                              style: TextStyle(
+                                color: isActive ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, color: typeColor, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        region,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.star, color: Color(0xFFF1C40F), size: 16),
+                      const SizedBox(width: 2),
+                      Text(
+                        rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        ' ($reviewCount)',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        '$price $currency',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: typeColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Color(0xFF60A5FA)),
+                        tooltip: 'تعديل',
+                        onPressed: () => _loadServiceForEdit(service),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          isActive ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        tooltip: isActive ? 'تعطيل' : 'تفعيل',
+                        onPressed:
+                            () => _toggleServiceStatus(service['id'], isActive),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'حذف',
+                        onPressed: () => _deleteService(service['id']),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

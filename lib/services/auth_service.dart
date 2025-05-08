@@ -576,4 +576,60 @@ class AuthService extends ChangeNotifier {
       return false;
     }
   }
+
+  // تحديث بيانات المستخدم (الاسم، الإيميل، الهاتف)
+  Future<void> updateProfile({
+    String? fullName,
+    String? email,
+    String? phone,
+  }) async {
+    if (_auth.currentUser == null) return;
+    final uid = _auth.currentUser!.uid;
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      // تحديث البريد الإلكتروني في Firebase Auth إذا تغير
+      if (email != null &&
+          email.isNotEmpty &&
+          email != _auth.currentUser!.email) {
+        await _auth.currentUser!.updateEmail(email);
+      }
+      // تحديث الاسم في Firebase Auth
+      if (fullName != null &&
+          fullName.isNotEmpty &&
+          fullName != _auth.currentUser!.displayName) {
+        await _auth.currentUser!.updateDisplayName(fullName);
+      }
+      // تحديث الهاتف في Firestore فقط (تغيير الهاتف في Auth يتطلب تحقق جديد)
+      final updateData = <String, dynamic>{};
+      if (fullName != null && fullName.isNotEmpty)
+        updateData['fullName'] = fullName;
+      if (email != null && email.isNotEmpty) updateData['email'] = email;
+      if (phone != null && phone.isNotEmpty) updateData['phoneNumber'] = phone;
+      if (updateData.isNotEmpty) {
+        await _firestore.collection('users').doc(uid).update(updateData);
+      }
+      // تحديث الكائن المحلي
+      if (_currentUser != null) {
+        _currentUser = _currentUser!.copyWith(
+          fullName: fullName ?? _currentUser!.fullName,
+          email: email ?? _currentUser!.email,
+          phoneNumber: phone ?? _currentUser!.phoneNumber,
+        );
+        notifyListeners();
+      }
+    } on FirebaseAuthException catch (e) {
+      errorMessage = e.message;
+      notifyListeners();
+      rethrow;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
 }
