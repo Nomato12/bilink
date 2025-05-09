@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide InkWell;
+import 'package:flutter/material.dart' as material show InkWell;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'service_details_screen.dart';
 import 'transport_service_map.dart'; // إضافة استيراد صفحة خريطة خدمة النقل
-import 'chat_list_screen.dart'; // إضافة استيراد صفحة قائمة المحادثات
 import 'storage_locations_map_screen.dart'; // إضافة استيراد صفحة مواقع التخزين
+import '../services/chat_service.dart'; // إضافة استيراد خدمة المحادثات
+import '../widgets/notification_badge.dart'; // إضافة استيراد أيقونة الإشعارات
+import 'chat_list_screen.dart'; // إضافة استيراد صفحة قائمة المحادثات
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -15,7 +19,6 @@ class ClientHomePage extends StatefulWidget {
 
 class _ClientHomePageState extends State<ClientHomePage> {
   // متغيرات التحكم بالواجهة
-  final int _currentIndex = 0;
   bool _isLoading = false;
   List<Map<String, dynamic>> _servicesList = [];
 
@@ -151,14 +154,31 @@ class _ClientHomePageState extends State<ClientHomePage> {
           elevation: 0,
           centerTitle: true,
           actions: [
-            // زر المحادثات
-            IconButton(
-              icon: Icon(Icons.chat),
-              tooltip: 'المحادثات',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ChatListScreen()),
+            // زر المحادثات مع إشعار عدد الرسائل غير المقروءة
+            StreamBuilder<int>(
+              stream: ChatService(FirebaseAuth.instance.currentUser?.uid ?? '').getUnreadMessageCount(),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+                
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chat),
+                      tooltip: 'المحادثات',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ChatListScreen()),
+                        );
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: NotificationBadge(count: unreadCount),
+                      ),
+                  ],
                 );
               },
             ),
@@ -408,207 +428,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     );
   }
 
-  // إظهار حوار تصفية الخدمات
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Row(
-                  children: [
-                    Icon(Icons.filter_list, color: Color(0xFF9B59B6)),
-                    SizedBox(width: 8),
-                    Text('تصفية الخدمات', style: TextStyle(fontSize: 18)),
-                  ],
-                ),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // نوع الخدمة
-                      Text(
-                        'نوع الخدمة',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF9B59B6),
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children:
-                            ['الكل', 'تخزين', 'نقل'].map((type) {
-                              return ChoiceChip(
-                                label: Text(type),
-                                selected: _selectedType == type,
-                                onSelected: (selected) {
-                                  setDialogState(() {
-                                    _selectedType = selected ? type : 'الكل';
-                                  });
-                                },
-                              );
-                            }).toList(),
-                      ),
-                      SizedBox(height: 16),
-
-                      // المنطقة
-                      Text(
-                        'المنطقة',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF9B59B6),
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _selectedRegion,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items:
-                            [
-                              'الكل',
-                              'الجزائر',
-                              'وهران',
-                              'قسنطينة',
-                              'عنابة',
-                              'سطيف',
-                              'بليدة',
-                              'باتنة',
-                              'تلمسان',
-                              'أخرى',
-                            ].map((region) {
-                              return DropdownMenuItem(
-                                value: region,
-                                child: Text(region),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              _selectedRegion = value;
-                            });
-                          }
-                        },
-                      ),
-                      SizedBox(height: 16),
-
-                      // الترتيب حسب
-                      Text(
-                        'ترتيب حسب',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF9B59B6),
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children:
-                            [
-                              'التقييم',
-                              'السعر (من الأقل)',
-                              'السعر (من الأعلى)',
-                              'الأحدث',
-                            ].map((sort) {
-                              return ChoiceChip(
-                                label: Text(sort),
-                                selected: _sortBy == sort,
-                                onSelected: (selected) {
-                                  setDialogState(() {
-                                    _sortBy = selected ? sort : 'التقييم';
-                                  });
-                                },
-                              );
-                            }).toList(),
-                      ),
-                      SizedBox(height: 16),
-
-                      // نطاق السعر
-                      Text(
-                        'نطاق السعر',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF9B59B6),
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      RangeSlider(
-                        values: _priceRange,
-                        min: 0,
-                        max: 10000,
-                        divisions: 100,
-                        labels: RangeLabels(
-                          '${_priceRange.start.round()}',
-                          '${_priceRange.end.round()}',
-                        ),
-                        onChanged: (values) {
-                          setDialogState(() {
-                            _priceRange = values;
-                          });
-                        },
-                        activeColor: Color(0xFF9B59B6),
-                      ),
-                      Center(
-                        child: Text(
-                          'من ${_priceRange.start.round()} إلى ${_priceRange.end.round()} د.ج',
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('إلغاء'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // تحديث مجموعة الفلاتر النشطة
-                      setState(() {
-                        _activeFilters.clear();
-
-                        if (_selectedType != 'الكل') {
-                          _activeFilters.add('النوع: $_selectedType');
-                        }
-
-                        if (_selectedRegion != 'الكل') {
-                          _activeFilters.add('المنطقة: $_selectedRegion');
-                        }
-
-                        if (_priceRange.start > 0 || _priceRange.end < 10000) {
-                          _activeFilters.add(
-                            'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} د.ج',
-                          );
-                        }
-
-                        if (_sortBy != 'التقييم') {
-                          _activeFilters.add('الترتيب: $_sortBy');
-                        }
-                      });
-
-                      Navigator.pop(context);
-                      _updateFilters();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF9B59B6),
-                    ),
-                    child: Text('تطبيق'),
-                  ),
-                ],
-              );
-            },
-          ),
-    );
-  }
+  // Method removed: _showFilterDialog was unused
 
   // بناء بطاقة فئة الخدمة
   Widget _buildServiceCategory({
@@ -623,7 +443,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
     return Column(
       children: [
-        InkWell(
+        material.InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -727,7 +547,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     final IconData typeIcon =
         type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;
 
-    return InkWell(
+    return material.InkWell(
       onTap: () {
         // عند النقر على الخدمة، افتح صفحة التفاصيل
         Navigator.push(

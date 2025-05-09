@@ -20,7 +20,6 @@ class ChatService {
       print('WARNING: ChatService initialized with empty user ID');
     }
   }
-
   // الحصول على مجموعة المحادثات
   CollectionReference get _chats => _firestore.collection(_chatsCollection);
 
@@ -28,7 +27,58 @@ class ChatService {
   CollectionReference _getChatMessages(String chatId) => _firestore
       .collection(_chatsCollection)
       .doc(chatId)
-      .collection(_messagesCollection);
+      .collection(_messagesCollection);  // التحقق بسرعة مما إذا كان لدى المستخدم أي رسائل غير مقروءة
+  Stream<bool> hasUnreadMessages() {
+    if (_userId.isEmpty) {
+      return Stream.value(false);
+    }
+    
+    return _firestore
+      .collection(_chatsCollection)
+      .where('participantIds', arrayContains: _userId)
+      .snapshots()
+      .map((snapshot) {
+        if (snapshot.docs.isEmpty) return false;
+        
+        // البحث عن أي محادثة بها رسائل غير مقروءة
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final unreadCount = data['unreadCount_$_userId'] ?? 0;
+          if (unreadCount > 0) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+  }
+  // الحصول على إجمالي عدد الرسائل غير المقروءة للمستخدم الحالي
+  Stream<int> getUnreadMessageCount() {
+    if (_userId.isEmpty) {
+      // إرجاع قيمة صفر إذا لم يكن هناك مستخدم حالي
+      return Stream.value(0);
+    }
+    
+    // استخدام نفس استعلام الدردشات ولكن عد فقط غير المقروء
+    return _firestore
+      .collection(_chatsCollection)
+      .where('participantIds', arrayContains: _userId)
+      .snapshots()
+      .map((snapshot) {
+        if (snapshot.docs.isEmpty) return 0;
+        
+        // حساب مجموع الرسائل غير المقروءة في جميع المحادثات
+        int totalUnread = 0;
+        
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final unreadCount = (data['unreadCount_$_userId'] ?? 0) as num;
+          totalUnread += unreadCount.toInt();
+        }
+        
+        return totalUnread;
+      });
+  }
 
   // الحصول على قائمة المحادثات للمستخدم الحالي
   Stream<List<Chat>> getChats() {
@@ -261,8 +311,7 @@ class ChatService {
       rethrow;
     }
   }
-
-  // تحديث حالة قراءة الرسائل
+  // تحديث حالة قراءة المحادثة
   Future<void> markChatAsRead(String chatId) async {
     try {
       // تحديث حالة المحادثة (عداد الرسائل غير المقروءة)
@@ -289,6 +338,53 @@ class ChatService {
       }
     } catch (e) {
       print('فشل تحديث حالة القراءة: $e');
+    }
+  }
+  
+  // تحديث حالة قراءة جميع المحادثات دفعة واحدة
+  Future<int> markAllChatsAsRead() async {
+    try {
+      // الحصول على جميع المحادثات التي المستخدم مشارك فيها ولديها رسائل غير مقروءة
+      final chatSnapshots = await _firestore
+        .collection(_chatsCollection)
+        .where('participantIds', arrayContains: _userId)
+        .get();
+        
+      int totalMarkedChats = 0;
+      
+      if (chatSnapshots.docs.isNotEmpty) {
+        final batch = _firestore.batch();
+        
+        for (var chatDoc in chatSnapshots.docs) {
+          final chatData = chatDoc.data() as Map<String, dynamic>;
+          final unreadCount = chatData['unreadCount_$_userId'] ?? 0;
+          
+          // إذا كانت المحادثة تحتوي على رسائل غير مقروءة
+          if (unreadCount > 0) {
+            batch.update(chatDoc.reference, {'unreadCount_$_userId': 0});
+            totalMarkedChats++;
+            
+            // تحديث الرسائل غير المقروءة في هذه المحادثة
+            final allMessages = await _getChatMessages(chatDoc.id).get();
+            final unreadMessages = allMessages.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['receiverId'] == _userId && data['isRead'] == false;
+            }).toList();
+            
+            for (var messageDoc in unreadMessages) {
+              batch.update(messageDoc.reference, {'isRead': true});
+            }
+          }
+        }
+        
+        // تنفيذ جميع التعديلات دفعة واحدة
+        await batch.commit();
+      }
+      
+      return totalMarkedChats;
+    } catch (e) {
+      print('فشل تحديث حالة قراءة جميع المحادثات: $e');
+      return 0;
     }
   }
 

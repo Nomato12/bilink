@@ -87,10 +87,39 @@ class _ChatListScreenState extends State<ChatListScreen> {
           );
         },
       ),
+      floatingActionButton: StreamBuilder<int>(
+        stream: _chatService.getUnreadMessageCount(),
+        builder: (context, snapshot) {
+          final unreadCount = snapshot.data ?? 0;
+          
+          // إظهار زر تحديث فقط إذا كان هناك رسائل غير مقروءة
+          if (unreadCount > 0) {
+            return FloatingActionButton(
+              onPressed: () async {
+                // تعليم جميع المحادثات كمقروءة
+                final markedChats = await _chatService.markAllChatsAsRead();
+                
+                if (markedChats > 0 && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('تم تحديث حالة القراءة لـ $markedChats محادثات'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              backgroundColor: Colors.purple,
+              child: const Icon(Icons.mark_chat_read),
+              tooltip: 'تعليم الكل كمقروء',
+            );
+          }
+          
+          return const SizedBox.shrink(); // عدم إظهار أي زر إذا لم تكن هناك رسائل غير مقروءة
+        },
+      ),
     );
-  }
-
-  Widget _buildChatItem(Chat chat) {
+  }  Widget _buildChatItem(Chat chat) {
     // دالة مساعدة لتنسيق وقت آخر رسالة
     String formatLastMessageTime(DateTime time) {
       final now = DateTime.now();
@@ -110,14 +139,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => ChatScreen(
-                  chatId: chat.id,
-                  otherUserId: chat.otherUserId,
-                  otherUserName: chat.otherUserName,
-                  serviceId: chat.serviceId,
-                  serviceTitle: chat.serviceTitle,
-                ),
+            builder: (context) => ChatScreen(
+              chatId: chat.id,
+              otherUserId: chat.otherUserId,
+              otherUserName: chat.otherUserName,
+              serviceId: chat.serviceId,
+              serviceTitle: chat.serviceTitle,
+            ),
           ),
         );
       },

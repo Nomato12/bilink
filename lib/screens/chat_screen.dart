@@ -33,13 +33,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final _imagePicker = ImagePicker();
   late ChatService _chatService;
   bool _isLoading = false;
-
   @override
   void initState() {
     super.initState();
     _chatService = ChatService(_userId);
+    
     // تحديث حالة قراءة الرسائل عند فتح المحادثة
     _markChatAsRead();
+    
+    // إضافة مستمع للتمرير لتحديث حالة القراءة عند التمرير في المحادثة
+    _scrollController.addListener(() {
+      // تحديث حالة القراءة عند التمرير لضمان قراءة جميع الرسائل
+      if (_scrollController.hasClients && 
+          _scrollController.offset >= _scrollController.position.minScrollExtent &&
+          !_scrollController.position.outOfRange) {
+        _markChatAsRead();
+      }
+    });
   }
 
   @override
@@ -48,10 +58,16 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     super.dispose();
   }
-
   void _markChatAsRead() {
     if (_userId.isNotEmpty) {
-      _chatService.markChatAsRead(widget.chatId);
+      // قم بتعليم المحادثة كمقروءة بعد انتظار قصير للتأكد من تحميل واجهة المستخدم أولاً
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) {
+          _chatService.markChatAsRead(widget.chatId).then((_) {
+            // عدم الحاجة للإشعار البصري هنا لأن ذلك يحدث تلقائيًا عند دخول المحادثة
+          });
+        }
+      });
     }
   }
 

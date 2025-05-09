@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide InkWell;
+import 'package:flutter/material.dart' as material show InkWell;
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -6,7 +7,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/chat_service.dart'; // إضافة استيراد خدمة المحادثات
 import '../models/user_model.dart'; // Importación añadida para resolver UserRole
+import '../widgets/notification_badge.dart'; // إضافة استيراد أيقونة الإشعارات
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart'; // Corrected import path
@@ -2210,7 +2213,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     required Color iconColor,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return material.InkWell(
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -2347,14 +2350,31 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           elevation: 0,
           centerTitle: true,
           actions: [
-            // زر المحادثات
-            IconButton(
-              icon: Icon(Icons.chat),
-              tooltip: 'المحادثات',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ChatListScreen()),
+            // زر المحادثات مع إشعار عدد الرسائل غير المقروءة
+            StreamBuilder<int>(
+              stream: ChatService(FirebaseAuth.instance.currentUser?.uid ?? '').getUnreadMessageCount(),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+                
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chat),
+                      tooltip: 'المحادثات',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ChatListScreen()),
+                        );
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: NotificationBadge(count: unreadCount),
+                      ),
+                  ],
                 );
               },
             ),
@@ -3028,7 +3048,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return material.InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
