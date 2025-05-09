@@ -7,9 +7,9 @@ import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'firebase_options.dart'; // Importar opciones de Firebase
-import 'models/home_page.dart';
-import 'services/auth_service.dart';
+import 'package:bilink/firebase_options.dart'; // Importar opciones de Firebase
+import 'package:bilink/models/home_page.dart';
+import 'package:bilink/services/auth_service.dart';
 
 void main() async {
   // Iniciar la aplicación en una zona de error controlada
@@ -309,10 +309,10 @@ class _SplashScreenState extends State<SplashScreen>
           pageBuilder:
               (context, animation, secondaryAnimation) => BiLinkHomePage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            var curve = Curves.easeInOutCubic;
-            var curveTween = CurveTween(curve: curve);
-            var tween = Tween(begin: 0.0, end: 1.0).chain(curveTween);
-            var opacityAnimation = animation.drive(tween);
+            final curve = Curves.easeInOutCubic;
+            final curveTween = CurveTween(curve: curve);
+            final tween = Tween(begin: 0.0, end: 1.0).chain(curveTween);
+            final opacityAnimation = animation.drive(tween);
 
             return FadeTransition(opacity: opacityAnimation, child: child);
           },
@@ -607,14 +607,14 @@ class _SplashScreenState extends State<SplashScreen>
   List<Widget> _buildParticles(Size screenSize) {
     return _particles.map((particle) {
       // حساب الموضع الحالي بناءً على الرسوم المتحركة
-      double x =
+      final double x =
           (particle['x'] +
               particle['speed'] *
                   cos(particle['angle']) *
                   _particlesAnimationController.value *
                   10) %
           1.0;
-      double y =
+      final double y =
           (particle['y'] +
               particle['speed'] *
                   sin(particle['angle']) *
@@ -623,7 +623,7 @@ class _SplashScreenState extends State<SplashScreen>
           1.0;
 
       // حساب الشفافية المتغيرة مع الوقت
-      double opacity =
+      final double opacity =
           particle['opacity'] *
           (0.5 + 0.5 * sin(_particlesAnimationController.value * 2 * pi));
 

@@ -2,7 +2,7 @@ import 'package:bilink/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
-import '../models/home_page.dart';
+import 'package:bilink/models/home_page.dart';
 import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 import 'package:flutter/services.dart'; // Add import for haptic feedback

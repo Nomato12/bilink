@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
-import 'service_details_screen.dart';
+import 'package:bilink/screens/service_details_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class StorageLocationsMapScreen extends StatefulWidget {

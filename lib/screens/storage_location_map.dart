@@ -180,14 +180,14 @@ class _StorageLocationMapPageState extends State<StorageLocationMapPage> {
 
     // الحصول على العنوان النصي من الإحداثيات
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
         _selectedLocation!.latitude,
         _selectedLocation!.longitude,
         localeIdentifier: 'ar',
       );
 
       if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
+        final Placemark place = placemarks[0];
         String address = '';
 
         if (place.street != null && place.street!.isNotEmpty) {

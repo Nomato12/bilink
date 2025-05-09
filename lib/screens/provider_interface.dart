@@ -6,15 +6,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/auth_service.dart';
-import '../services/chat_service.dart'; // إضافة استيراد خدمة المحادثات
-import '../models/user_model.dart'; // Importación añadida para resolver UserRole
-import '../widgets/notification_badge.dart'; // إضافة استيراد أيقونة الإشعارات
-import 'driver_tracking_map.dart';
-import 'storage_location_map.dart';
-import 'add_service_screen.dart'; // Corrected import path
-import '../models/home_page.dart';
-import 'chat_list_screen.dart'; // Import for chat functionality
+import 'package:bilink/services/auth_service.dart';
+import 'package:bilink/services/chat_service.dart'; // إضافة استيراد خدمة المحادثات
+import 'package:bilink/models/user_model.dart'; // Importación añadida para resolver UserRole
+import 'package:bilink/widgets/notification_badge.dart'; // إضافة استيراد أيقونة الإشعارات
+import 'package:bilink/screens/driver_tracking_map.dart';
+import 'package:bilink/screens/storage_location_map.dart';
+import 'package:bilink/screens/add_service_screen.dart'; // Corrected import path
+import 'package:bilink/models/home_page.dart';
+import 'package:bilink/screens/chat_list_screen.dart'; // Import for chat functionality
 
 class ServiceProviderHomePage extends StatefulWidget {
   const ServiceProviderHomePage({super.key});
@@ -143,7 +143,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         print(
           'لا يوجد مستخدم مسجل الدخول، محاولة التحقق من تسجيل الدخول السابق',
         );
-        bool isLoggedIn = await authService.checkPreviousLogin();
+        final bool isLoggedIn = await authService.checkPreviousLogin();
         if (!isLoggedIn) {
           print('لم يتم العثور على جلسة تسجيل دخول سابقة');
           setState(() {
@@ -193,7 +193,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         }
 
         // الاستعلامات العادية للبحث عن خدمات المستخدم
-        List<Query> queries = [
+        final List<Query> queries = [
           // البحث باستخدام حقل providerId (المستخدم في add_service_screen)
           FirebaseFirestore.instance
               .collection('services')
@@ -211,7 +211,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         ];
 
         // إنشاء قائمة مؤقتة لتخزين الخدمات
-        List<Map<String, dynamic>> matchingServices = [];
+        final List<Map<String, dynamic>> matchingServices = [];
 
         // تنفيذ كل استعلام وجمع النتائج
         for (var query in queries) {
@@ -557,7 +557,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       // إضافة الخدمة إلى Firestore مع معالجة الأخطاء
       try {
-        DocumentReference docRef = await FirebaseFirestore.instance
+        final DocumentReference docRef = await FirebaseFirestore.instance
             .collection('services')
             .add(newService);
 
@@ -679,7 +679,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   }
 
   // فتح صفحة الخريطة المناسبة - لم تتغير هذه الدالة
-  void _openMapPage() async {
+  Future<void> _openMapPage() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final userId = authService.currentUser?.uid;
 
@@ -784,7 +784,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   Future<void> _deleteService(String serviceId) async {
     try {
       // عرض مربع حوار للتأكيد قبل الحذف
-      bool confirmDelete =
+      final bool confirmDelete =
           await showDialog(
             context: context,
             builder:

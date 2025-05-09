@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../models/message.dart';
-import '../services/chat_service.dart';
-import 'chat_screen.dart';
+import 'package:bilink/models/message.dart';
+import 'package:bilink/services/chat_service.dart';
+import 'package:bilink/screens/chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -110,8 +110,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 }
               },
               backgroundColor: Colors.purple,
-              child: const Icon(Icons.mark_chat_read),
               tooltip: 'تعليم الكل كمقروء',
+              child: const Icon(Icons.mark_chat_read),
             );
           }
           

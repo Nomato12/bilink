@@ -21,7 +21,7 @@ class LocationService {
 
   // التحقق من صلاحيات الوصول للموقع
   Future<bool> _checkPermission() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
     }
@@ -88,7 +88,7 @@ class LocationService {
     }
 
     try {
-      Position position = await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       return position;
@@ -124,8 +124,8 @@ class LocationService {
   // عنوان مقروء من الإحداثيات
   Future<String> getAddressFromCoordinates(double lat, double lng) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-      Placemark place = placemarks[0];
+      final List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      final Placemark place = placemarks[0];
       return '${place.street}, ${place.locality}, ${place.administrativeArea}';
     } catch (e) {
       print('Error getting address: $e');
@@ -205,7 +205,7 @@ class LocationService {
   // التحقق من دعم تتبع الموقع في الجهاز
   Future<bool> isBackgroundLocationAvailable() async {
     final loc.Location location = loc.Location();
-    bool isBackgroundModeEnabled = await location.isBackgroundModeEnabled();
+    final bool isBackgroundModeEnabled = await location.isBackgroundModeEnabled();
     return isBackgroundModeEnabled;
   }
 
@@ -213,7 +213,7 @@ class LocationService {
   Future<bool> enableBackgroundMode() async {
     try {
       final loc.Location location = loc.Location();
-      bool success = await location.enableBackgroundMode(enable: true);
+      final bool success = await location.enableBackgroundMode(enable: true);
       return success;
     } catch (e) {
       print('Error enabling background mode: $e');
@@ -225,7 +225,7 @@ class LocationService {
   Stream<Position> getMockedDriverRoute(LatLng start, LatLng end) {
     // يمكن هنا إنشاء مسار وهمي للسائق للاختبار بين نقطتين
     // تنفيذ متقدم يتطلب خوارزميات لتوليد مسار واقعي
-    StreamController<Position> controller = StreamController<Position>();
+    final StreamController<Position> controller = StreamController<Position>();
 
     // هذه مجرد طريقة للاختبار وتمثيل حركة وهمية
     Timer.periodic(Duration(seconds: 3), (timer) {

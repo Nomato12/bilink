@@ -23,7 +23,7 @@ class Message {
 
   // تحويل من Firestore إلى موديل
   factory Message.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
     return Message(
       id: doc.id,
@@ -79,27 +79,27 @@ class Chat {
   // إنشاء معرف محادثة فريد من معرفي المستخدمين
   static String createChatId(String uid1, String uid2) {
     // نرتب المعرفات بترتيب أبجدي لضمان الحصول على نفس المعرف بغض النظر عن ترتيب المستخدمين
-    List<String> ids = [uid1, uid2];
+    final List<String> ids = [uid1, uid2];
     ids.sort();
     return ids.join('_');
   }
 
   // تحويل من Firestore إلى موديل
   factory Chat.fromFirestore(DocumentSnapshot doc, String currentUserId) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
     // تحديد معرف المستخدم الآخر
-    List<String> participantIds =
+    final List<String> participantIds =
         (data['participantIds'] as List).cast<String>();
-    String otherUserId = participantIds.firstWhere(
+    final String otherUserId = participantIds.firstWhere(
       (id) => id != currentUserId,
       orElse: () => '',
     );
 
-    Map<String, dynamic> participants =
+    final Map<String, dynamic> participants =
         data['participants'] as Map<String, dynamic>;
-    String otherUserName = participants[otherUserId]?['name'] ?? 'مستخدم';
-    String? otherUserImage = participants[otherUserId]?['profileImage'];
+    final String otherUserName = participants[otherUserId]?['name'] ?? 'مستخدم';
+    final String? otherUserImage = participants[otherUserId]?['profileImage'];
 
     return Chat(
       id: doc.id,

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import '../models/message.dart';
-import '../services/chat_service.dart';
+import 'package:bilink/models/message.dart';
+import 'package:bilink/services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;

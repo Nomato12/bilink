@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import '../models/user_model.dart';
+import 'package:bilink/models/user_model.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -466,7 +466,7 @@ class AuthService extends ChangeNotifier {
       }
 
       // Create credential with the verification ID and SMS code
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+      final PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
@@ -660,6 +660,33 @@ class AuthService extends ChangeNotifier {
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // تحديث صورة الملف الشخصي
+  Future<void> updateProfileImage(String imageUrl) async {
+    try {
+      final User? user = _auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('لا يوجد مستخدم مسجل الدخول');
+      }
+      
+      // تحديث البيانات في Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'profileImageUrl': imageUrl,
+      });
+      
+      // تحديث المستخدم الحالي محليًا
+      if (_currentUser != null) {
+        _currentUser = _currentUser!.copyWith(profileImageUrl: imageUrl);
+        notifyListeners();
+      }
+      
+      print('تم تحديث صورة الملف الشخصي بنجاح');
+    } catch (e) {
+      print('خطأ أثناء تحديث صورة الملف الشخصي: $e');
+      throw e;
     }
   }
 }

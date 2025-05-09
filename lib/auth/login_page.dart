@@ -1,10 +1,10 @@
 import 'package:bilink/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'signup_page.dart';
-import '../models/home_page.dart';
+import 'package:bilink/auth/signup_page.dart';
+import 'package:bilink/models/home_page.dart';
 // Import for ClientHomePage
-import '../utils/navigation_helper.dart';
+import 'package:bilink/utils/navigation_helper.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

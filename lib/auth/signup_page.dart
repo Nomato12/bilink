@@ -1,9 +1,9 @@
 import 'package:bilink/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'login_page.dart';
-import 'phone_verification_page.dart';
-import '../models/user_model.dart';
+import 'package:bilink/auth/login_page.dart';
+import 'package:bilink/auth/phone_verification_page.dart';
+import 'package:bilink/models/user_model.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -771,7 +771,7 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     required int animationIndex,
   }) {
     // بناء حقل النموذج
-    Widget formField = Container(
+    final Widget formField = Container(
       margin: EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -319,14 +319,14 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
     // تحديث عنوان موقع الانطلاق
     if (_originLocation != null) {
       try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(
+        final List<Placemark> placemarks = await placemarkFromCoordinates(
           _originLocation!.latitude,
           _originLocation!.longitude,
           localeIdentifier: 'ar',
         );
 
         if (placemarks.isNotEmpty) {
-          Placemark place = placemarks[0];
+          final Placemark place = placemarks[0];
           _formatAddress(place).then((address) {
             setState(() {
               _originAddress = address;
@@ -341,14 +341,14 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
     // تحديث عنوان موقع الوصول
     if (_destinationLocation != null) {
       try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(
+        final List<Placemark> placemarks = await placemarkFromCoordinates(
           _destinationLocation!.latitude,
           _destinationLocation!.longitude,
           localeIdentifier: 'ar',
         );
 
         if (placemarks.isNotEmpty) {
-          Placemark place = placemarks[0];
+          final Placemark place = placemarks[0];
           _formatAddress(place).then((address) {
             setState(() {
               _destinationAddress = address;
@@ -441,7 +441,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
       return;
     }
 
-    LatLngBounds bounds = LatLngBounds(
+    final LatLngBounds bounds = LatLngBounds(
       southwest: LatLng(
         _originLocation!.latitude < _destinationLocation!.latitude
             ? _originLocation!.latitude
@@ -535,7 +535,7 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
   void _startLocationUpdates() {
     _locationUpdateTimer = Timer.periodic(Duration(seconds: 10), (timer) async {
       try {
-        Position position = await Geolocator.getCurrentPosition(
+        final Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
 

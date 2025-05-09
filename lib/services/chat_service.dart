@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
-import '../models/message.dart';
+import 'package:bilink/models/message.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -42,7 +42,7 @@ class ChatService {
         
         // البحث عن أي محادثة بها رسائل غير مقروءة
         for (var doc in snapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data();
           final unreadCount = data['unreadCount_$_userId'] ?? 0;
           if (unreadCount > 0) {
             return true;
@@ -71,7 +71,7 @@ class ChatService {
         int totalUnread = 0;
         
         for (var doc in snapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data();
           final unreadCount = (data['unreadCount_$_userId'] ?? 0) as num;
           totalUnread += unreadCount.toInt();
         }
@@ -263,7 +263,6 @@ class ChatService {
           print('Error: Receiver ID is empty');
           throw ArgumentError('Receiver ID cannot be empty');
         }
-        ;
 
         // Añadir imágenes de perfil solo si están disponibles
         if (senderImage != null && senderImage.isNotEmpty) {
@@ -275,7 +274,7 @@ class ChatService {
         }
 
         // Crear datos del chat con estructuras validadas
-        Map<String, dynamic> chatData = {
+        final Map<String, dynamic> chatData = {
           'participantIds': [_userId, receiverId],
           'participants': participants,
           'lastMessage':
@@ -356,7 +355,7 @@ class ChatService {
         final batch = _firestore.batch();
         
         for (var chatDoc in chatSnapshots.docs) {
-          final chatData = chatDoc.data() as Map<String, dynamic>;
+          final chatData = chatDoc.data();
           final unreadCount = chatData['unreadCount_$_userId'] ?? 0;
           
           // إذا كانت المحادثة تحتوي على رسائل غير مقروءة

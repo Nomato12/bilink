@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <rect width="500" height="500" fill="#f8f9fa"/>
+  <path d="M0 0h10v10H0zm20 0h10v10H20zm20 0h10v10H40zm20 0h10v10H60zm20 0h10v10H80zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10z" fill="#e9ecef"/>
+  <path d="M0 20h10v10H0zm20 0h10v10H20zm20 0h10v10H40zm20 0h10v10H60zm20 0h10v10H80zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10zm20 0h10v10h-10z" fill="#e9ecef"/>
+  <!-- Repeat for more rows -->
+</svg>

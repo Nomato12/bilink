@@ -32,7 +32,7 @@ class UserModel {
 
   // Factory constructor para crear un usuario desde un documento de Firestore
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
     return UserModel(
       uid: doc.id,
@@ -60,14 +60,15 @@ class UserModel {
     }
   }
 
-  // Convertir la enumeración a String
+  // الحصول على الدور كنص
   String get roleAsString {
     switch (role) {
+      case UserRole.client:
+        return 'client';
       case UserRole.provider:
         return 'provider';
       case UserRole.admin:
         return 'admin';
-      case UserRole.client:
       default:
         return 'client';
     }
@@ -106,7 +107,7 @@ class UserModel {
     );
   }
 
-  // Copiar el modelo con nuevos valores
+  // Copiar el modelo مع تحديث بعض الخصائص
   UserModel copyWith({
     String? uid,
     String? email,

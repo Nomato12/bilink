@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import '../screens/client_interface.dart';
-import '../screens/provider_interface.dart';
+import 'package:bilink/models/user_model.dart';
+import 'package:bilink/screens/client_interface.dart';
+import 'package:bilink/screens/provider_interface.dart';
 
 class NavigationHelper {
   // Función para navegar al usuario a la página correcta según su rol

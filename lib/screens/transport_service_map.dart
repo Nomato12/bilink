@@ -8,7 +8,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
-import 'service_details_screen.dart';
+import 'package:bilink/screens/service_details_screen.dart';
 
 class TransportServiceMapScreen extends StatefulWidget {
   const TransportServiceMapScreen({super.key});
@@ -138,7 +138,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       }
 
       // الحصول على الموقع الحالي
-      Position position = await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
@@ -174,14 +174,14 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   // جلب العنوان من الإحداثيات
   Future<void> _getAddressFromLatLng(LatLng position, bool isOrigin) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
 
       if (placemarks.isNotEmpty) {
-        Placemark place = placemarks.first;
-        String address = '${place.street}, ${place.locality}, ${place.country}';
+        final Placemark place = placemarks.first;
+        final String address = '${place.street}, ${place.locality}, ${place.country}';
 
         setState(() {
           if (isOrigin) {
@@ -207,11 +207,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         _isLoading = true;
       });
 
-      List<Location> locations = await locationFromAddress(address);
+      final List<Location> locations = await locationFromAddress(address);
 
       if (locations.isNotEmpty) {
-        Location location = locations.first;
-        LatLng position = LatLng(location.latitude, location.longitude);
+        final Location location = locations.first;
+        final LatLng position = LatLng(location.latitude, location.longitude);
 
         if (isOrigin) {
           setState(() {
@@ -320,7 +320,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     if (_originPosition != null && _destinationPosition != null) {
       final GoogleMapController controller = await _controller.future;
 
-      LatLngBounds bounds = LatLngBounds(
+      final LatLngBounds bounds = LatLngBounds(
         southwest: LatLng(
           _originPosition!.latitude < _destinationPosition!.latitude
               ? _originPosition!.latitude
@@ -502,7 +502,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
 
   // دالة فك ترميز خط المسار من استجابة Google
   List<List<double>> _decodePolyline(String encoded) {
-    List<List<double>> poly = [];
+    final List<List<double>> poly = [];
     int index = 0, len = encoded.length;
     int lat = 0, lng = 0;
 
@@ -515,7 +515,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         shift += 5;
       } while (b >= 0x20);
 
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      final int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lat += dlat;
 
       shift = 0;
@@ -527,11 +527,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         shift += 5;
       } while (b >= 0x20);
 
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      final int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lng += dlng;
 
-      double latD = lat / 1E5;
-      double lngD = lng / 1E5;
+      final double latD = lat / 1E5;
+      final double lngD = lng / 1E5;
 
       poly.add([latD, lngD]);
     }
@@ -583,9 +583,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     totalDistance = totalDistance / 1000;
 
     // تقدير وقت الرحلة (متوسط سرعة 50 كم/ساعة)
-    double timeInHours = totalDistance / 50;
-    int hours = timeInHours.floor();
-    int minutes = ((timeInHours - hours) * 60).round();
+    final double timeInHours = totalDistance / 50;
+    final int hours = timeInHours.floor();
+    final int minutes = ((timeInHours - hours) * 60).round();
 
     setState(() {
       _distance = totalDistance;
@@ -639,10 +639,10 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
               .where('isActive', isEqualTo: true)
               .get();
 
-      List<Map<String, dynamic>> services = [];
+      final List<Map<String, dynamic>> services = [];
 
       for (var doc in querySnapshot.docs) {
-        Map<String, dynamic> serviceData = doc.data();
+        final Map<String, dynamic> serviceData = doc.data();
         serviceData['id'] = doc.id;
         services.add(serviceData);
       }
@@ -661,7 +661,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       return;
     }
 
-    List<Map<String, dynamic>> servicesOnRoute = [];
+    final List<Map<String, dynamic>> servicesOnRoute = [];
 
     for (var service in _availableServices) {
       if (service.containsKey('location') &&
@@ -669,13 +669,13 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           service['location'] is Map &&
           service['location'].containsKey('latitude') &&
           service['location'].containsKey('longitude')) {
-        LatLng servicePosition = LatLng(
+        final LatLng servicePosition = LatLng(
           service['location']['latitude'],
           service['location']['longitude'],
         );
 
         // حساب المسافة من موقع الخدمة إلى نقطة البداية
-        double distanceToOrigin =
+        final double distanceToOrigin =
             Geolocator.distanceBetween(
               servicePosition.latitude,
               servicePosition.longitude,
@@ -1594,7 +1594,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     final TextEditingController controller = TextEditingController();
     final FocusNode focusNode = FocusNode();
 
-    List<String> recentAddresses = [
+    final List<String> recentAddresses = [
       'الساحة المركزية، الجزائر',
       'شاطئ سيدي فرج، الجزائر',
       'جامعة الجزائر',

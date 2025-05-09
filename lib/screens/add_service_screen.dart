@@ -8,8 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 // استيراد الخدمات المطلوبة
 
 // استيراد صفحات الخرائط
-import 'storage_location_map.dart';
-import 'driver_tracking_map.dart';
+import 'package:bilink/screens/storage_location_map.dart';
+import 'package:bilink/screens/driver_tracking_map.dart';
 
 class AddServiceScreen extends StatefulWidget {
   final Function onServiceAdded;
@@ -154,7 +154,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
       // التحقق من صحة السعر
       try {
-        double price = double.parse(_priceController.text);
+        final double price = double.parse(_priceController.text);
         if (price <= 0) {
           return false;
         }
@@ -180,13 +180,13 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         return _selectedImages.isNotEmpty && _storageLocationImages.isNotEmpty;
       } else {
         // التحقق من معلومات المركبة
-        bool hasRequiredInfo =
+        final bool hasRequiredInfo =
             _vehicleMakeController.text.isNotEmpty &&
             _vehicleYearController.text.isNotEmpty &&
             _vehiclePlateController.text.isNotEmpty;
 
         // يجب توفر صورة واحدة على الأقل
-        bool hasImages = _vehicleImages.isNotEmpty;
+        final bool hasImages = _vehicleImages.isNotEmpty;
 
         return hasRequiredInfo && hasImages;
       }
@@ -314,7 +314,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   }
 
   // فتح صفحة الخريطة المناسبة
-  void _openMapPage() async {
+  Future<void> _openMapPage() async {
     // إنشاء معرّف مؤقت للخدمة
     final tempServiceId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -459,7 +459,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       if (_selectedServiceType == 'نقل') {
         final bool isMotorcycle = _selectedVehicleType == 'دراجة نارية';
 
-        Map<String, dynamic> vehicleInfo = {
+        final Map<String, dynamic> vehicleInfo = {
           'type': _selectedVehicleType,
           'make': _vehicleMakeController.text.trim(),
           'year': _vehicleYearController.text.trim(),
@@ -489,14 +489,14 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       await docRef.update({'id': serviceId});
 
       // مصفوفات لتخزين روابط الصور المختلفة
-      List<String> imageUrls = [];
-      List<String> storageLocationImageUrls = [];
-      List<String> vehicleImageUrls = [];
+      final List<String> imageUrls = [];
+      final List<String> storageLocationImageUrls = [];
+      final List<String> vehicleImageUrls = [];
 
       // رفع الصور العامة
       if (_selectedImages.isNotEmpty) {
         for (var i = 0; i < _selectedImages.length; i++) {
-          var image = _selectedImages[i];
+          final image = _selectedImages[i];
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           // إنشاء مسار فريد لكل صورة باستخدام الوقت والـ ID
           final imageRef = FirebaseStorage.instance
@@ -530,7 +530,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       if (_selectedServiceType == 'تخزين' &&
           _storageLocationImages.isNotEmpty) {
         for (var i = 0; i < _storageLocationImages.length; i++) {
-          var image = _storageLocationImages[i];
+          final image = _storageLocationImages[i];
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final imageRef = FirebaseStorage.instance
               .ref()
@@ -561,7 +561,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       // رفع صور المركبة إذا كانت خدمة نقل
       if (_selectedServiceType == 'نقل' && _vehicleImages.isNotEmpty) {
         for (var i = 0; i < _vehicleImages.length; i++) {
-          var image = _vehicleImages[i];
+          final image = _vehicleImages[i];
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final imageRef = FirebaseStorage.instance
               .ref()
@@ -594,7 +594,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       print('إضافة الخدمة إلى قائمة خدمات المستخدم بمعرف: ${user.uid}');
 
       // إنشاء بيانات الخدمة للمستخدم
-      Map<String, dynamic> userServiceData = {
+      final Map<String, dynamic> userServiceData = {
         'serviceId': serviceId,
         'createdAt': FieldValue.serverTimestamp(),
         'title': _titleController.text.trim(),
@@ -1200,7 +1200,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                       return 'أدخل السعر';
                     }
                     try {
-                      double price = double.parse(value);
+                      final double price = double.parse(value);
                       if (price <= 0) {
                         return 'السعر يجب أن يكون أكبر من صفر';
                       }
@@ -1734,7 +1734,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   // حقول إدخال معلومات المركبة
   Widget _buildVehicleInfoInputs(Color serviceColor) {
     // تحقق مما إذا كان نوع المركبة دراجة نارية
-    bool isMotorcycle = _selectedVehicleType == 'دراجة نارية';
+    final bool isMotorcycle = _selectedVehicleType == 'دراجة نارية';
 
     return Container(
       decoration: BoxDecoration(
