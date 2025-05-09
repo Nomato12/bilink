@@ -6,8 +6,7 @@ import '../models/message.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final String _userId;
+  final FirebaseStorage _storage = FirebaseStorage.instance;  final String _userId;
 
   // مجموعات Firebase
   static const String _chatsCollection = 'chats';
@@ -16,7 +15,11 @@ class ChatService {
   // المُعرّف الفريد لإنشاء معرفات الملفات
   final _uuid = Uuid();
 
-  ChatService(this._userId);
+  ChatService(String userId) : _userId = userId {
+    if (_userId.isEmpty) {
+      print('WARNING: ChatService initialized with empty user ID');
+    }
+  }
 
   // الحصول على مجموعة المحادثات
   CollectionReference get _chats => _firestore.collection(_chatsCollection);
@@ -166,33 +169,97 @@ class ChatService {
     String? serviceId,
     String? serviceTitle,
   }) async {
-    // إنشاء معرف محادثة فريد
-    final chatId = Chat.createChatId(_userId, receiverId);
+    try {
+      // Validaciones mejoradas
+      if (_userId.isEmpty) {
+        print('ERROR: Cannot create chat with empty user ID');
+        throw ArgumentError('Current user ID cannot be empty');
+      }
 
-    // التحقق من وجود المحادثة مسبقاً
-    final chatDoc = _chats.doc(chatId);
-    final chatSnapshot = await chatDoc.get();
+      if (receiverId.isEmpty) {
+        print('ERROR: Cannot create chat with empty receiver ID');
+        throw ArgumentError('receiverId cannot be empty');
+      }
 
-    if (!chatSnapshot.exists) {
-      // إنشاء بيانات المحادثة الجديدة
-      await chatDoc.set({
-        'participantIds': [_userId, receiverId],
-        'participants': {
-          _userId: {'name': senderName, 'profileImage': senderImage},
-          receiverId: {'name': receiverName, 'profileImage': receiverImage},
-        },
-        'lastMessage': '',
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'lastSenderId': '',
-        'unreadCount_$_userId': 0,
-        'unreadCount_$receiverId': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'serviceId': serviceId,
-        'serviceTitle': serviceTitle,
-      });
+      // Asegurar que los nombres de usuario no estén vacíos
+      final validSenderName = senderName.isNotEmpty ? senderName : 'مستخدم';
+      final validReceiverName =
+          receiverName.isNotEmpty ? receiverName : 'مستخدم';
+
+      print('Creating chat between userId: $_userId and receiverId: $receiverId');
+
+      // Crear ID de chat único
+      final chatId = Chat.createChatId(_userId, receiverId);
+
+      // Check if chat already exists
+      final chatDoc = _chats.doc(chatId);
+      final chatSnapshot = await chatDoc.get();
+
+      if (!chatSnapshot.exists) {
+        // Primero, crear las estructuras de participants para evitar nulos
+        final Map<String, Map<String, dynamic>> participants = {};
+
+        // Asegurar que las claves y valores sean válidos
+        if (_userId.isNotEmpty) {
+          participants[_userId] = {'name': validSenderName};
+        } else {
+          print('Error: Current user ID is empty');
+          throw ArgumentError('Current user ID cannot be empty');
+        }
+
+        if (receiverId.isNotEmpty) {
+          participants[receiverId] = {'name': validReceiverName};
+        } else {
+          print('Error: Receiver ID is empty');
+          throw ArgumentError('Receiver ID cannot be empty');
+        }
+        ;
+
+        // Añadir imágenes de perfil solo si están disponibles
+        if (senderImage != null && senderImage.isNotEmpty) {
+          participants[_userId]!['profileImage'] = senderImage;
+        }
+
+        if (receiverImage != null && receiverImage.isNotEmpty) {
+          participants[receiverId]!['profileImage'] = receiverImage;
+        }
+
+        // Crear datos del chat con estructuras validadas
+        Map<String, dynamic> chatData = {
+          'participantIds': [_userId, receiverId],
+          'participants': participants,
+          'lastMessage':
+              ' ', // Usar un espacio en blanco en lugar de cadena vacía
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'lastSenderId':
+              _userId, // Usar el ID del usuario actual en lugar de cadena vacía
+          'unreadCount_$_userId': 0,
+          'unreadCount_$receiverId': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+
+        // Añadir información del servicio solo si está disponible
+        if (serviceId != null && serviceId.isNotEmpty) {
+          chatData['serviceId'] = serviceId;
+        }
+
+        if (serviceTitle != null && serviceTitle.isNotEmpty) {
+          chatData['serviceTitle'] = serviceTitle;
+        }
+
+        // Guardar los datos en la base de datos
+        await chatDoc.set(chatData);
+
+        print('Chat created successfully with ID: $chatId');
+      } else {
+        print('Chat already exists with ID: $chatId');
+      }
+
+      return chatId;
+    } catch (e) {
+      print('Error creating chat: $e');
+      rethrow;
     }
-
-    return chatId;
   }
 
   // تحديث حالة قراءة الرسائل

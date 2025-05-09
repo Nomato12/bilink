@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async'; // Importando dart:async para usar Timer
 import '../services/auth_service.dart';
+import '../services/chat_service.dart'; // Añadir importación de chat_service
+import 'chat_screen.dart'; // Añadir importación de chat_screen
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -1021,8 +1023,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     );
   }
 
-  // Widget para información del proveedor
+  // Widget لعرض معلومات مزود الخدمة
   Widget _buildProviderInfo(Map<String, dynamic>? providerInfo) {
+    // الحصول على معرف مقدم الخدمة من بيانات الخدمة
+    final String providerId =
+        _serviceData?['providerId'] ?? _serviceData?['userId'] ?? '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1052,7 +1058,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           ),
           child: Row(
             children: [
-              // Avatar del proveedor
+              // صورة مزود الخدمة
               Container(
                 width: 60,
                 height: 60,
@@ -1066,7 +1072,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
               SizedBox(width: 16),
 
-              // Información del proveedor
+              // معلومات مزود الخدمة
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1092,23 +1098,68 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.phone, size: 16, color: Colors.green),
-                        SizedBox(width: 4),
-                        Text(
-                          'اتصال',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
+                        // زر الاتصال
+                        InkWell(
+                          onTap: () {
+                            // التحقق من وجود رقم هاتف لمزود الخدمة
+                            if (providerInfo != null &&
+                                providerInfo['phoneNumber'] != null &&
+                                providerInfo['phoneNumber']
+                                    .toString()
+                                    .isNotEmpty) {
+                              _callProvider(providerInfo['phoneNumber']);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('رقم الهاتف غير متوفر')),
+                              );
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Icon(Icons.phone, size: 16, color: Colors.green),
+                              SizedBox(width: 4),
+                              Text(
+                                'اتصال',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         SizedBox(width: 16),
-                        Icon(Icons.message, size: 16, color: Colors.blue),
-                        SizedBox(width: 4),
-                        Text(
-                          'رسالة',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
+                        // زر المراسلة
+                        InkWell(
+                          onTap: () {
+                            // التحقق من وجود معرف مزود الخدمة
+                            if (providerId.isNotEmpty) {
+                              _startChat(
+                                providerId,
+                                providerInfo?['fullName'] ?? 'مزود الخدمة',
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'غير قادر على بدء محادثة مع هذا المزود',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Icon(Icons.message, size: 16, color: Colors.blue),
+                              SizedBox(width: 4),
+                              Text(
+                                'رسالة',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1117,7 +1168,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 ),
               ),
 
-              // Indicador de verificación
+              // مؤشر التحقق
               if (providerInfo != null && providerInfo['isVerified'] == true)
                 Container(
                   padding: EdgeInsets.all(8),
@@ -1132,6 +1183,124 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         ),
       ],
     );
+  }
+
+  // دالة للاتصال بمزود الخدمة
+  void _callProvider(String phoneNumber) async {
+    final url = 'tel:$phoneNumber';
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('لا يمكن الاتصال بالرقم')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء محاولة الاتصال')));
+    }
+  }
+
+  // دالة لبدء محادثة مع مزود الخدمة
+  void _startChat(String providerId, String providerName) async {
+    try {
+      // التحقق من تسجيل دخول المستخدم
+      final authService = Provider.of<AuthService>(context, listen: false);
+      if (authService.currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('يجب تسجيل الدخول للتواصل مع مزود الخدمة'),
+            action: SnackBarAction(
+              label: 'تسجيل الدخول',
+              onPressed: () {
+                // توجيه المستخدم لصفحة تسجيل الدخول
+                Navigator.pushNamed(context, '/login');
+              },
+            ),
+          ),
+        );
+        return;
+      }      // تحضير البيانات اللازمة لإنشاء محادثة
+      final currentUser = authService.currentUser!;
+      
+      // Verificación adicional del UID del usuario
+      if (currentUser.uid.isEmpty) {
+        print('Error: current user ID is empty, reloading user data');
+        // Intentar recargar los datos del usuario
+        await authService.checkPreviousLogin();
+        
+        // Verificar si el usuario ahora es válido
+        if (authService.currentUser == null || authService.currentUser!.uid.isEmpty) {
+          // Si después de recargar sigue siendo nulo o vacío, intentar cerrar sesión y volver a iniciarla
+          print('ERROR: User ID still empty after reload, forcing logout');
+          await authService.logout();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('خطأ في بيانات المستخدم. الرجاء إعادة تسجيل الدخول'),
+              action: SnackBarAction(
+                label: 'تسجيل الدخول',
+                onPressed: () {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                },
+              ),
+            ),
+          );
+          return;
+        }
+      }
+      
+      final serviceId = _serviceData?['id'] ?? '';
+      final serviceTitle = _serviceData?['title'] ?? 'خدمة';
+      
+      // Verificar que el UID del usuario no esté vacío antes de iniciar el chat
+      final String userIdForChat = authService.currentUser!.uid;
+      if (userIdForChat.isEmpty) {
+        print('ERROR: Cannot create chat service - User ID is still empty after reload');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('لا يمكن بدء المحادثة. الرجاء إعادة تسجيل الدخول وحاول مرة أخرى')),
+        );
+        return;
+      }
+      
+      print('Creating chat service with user ID: $userIdForChat');
+      final chatService = ChatService(userIdForChat);
+
+      // إنشاء محادثة جديدة أو استخدام محادثة موجودة
+      final chatId = await chatService.createChat(
+        receiverId: providerId,
+        receiverName: providerName.isNotEmpty ? providerName : 'مقدم الخدمة',
+        senderName:
+            currentUser.fullName.isNotEmpty ? currentUser.fullName : 'مستخدم',
+        serviceId: serviceId,
+        serviceTitle: serviceTitle,
+      );
+
+      // فتح شاشة الدردشة
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ChatScreen(
+                  chatId: chatId,
+                  otherUserId: providerId, // Corrected parameter name
+                  otherUserName: providerName, // Corrected parameter name
+                  serviceId: serviceId,
+                  serviceTitle: serviceTitle,
+                ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error starting chat: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء محاولة بدء المحادثة: ${e.toString()}'),
+        ),
+      );
+    }
   }
 
   // Fila para información en formato clave-valor

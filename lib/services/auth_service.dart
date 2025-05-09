@@ -86,7 +86,14 @@ class AuthService extends ChangeNotifier {
         }
 
         // Si todo está correcto, actualizar la información y cargar datos del usuario
+        print('User found in Firebase Auth, fetching data from Firestore: ${user.uid}');
         await _fetchUserData(user.uid);
+        
+        // Verificación adicional para asegurar que obtuvimos los datos correctamente
+        if (_currentUser == null || _currentUser!.uid.isEmpty) {
+          print('ERROR: Failed to load user data from Firestore');
+          return false;
+        }
 
         // Actualizar timestamp de inicio de sesión
         await _updateLoginTimestamp();
@@ -128,6 +135,15 @@ class AuthService extends ChangeNotifier {
   // Método para cargar los datos del usuario desde Firestore
   Future<void> _fetchUserData(String uid) async {
     try {
+      if (uid.isEmpty) {
+        print('ERROR: Attempting to fetch user data with empty UID');
+        errorMessage = 'معرف المستخدم غير صحيح';
+        notifyListeners();
+        return;
+      }
+      
+      print('Fetching user data for UID: $uid');
+      
       // Obtener los datos del usuario desde Firestore
       final DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(uid).get();
@@ -137,10 +153,18 @@ class AuthService extends ChangeNotifier {
         // Convertir los datos a un mapa
         final Map<String, dynamic> userData =
             userDoc.data() as Map<String, dynamic>;
+            
+        // Asegurar que el userData contenga el uid del documento
+        if (!userData.containsKey('uid') || userData['uid'] == null || userData['uid'].toString().isEmpty) {
+          print('Adding uid to user data from Firestore document ID: $uid');
+          userData['uid'] = uid;
+        }
 
         // Crear una instancia de UserModel con los datos obtenidos
         _currentUser = UserModel.fromMap(userData);
-
+        
+        print('User data loaded successfully for: ${_currentUser!.fullName} (${_currentUser!.uid})');
+        
         // Notificar a los listeners sobre el cambio de estado
         notifyListeners();
       } else {
@@ -152,7 +176,7 @@ class AuthService extends ChangeNotifier {
         if (authUser != null) {
           // Crear un modelo básico con la información disponible
           _currentUser = UserModel(
-            uid: authUser.uid,
+            uid: authUser.uid, // Usar el UID de Firebase Auth
             email: authUser.email ?? '',
             fullName: authUser.displayName ?? '',
             phoneNumber: authUser.phoneNumber ?? '',
@@ -160,11 +184,16 @@ class AuthService extends ChangeNotifier {
             isPhoneVerified: authUser.phoneNumber != null,
           );
 
-          // Opcionalmente, guardar estos datos básicos en Firestore
+          // Asegurar que el UID se incluya en el mapa de datos para Firestore
+          final userData = _currentUser!.toMap();
+          userData['uid'] = authUser.uid; // Añadir el UID explícitamente al mapa
+          
+          // Guardar estos datos básicos en Firestore
+          print('Creating new user document in Firestore with UID: ${authUser.uid}');
           await _firestore
               .collection('users')
               .doc(uid)
-              .set(_currentUser!.toMap());
+              .set(userData);
 
           notifyListeners();
         }
