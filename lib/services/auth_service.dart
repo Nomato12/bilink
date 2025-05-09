@@ -686,7 +686,7 @@ class AuthService extends ChangeNotifier {
       print('تم تحديث صورة الملف الشخصي بنجاح');
     } catch (e) {
       print('خطأ أثناء تحديث صورة الملف الشخصي: $e');
-      throw e;
+      rethrow;
     }
   }
 }

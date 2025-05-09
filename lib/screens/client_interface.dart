@@ -16,6 +16,7 @@ import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/widgets/notification_badge.dart';
 import 'package:bilink/models/home_page.dart';
 import 'package:bilink/screens/chat_list_screen.dart';
+import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -30,11 +31,15 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   List<Map<String, dynamic>> _servicesList = [];
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
+  int _currentImageIndex = 0;
   
-  // الألوان الأساسية
-  final Color _primaryColor = const Color(0xFF1A237E); // لون أزرق داكن 
-  final Color _secondaryColor = const Color(0xFFFF6F00); // لون برتقالي للتباين
-  final Color _accentColor = const Color(0xFF4A148C); // لون أرجواني للتفاصيل
+  // الألوان الأساسية - نظام ألوان متناسق للخدمات اللوجستية
+  final Color _primaryColor = const Color(0xFF0B3D91); // لون أزرق بحري عميق يرمز للموثوقية والاحترافية
+  final Color _secondaryColor = const Color(0xFFFF5722); // لون برتقالي ناري يرمز للطاقة والحركة
+  final Color _accentColor = const Color(0xFF00838F); // لون أزرق مخضر يرمز للابتكار والاستدامة
+  final Color _lightBlue = const Color(0xFF4FC3F7); // لون أزرق فاتح للتفاصيل الخفيفة
+  final Color _deepOrange = const Color(0xFFE64A19); // لون برتقالي داكن للتأكيدات المهمة
+  final Color _amber = const Color(0xFFFFB300); // لون كهرماني للتنبيهات والعناصر البارزة
 
   // فلاتر البحث
   String _selectedRegion = 'الكل';
@@ -205,33 +210,98 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                   ),
                 ),
               ),
-            ),
-            
-            // رأس الصفحة المنحني مع الخلفية المتدرجة
+            ),              // رأس الصفحة المنحني مع الخلفية المتدرجة وزخارف لوجستية
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              height: screenSize.height * 0.3,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                    colors: [_primaryColor, _accentColor],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(35),
-                    bottomRight: Radius.circular(35),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _primaryColor.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+              height: screenSize.height * 0.32,
+              child: Stack(
+                children: [
+                  // الخلفية الرئيسية مع تدرج لوني متطور
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                        colors: [
+                          _primaryColor,
+                          _primaryColor.withOpacity(0.9),
+                          _accentColor.withOpacity(0.8),
+                        ],
+                        stops: const [0.2, 0.6, 1.0],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(40),
+                        bottomRight: Radius.circular(40),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryColor.withOpacity(0.4),
+                          blurRadius: 25,
+                          offset: const Offset(0, 12),
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  
+                  // زخارف لوجستية - خطوط متقطعة تشبه مسارات الشحن
+                  Positioned(
+                    top: 20,
+                    right: -50,
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(90),
+                      ),
+                      child: CustomPaint(
+                        painter: LogisticsPathPainter(
+                          pathColor: Colors.white.withOpacity(0.15),
+                          dotColor: _lightBlue.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // زخرفة دائرية في الأسفل
+                  Positioned(
+                    bottom: -30,
+                    left: -20,
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            _secondaryColor.withOpacity(0.1),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.5, 1.0],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: CustomPaint(
+                        painter: CircleWavePainter(
+                          color: _secondaryColor.withOpacity(0.2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // زخرفة نقاط متصلة تشبه شبكة لوجستية
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: LogisticsNetworkPainter(
+                        dotColor: Colors.white.withOpacity(0.3),
+                        lineColor: Colors.white.withOpacity(0.1),
+                        dotCount: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             
@@ -252,10 +322,9 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       centerTitle: true,
                       title: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(  // Added Flexible to prevent overflow
+                        children: [                              Flexible(  // Added Flexible to prevent overflow
                             child: Text(
-                              'الخدمات اللوجستية',
+                              'الخدمات',
                               style: GoogleFonts.cairo(
                                 textStyle: const TextStyle(
                                   color: Colors.white,
@@ -419,13 +488,14 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                               ),
                             ),
                           ),
-                          // شعار الخدمات اللوجستية
+                          // شعار الخدمات
                           Align(
                             alignment: Alignment.center,
                             child: Padding(
-                              padding: EdgeInsets.only(bottom: 80),
+                              padding: EdgeInsets.only(bottom: 60), // تقليل التباعد السفلي من 80 الى 60
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min, // اضافة لضمان أن يأخذ العمود أقل حجم ممكن
                                 children: [
                                   Consumer<AuthService>(
                                     builder: (context, authService, _) {
@@ -437,7 +507,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                             user?.fullName ?? 'مرحباً بك',
                                             style: TextStyle(
                                               color: Colors.white,
-                                              fontSize: 22,
+                                              fontSize: 20, // تقليل حجم الخط من 22 الى 20
                                               fontWeight: FontWeight.bold,
                                               shadows: [
                                                 Shadow(
@@ -456,20 +526,20 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                               fontSize: 14,
                                             ),
                                           ),
-                                          SizedBox(height: 20),
+                                          SizedBox(height: 10), // تقليل المساحة من 20 الى 10
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
                                               SvgPicture.asset(
                                                 'assets/images/truck.svg',
-                                                width: 35,
-                                                height: 35,
+                                                width: 30,
+                                                height: 30, // تقليل حجم الأيقونة
                                                 colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                                               ),
-                                              const SizedBox(width: 15),
+                                              const SizedBox(width: 10), // تقليل المسافة بين الأيقونات
                                               SvgPicture.asset(
                                                 'assets/images/warehouse.svg',
-                                                width: 35,
+                                                width: 30, // تقليل حجم الأيقونة
                                                 height: 35,
                                                 colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                                               ),
@@ -623,8 +693,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           }
         },
         backgroundColor: _secondaryColor,
-        child: const Icon(Icons.map),
         tooltip: 'عرض الخريطة',
+        child: const Icon(Icons.map),
       ),
     );
   }
@@ -925,7 +995,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء بطاقة خدمة بتصميم عصري
+  // بناء بطاقة خدمة بتصميم عصري للخدمات اللوجستية
   Widget _buildModernServiceCard(Map<String, dynamic> service) {
     final String title = service['title'] ?? 'خدمة بدون عنوان';
     final String type = service['type'] ?? 'غير محدد';
@@ -934,25 +1004,55 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
     
-    // معالجة الصور لخدمات النقل
-    List<dynamic> imageUrls = service['imageUrls'] ?? [];
-    if (type == 'نقل' &&
-        (imageUrls.isEmpty ||
-            (imageUrls.length == 1 &&
-                (imageUrls[0] == null || imageUrls[0].toString().isEmpty)))) {
-      if (service['vehicle'] != null &&
-          service['vehicle'] is Map &&
-          (service['vehicle'] as Map).containsKey('imageUrls')) {
+    // معالجة الصور لجميع الخدمات
+    List<dynamic> imageUrls = [];
+    
+    // جلب جميع الصور المتاحة للخدمة
+    if (service['imageUrls'] != null && service['imageUrls'] is List) {
+      imageUrls = List<dynamic>.from(service['imageUrls']);
+    }
+    
+    // Debug print for service images
+    print('ClientInterface: Service ${service['id']} has ${imageUrls.length} images: $imageUrls');
+    
+    // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
+    if (type == 'نقل' && service['vehicle'] != null && service['vehicle'] is Map) {
+      if ((service['vehicle'] as Map).containsKey('imageUrls')) {
         final vehicleImgs = service['vehicle']['imageUrls'];
         if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
-          imageUrls = vehicleImgs;
+          // إضافة صور المركبة إلى قائمة الصور الحالية
+          for (var img in vehicleImgs) {
+            if (!imageUrls.contains(img)) {
+              imageUrls.add(img);
+            }
+          }
+          print('ClientInterface: Added vehicle images, total now: ${imageUrls.length} images');
         }
       }
     }
     
+    // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
+    if (type == 'تخزين' && service['storageLocationImageUrls'] != null) {
+      final locationImgs = service['storageLocationImageUrls'];
+      if (locationImgs is List && locationImgs.isNotEmpty) {
+        // إضافة صور موقع التخزين إلى قائمة الصور الحالية
+        for (var img in locationImgs) {
+          if (!imageUrls.contains(img)) {
+            imageUrls.add(img);
+          }
+        }
+        print('ClientInterface: Added storage location images, total now: ${imageUrls.length} images');
+      }
+    }
+    
     final String description = service['description'] ?? '';
-    final Color typeColor = type == 'تخزين' ? _primaryColor : _secondaryColor;
-    final IconData typeIcon = type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;
+    
+    // ألوان مخصصة لكل نوع خدمة
+    final bool isStorage = type == 'تخزين';
+    final Color typeColor = isStorage ? _accentColor : _deepOrange;
+    final Color typeGradientStart = isStorage ? _accentColor : _secondaryColor;
+    final Color typeGradientEnd = isStorage ? _accentColor.withOpacity(0.7) : _deepOrange;
+    final IconData typeIcon = isStorage ? Icons.warehouse_outlined : Icons.local_shipping_outlined;
     
     return Material(
       color: Colors.transparent,
@@ -973,11 +1073,21 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
+                color: typeColor.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 3),
               ),
             ],
+            border: Border.all(
+              color: typeColor.withOpacity(0.08),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1001,18 +1111,28 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                         ),
                       ),
                       child: imageUrls.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: imageUrls[0],
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => SpinKitPulse(
-                                color: typeColor,
-                                size: 30,
-                              ),
-                              errorWidget: (context, url, error) => Icon(
-                                typeIcon,
-                                size: 60,
-                                color: Colors.grey[400],
-                              ),
+                          ? PageView.builder(
+                              itemCount: imageUrls.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentImageIndex = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return CachedNetworkImage(
+                                  imageUrl: imageUrls[index],
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => SpinKitPulse(
+                                    color: typeColor,
+                                    size: 30,
+                                  ),
+                                  errorWidget: (context, url, error) => Icon(
+                                    typeIcon,
+                                    size: 60,
+                                    color: Colors.grey[400],
+                                  ),
+                                );
+                              },
                             )
                           : Icon(
                               typeIcon,
@@ -1042,15 +1162,40 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  // شريط نوع الخدمة
+                  // مؤشرات الصفحات (Page Indicators)
+                  if (imageUrls.length > 1)
+                    Positioned(
+                      bottom: 10,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          imageUrls.length,
+                          (index) => Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(
+                                index == _currentImageIndex ? 0.9 : 0.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  // شريط نوع الخدمة بتصميم عصري
                   Positioned(
                     top: 15,
                     left: 15,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [typeColor, typeColor.withOpacity(0.7)],
+                          colors: [typeGradientStart, typeGradientEnd],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1065,15 +1210,16 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       ),
                       child: Row(
                         children: [
-                          Icon(typeIcon, color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
+                          Icon(typeIcon, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
                           Text(
                             type,
                             style: GoogleFonts.cairo(
                               textStyle: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 13,
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ),
@@ -1082,13 +1228,16 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  // شريط التقييم
+                  // شريط التقييم بتصميم عصري
                   if (reviewCount > 0)
                     Positioned(
                       top: 15,
                       right: 15,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
@@ -1099,27 +1248,31 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                               offset: const Offset(0, 2),
                             ),
                           ],
+                          border: Border.all(
+                            color: _amber.withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.star, color: Colors.amber, size: 14),
-                            const SizedBox(width: 3),
+                            Icon(Icons.star_rounded, color: _amber, size: 16),
+                            const SizedBox(width: 4),
                             Text(
                               rating.toStringAsFixed(1),
                               style: GoogleFonts.cairo(
                                 textStyle: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 1),
+                            const SizedBox(width: 2),
                             Text(
                               '($reviewCount)',
                               style: GoogleFonts.cairo(
                                 textStyle: TextStyle(
                                   color: Colors.grey[600],
-                                  fontSize: 10,
+                                  fontSize: 11,
                                 ),
                               ),
                             ),
@@ -1156,12 +1309,67 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                 ],
               ),
               
-              // معلومات الخدمة
+              // معلومات الخدمة بتصميم عصري
               Padding(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // المنطقة والسعر
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildInfoChip(
+                          Icons.location_on_outlined,
+                          region,
+                          _accentColor,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                typeGradientStart.withOpacity(0.8),
+                                typeGradientEnd.withOpacity(0.9),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: typeColor.withOpacity(0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '$price ${service["currency"] ?? "دينار جزائري"}',
+                            style: GoogleFonts.cairo(
+                              textStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    
+                    // تفاصيل إضافية
+                    Row(
+                      children: [
+                        _buildInfoChip(Icons.attach_money, '$price', Colors.green[700]!),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    
                     // الوصف المختصر
                     Text(
                       description,
@@ -1175,50 +1383,39 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 10),
                     
-                    // تفاصيل إضافية
-                    Row(
-                      children: [
-                        _buildInfoChip(Icons.location_on, region, Colors.blue[700]!),
-                        const SizedBox(width: 10),
-                        _buildInfoChip(Icons.attach_money, '$price', Colors.green[700]!),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    // زر العرض
+                    // زر العرض بتصميم عصري
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ServiceDetailsScreen(
-                                serviceId: service['id'],
-                              ),
+                              builder: (context) => ServiceDetailsScreen(serviceId: service['id']),
                             ),
                           );
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: typeColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                        icon: Icon(
+                          type == 'تخزين' ? Icons.warehouse_outlined : Icons.local_shipping_outlined,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'عرض التفاصيل',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
-                        child: Text(
-                          'عرض التفاصيل',
-                          style: GoogleFonts.cairo(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: typeColor,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 2,
+                          shadowColor: typeColor.withOpacity(0.4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),

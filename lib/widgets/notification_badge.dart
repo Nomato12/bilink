@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class NotificationBadge extends StatelessWidget {
   final int count;
   
-  const NotificationBadge({Key? key, required this.count}) : super(key: key);
+  const NotificationBadge({super.key, required this.count});
   
   @override
   Widget build(BuildContext context) {

@@ -8,6 +8,10 @@ import 'dart:async'; // Importando dart:async para usar Timer
 import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/services/chat_service.dart'; // Añadir importación de chat_service
 import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de chat_screen
+import 'package:flutter/services.dart'; // للتحكم بوضع الشاشة الكاملة
+import 'package:photo_view/photo_view.dart'; // لعرض الصور بشكل تفاعلي
+import 'package:photo_view/photo_view_gallery.dart'; // لعرض معرض الصور
+import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -59,10 +63,14 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _timer;
-
   @override
   void initState() {
     super.initState();
+
+    // Debug: Print received image URLs
+    print(
+      "CustomImageCarousel received ${widget.imageUrls.length} images: ${widget.imageUrls}",
+    );
 
     // Configurar el controlador si se proporciona
     if (widget.controller != null) {
@@ -76,6 +84,27 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
     if (widget.autoPlay && widget.imageUrls.length > 1) {
       _startAutoPlay();
     }
+  }
+  
+  // فتح عارض الصور بملء الشاشة
+  void _openFullScreenImageViewer(BuildContext context, int index) {
+    // إيقاف التشغيل التلقائي مؤقتًا عند فتح الصورة بملء الشاشة
+    _timer?.cancel();
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageViewer(
+          imageUrls: widget.imageUrls,
+          initialIndex: index,
+        ),
+      ),
+    ).then((_) {
+      // إعادة تشغيل التشغيل التلقائي بعد العودة من عرض الشاشة الكاملة
+      if (widget.autoPlay && widget.imageUrls.length > 1) {
+        _startAutoPlay();
+      }
+    });
   }
 
   void _startAutoPlay() {
@@ -137,6 +166,11 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    // Debug print showing how many images the carousel has
+    print(
+      'CustomImageCarousel build with ${widget.imageUrls.length} images: ${widget.imageUrls}',
+    );
+
     return SizedBox(
       height: widget.height,
       child: Stack(
@@ -156,42 +190,49 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
             },
             itemBuilder: (context, index) {
               final imageUrl = widget.imageUrls[index];
-              return CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                placeholder:
-                    (context, url) => Container(
-                      color: Colors.grey[300],
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFF9B59B6),
+              print('Building image at index $index: $imageUrl');
+              return GestureDetector(
+                onTap: () => _openFullScreenImageViewer(context, index),
+                child: Hero(
+                  tag: 'image-$imageUrl',
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    placeholder:
+                        (context, url) => Container(
+                          color: Colors.grey[300],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF9B59B6),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                errorWidget:
-                    (context, url, error) => Container(
-                      color: Colors.grey[300],
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 40,
-                              color: Colors.red,
+                    errorWidget:
+                        (context, url, error) => Container(
+                          color: Colors.grey[300],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 40,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'خطأ في تحميل الصورة',
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ],
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              'خطأ في تحميل الصورة',
-                              style: TextStyle(color: Colors.grey[700]),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                  ),
+                ),
               );
             },
           ),
@@ -291,7 +332,7 @@ class ServiceDetailsScreen extends StatefulWidget {
 class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _serviceData;
-  int _currentImageIndex = 0;
+  final int _currentImageIndex = 0;
   final CustomCarouselController _carouselController =
       CustomCarouselController();
 
@@ -358,6 +399,17 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           }
         }
 
+        // Print debug information for imageUrls
+        if (data.containsKey('imageUrls')) {
+          print(
+            'ServiceDetailsScreen: Service ${widget.serviceId} has ${(data['imageUrls'] as List?)?.length ?? 0} images: ${data['imageUrls']}',
+          );
+        } else {
+          print(
+            'ServiceDetailsScreen: Service ${widget.serviceId} has no imageUrls field',
+          );
+        }
+
         setState(() {
           _serviceData = data;
           _isLoading = false;
@@ -389,12 +441,14 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(_serviceData?['title'] ?? 'تفاصيل الخدمة',
+        title: Text(
+          _serviceData?['title'] ?? 'تفاصيل الخدمة',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -415,43 +469,51 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 60, height: 60,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
-                      strokeWidth: 3,
+      body:
+          _isLoading
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF8B5CF6),
+                        ),
+                        strokeWidth: 3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'جاري تحميل تفاصيل الخدمة...',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF8B5CF6),
+                    const SizedBox(height: 20),
+                    Text(
+                      'جاري تحميل تفاصيل الخدمة...',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF8B5CF6),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )
-          : _buildServiceDetails(),
-      floatingActionButton: _serviceData != null ? FloatingActionButton.extended(
-        onPressed: () => _showRequestServiceDialog(),
-        backgroundColor: Color(0xFF8B5CF6),
-        icon: const Icon(Icons.send_rounded),
-        label: const Text(
-          'طلب الخدمة',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        elevation: 3,
-      ) : null,
+                  ],
+                ),
+              )
+              : _buildServiceDetails(),
+      floatingActionButton:
+          _serviceData != null
+              ? FloatingActionButton.extended(
+                onPressed: () => _showRequestServiceDialog(),
+                backgroundColor: Color(0xFF8B5CF6),
+                icon: const Icon(Icons.send_rounded),
+                label: const Text(
+                  'طلب الخدمة',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                elevation: 3,
+              )
+              : null,
     );
   }
+
   Widget _buildServiceDetails() {
     final type = _serviceData!['type'] ?? 'غير محدد';
     final region = _serviceData!['region'] ?? 'غير محدد';
@@ -460,7 +522,57 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     final currency = _serviceData!['currency'] ?? 'دينار جزائري';
     final rating = (_serviceData!['rating'] as num?)?.toDouble() ?? 0.0;
     final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;
-    final List<dynamic> imageUrls = _serviceData!['imageUrls'] ?? [];
+    
+    // جمع جميع الصور المتاحة للخدمة
+    List<dynamic> imageUrls = [];
+    
+    // إضافة الصور الرئيسية للخدمة
+    if (_serviceData!['imageUrls'] != null && _serviceData!['imageUrls'] is List) {
+      imageUrls = List<dynamic>.from(_serviceData!['imageUrls']);
+    }
+    
+    // Debug print to check image URLs before conversion
+    print(
+      'Service ${widget.serviceId} has ${imageUrls.length} main images: $imageUrls',
+    );
+    
+    // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
+    if (type == 'نقل' && _serviceData!['vehicle'] != null && _serviceData!['vehicle'] is Map) {
+      if ((_serviceData!['vehicle'] as Map).containsKey('imageUrls')) {
+        final vehicleImgs = _serviceData!['vehicle']['imageUrls'];
+        if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
+          // إضافة صور المركبة إلى قائمة الصور الحالية
+          for (var img in vehicleImgs) {
+            if (!imageUrls.contains(img)) {
+              imageUrls.add(img);
+            }
+          }
+          print('ServiceDetailsScreen: Added vehicle images, total now: ${imageUrls.length} images');
+        }
+      }
+    }
+    
+    // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
+    if (type == 'تخزين' && _serviceData!['storageLocationImageUrls'] != null) {
+      final locationImgs = _serviceData!['storageLocationImageUrls'];
+      if (locationImgs is List && locationImgs.isNotEmpty) {
+        // إضافة صور موقع التخزين إلى قائمة الصور الحالية
+        for (var img in locationImgs) {
+          if (!imageUrls.contains(img)) {
+            imageUrls.add(img);
+          }
+        }
+        print('ServiceDetailsScreen: Added storage location images, total now: ${imageUrls.length} images');
+      }
+    }
+    
+    // Additional debug print to check the type of each URL in the list
+    if (imageUrls.isNotEmpty) {
+      print('First image URL type: ${imageUrls[0].runtimeType}');
+      for (var url in imageUrls) {
+        print('Image URL: $url (${url.runtimeType})');
+      }
+    }
 
     // Extract location and vehicle information
     final Map<String, dynamic>? locationInfo =
@@ -481,9 +593,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
     final typeColor = type == 'تخزين' ? Color(0xFF3B82F6) : Color(0xFFEF4444);
     final typeIcon = type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;
-    final gradientColors = type == 'تخزين' 
-      ? [Color(0xFF3B82F6), Color(0xFF2563EB)] 
-      : [Color(0xFFEF4444), Color(0xFFDC2626)];
+    final gradientColors =
+        type == 'تخزين'
+            ? [Color(0xFF3B82F6), Color(0xFF2563EB)]
+            : [Color(0xFFEF4444), Color(0xFFDC2626)];
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
@@ -493,55 +606,41 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           child: Stack(
             children: [
               // Main image or placeholder
-              Container(
+              SizedBox(
                 height: 350,
                 width: double.infinity,
-                child: imageUrls.isNotEmpty
-                    ? Hero(
-                        tag: 'service-image-${widget.serviceId}',
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrls[0].toString(),
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+                child:
+                    imageUrls.isNotEmpty
+                        ? Hero(
+                          tag: 'service-image-${widget.serviceId}',
+                          child: CustomImageCarousel(
+                            imageUrls:
+                                imageUrls.map((url) => url.toString()).toList(),
+                            height: 350,
+                            controller: _carouselController,
+                            onPageChanged: (index) {
+                              setState(() {
+                                // يمكن تحديث مؤشر الصورة هنا إذا رغبت
+                              });
+                            },
+                          ),
+                        )
+                        : Container(
+                          color: Colors.grey[200],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(typeIcon, size: 80, color: Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'لا توجد صورة متاحة',
+                                style: TextStyle(color: Colors.grey[600]),
                               ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(typeIcon, size: 80, color: Colors.grey[400]),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'لا توجد صورة متاحة',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
+                            ],
                           ),
                         ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(typeIcon, size: 80, color: Colors.grey[400]),
-                            const SizedBox(height: 8),
-                            Text(
-                              'لا توجد صورة متاحة',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
               ),
-              
+
               // Gradient overlay
               Positioned(
                 bottom: 0,
@@ -561,13 +660,16 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   ),
                 ),
               ),
-              
+
               // Service type badge
               Positioned(
                 top: 100,
                 left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: gradientColors,
@@ -600,14 +702,17 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   ),
                 ),
               ),
-              
+
               // Rating badge
               if (reviewCount > 0)
                 Positioned(
                   top: 100,
                   right: 16,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
@@ -642,7 +747,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     ),
                   ),
                 ),
-                
+
               // Service title at the bottom
               Positioned(
                 bottom: 20,
@@ -669,7 +774,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.white.withOpacity(0.9)),
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           region,
@@ -679,7 +788,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.attach_money, size: 16, color: Colors.white.withOpacity(0.9)),
+                        Icon(
+                          Icons.attach_money,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           '$price $currency',
@@ -694,21 +807,28 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   ],
                 ),
               ),
-              
+
               // Multiple images indicator
               if (imageUrls.length > 1)
                 Positioned(
                   bottom: 80,
                   right: 16,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.photo_library, color: Colors.white, size: 14),
+                        const Icon(
+                          Icons.photo_library,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           '${imageUrls.length} صور',
@@ -724,7 +844,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             ],
           ),
         ),
-        
+
         // Content Sections
         SliverToBoxAdapter(
           child: Container(
@@ -757,30 +877,35 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Provider Info Section
-                _buildSectionTitle('معلومات مزود الخدمة', Icons.person_outlined),
+                _buildSectionTitle(
+                  'معلومات مزود الخدمة',
+                  Icons.person_outlined,
+                ),
                 const SizedBox(height: 12),
                 _buildProviderCard(providerInfo),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Service Details Section
                 _buildSectionTitle(
                   type == 'تخزين' ? 'معلومات مكان التخزين' : 'معلومات المركبة',
-                  type == 'تخزين' ? Icons.warehouse_outlined : Icons.local_shipping_outlined,
+                  type == 'تخزين'
+                      ? Icons.warehouse_outlined
+                      : Icons.local_shipping_outlined,
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Service Details Card
                 if (type == 'تخزين') ...[
                   _buildStorageDetailsCard(locationInfo),
                 ] else if (type == 'نقل' && vehicleInfo != null) ...[
                   _buildVehicleDetailsCard(vehicleInfo, locationInfo),
                 ],
-                
+
                 // Add extra space at the bottom for the floating action button
                 const SizedBox(height: 80),
               ],
@@ -1273,23 +1398,26 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           ),
         );
         return;
-      }      // تحضير البيانات اللازمة لإنشاء محادثة
+      } // تحضير البيانات اللازمة لإنشاء محادثة
       final currentUser = authService.currentUser!;
-      
+
       // Verificación adicional del UID del usuario
       if (currentUser.uid.isEmpty) {
         print('Error: current user ID is empty, reloading user data');
         // Intentar recargar los datos del usuario
         await authService.checkPreviousLogin();
-        
+
         // Verificar si el usuario ahora es válido
-        if (authService.currentUser == null || authService.currentUser!.uid.isEmpty) {
+        if (authService.currentUser == null ||
+            authService.currentUser!.uid.isEmpty) {
           // Si después de recargar sigue siendo nulo o vacío, intentar cerrar sesión y volver a iniciarla
           print('ERROR: User ID still empty after reload, forcing logout');
           await authService.logout();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('خطأ في بيانات المستخدم. الرجاء إعادة تسجيل الدخول'),
+              content: Text(
+                'خطأ في بيانات المستخدم. الرجاء إعادة تسجيل الدخول',
+              ),
               action: SnackBarAction(
                 label: 'تسجيل الدخول',
                 onPressed: () {
@@ -1301,20 +1429,26 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           return;
         }
       }
-      
+
       final serviceId = _serviceData?['id'] ?? '';
       final serviceTitle = _serviceData?['title'] ?? 'خدمة';
-      
+
       // Verificar que el UID del usuario no esté vacío antes de iniciar el chat
       final String userIdForChat = authService.currentUser!.uid;
       if (userIdForChat.isEmpty) {
-        print('ERROR: Cannot create chat service - User ID is still empty after reload');
+        print(
+          'ERROR: Cannot create chat service - User ID is still empty after reload',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('لا يمكن بدء المحادثة. الرجاء إعادة تسجيل الدخول وحاول مرة أخرى')),
+          SnackBar(
+            content: Text(
+              'لا يمكن بدء المحادثة. الرجاء إعادة تسجيل الدخول وحاول مرة أخرى',
+            ),
+          ),
         );
         return;
       }
-      
+
       print('Creating chat service with user ID: $userIdForChat');
       final chatService = ChatService(userIdForChat);
 
@@ -1453,7 +1587,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     }
   }
 
-  // Mostrar diálogo de solicitud de servicio
+  // Mostrar diálogo de solicitud de خدمة
   void _showRequestServiceDialog() {
     final authService = Provider.of<AuthService>(context, listen: false);
 
@@ -1626,7 +1760,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   // Method to build provider card with modern UI
   Widget _buildProviderCard(Map<String, dynamic>? providerInfo) {
     // Get provider ID from service data
-    final String providerId = _serviceData?['providerId'] ?? _serviceData?['userId'] ?? '';
+    final String providerId =
+        _serviceData?['providerId'] ?? _serviceData?['userId'] ?? '';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1659,15 +1794,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 child: CircleAvatar(
                   radius: 30,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 36,
-                    color: Color(0xFF8B5CF6),
-                  ),
+                  child: Icon(Icons.person, size: 36, color: Color(0xFF8B5CF6)),
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // Provider details
               Expanded(
                 child: Column(
@@ -1676,7 +1807,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     Row(
                       children: [
                         Text(
-                          providerInfo != null && providerInfo['fullName'] != null
+                          providerInfo != null &&
+                                  providerInfo['fullName'] != null
                               ? providerInfo['fullName']
                               : 'مزود خدمة',
                           style: const TextStyle(
@@ -1685,7 +1817,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        if (providerInfo != null && providerInfo['isVerified'] == true)
+                        if (providerInfo != null &&
+                            providerInfo['isVerified'] == true)
                           const Icon(
                             Icons.verified,
                             color: Colors.blue,
@@ -1699,10 +1832,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                       const SizedBox(height: 4),
                       Text(
                         providerInfo['companyName'],
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                     ],
                     const SizedBox(height: 4),
@@ -1732,9 +1862,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Contact buttons with modern design
           Row(
             children: [
@@ -1848,9 +1978,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Location address with icon
             if (locationInfo['address'] != null &&
                 locationInfo['address'].toString().isNotEmpty) ...[
@@ -1868,19 +1998,16 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     Expanded(
                       child: Text(
                         locationInfo['address'],
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey[800], fontSize: 14),
                       ),
                     ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 16),
             ],
-            
+
             // Get directions button
             SizedBox(
               width: double.infinity,
@@ -1914,11 +2041,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.grey[600],
-                    size: 24,
-                  ),
+                  Icon(Icons.info_outline, color: Colors.grey[600], size: 24),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
@@ -1934,9 +2057,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
             ),
           ],
-          
+
           const SizedBox(height: 20),
-          
+
           // Storage features if available
           if (_serviceData!.containsKey('storageFeatures')) ...[
             const Text(
@@ -1956,7 +2079,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   }
 
   // Method to build vehicle details card with modern UI
-  Widget _buildVehicleDetailsCard(Map<String, dynamic> vehicleInfo, Map<String, dynamic>? locationInfo) {
+  Widget _buildVehicleDetailsCard(
+    Map<String, dynamic> vehicleInfo,
+    Map<String, dynamic>? locationInfo,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2014,7 +2140,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 ),
             ],
           ),
-          
+
           // Special features section if available
           if (vehicleInfo['specialFeatures'] != null &&
               vehicleInfo['specialFeatures'].toString().isNotEmpty) ...[
@@ -2046,7 +2172,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
             ),
           ],
-          
+
           // Vehicle images gallery if available
           if (vehicleInfo['imageUrls'] != null &&
               vehicleInfo['imageUrls'] is List &&
@@ -2054,7 +2180,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Icon(Icons.collections, color: Color(0xFF8B5CF6), size: 18),
+                const Icon(
+                  Icons.collections,
+                  color: Color(0xFF8B5CF6),
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'صور المركبة',
@@ -2082,37 +2212,39 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                       child: CachedNetworkImage(
                         imageUrl: url,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF8B5CF6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[300],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                color: Colors.red[300],
-                                size: 24,
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'خطأ',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 10,
+                        placeholder:
+                            (context, url) => Container(
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF8B5CF6),
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                        errorWidget:
+                            (context, url, error) => Container(
+                              color: Colors.grey[300],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red[300],
+                                    size: 24,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'خطأ',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                       ),
                     ),
                   );
@@ -2123,7 +2255,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         ],
       ),
     );
-  }  // Helper method for vehicle info cards
+  } // Helper method for vehicle info cards
+
   Widget _buildVehicleInfoCard(String label, String value, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(8), // Reduced padding
@@ -2142,7 +2275,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               color: Color(0xFF8B5CF6).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 14, color: Color(0xFF8B5CF6)), // Smaller icon
+            child: Icon(
+              icon,
+              size: 14,
+              color: Color(0xFF8B5CF6),
+            ), // Smaller icon
           ),
           const SizedBox(width: 6), // Smaller spacing
           Expanded(
@@ -2170,7 +2307,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   ),
                   maxLines: 1,
                 ),
-              ],            ),
+              ],
+            ),
           ),
         ],
       ),

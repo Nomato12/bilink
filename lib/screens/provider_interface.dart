@@ -2,19 +2,132 @@ import 'package:flutter/material.dart' hide InkWell;
 import 'package:flutter/material.dart' as material show InkWell;
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:bilink/services/auth_service.dart';
-import 'package:bilink/services/chat_service.dart'; // إضافة استيراد خدمة المحادثات
-import 'package:bilink/models/user_model.dart'; // Importación añadida para resolver UserRole
-import 'package:bilink/widgets/notification_badge.dart'; // إضافة استيراد أيقونة الإشعارات
-import 'package:bilink/screens/driver_tracking_map.dart';
-import 'package:bilink/screens/storage_location_map.dart';
-import 'package:bilink/screens/add_service_screen.dart'; // Corrected import path
-import 'package:bilink/models/home_page.dart';
-import 'package:bilink/screens/chat_list_screen.dart'; // Import for chat functionality
+import 'package:firebase_storage/firebase_storage.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import '../services/chat_service.dart';
+import '../widgets/notification_badge.dart';
+import 'driver_tracking_map.dart';
+import 'storage_location_map.dart';
+import 'add_service_screen.dart';
+import 'chat_list_screen.dart';
+import '../models/home_page.dart';
+
+// Custom painters for logistics-themed decorations
+
+// Circles painter for logistics network pattern
+class LogisticsCirclesPainter extends CustomPainter {
+  final Color color;
+  
+  LogisticsCirclesPainter({required this.color});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+      
+    // Draw concentric circles
+    final center = Offset(size.width / 2, size.height / 2);
+    for (int i = 1; i <= 4; i++) {
+      canvas.drawCircle(center, size.width * i / 5, paint);
+    }
+    
+    // Draw connecting lines
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+      
+    for (int i = 0; i < 6; i++) {
+      final angle = i * math.pi / 3;
+      final x = center.dx + math.cos(angle) * size.width;
+      final y = center.dy + math.sin(angle) * size.height;
+      canvas.drawLine(center, Offset(x, y), linePaint);
+    }
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// Wave painter for logistics flow visualization
+class LogisticsWavePainter extends CustomPainter {
+  final Color color;
+  final double amplitude;
+  
+  LogisticsWavePainter({
+    required this.color,
+    this.amplitude = 10.0,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+    
+    final path = Path();
+    path.moveTo(0, size.height / 2);
+    
+    for (double i = 0; i < size.width; i++) {
+      path.lineTo(
+        i, 
+        size.height / 2 + math.sin(i / 20) * amplitude
+      );
+    }
+    
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// Dotted path painter for logistics routes
+class LogisticsPathPainter extends CustomPainter {
+  final Color pathColor;
+  
+  LogisticsPathPainter({required this.pathColor});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = pathColor
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    
+    // Draw a dotted path
+    final dashWidth = 6.0;
+    final dashSpace = 4.0;
+    double startX = 0;
+    
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, size.height / 2),
+        Offset(startX + dashWidth, size.height / 2),
+        paint
+      );
+      startX += dashWidth + dashSpace;
+    }
+    
+    // Draw small circles at the start and end
+    canvas.drawCircle(Offset(0, size.height / 2), 4, paint);
+    canvas.drawCircle(Offset(size.width, size.height / 2), 4, paint);
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// إضافة استيراد أيقونة الإشعارات
 
 class ServiceProviderHomePage extends StatefulWidget {
   const ServiceProviderHomePage({super.key});
@@ -26,6 +139,8 @@ class ServiceProviderHomePage extends StatefulWidget {
 
 class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   int _currentIndex = 0;
+  final int _currentImageIndex =
+      0; // إضافة متغير لتتبع الصورة الحالية في عارض الصور
 
   // نموذج بيانات الخدمات الحالية للمزود
   final List<Map<String, dynamic>> _servicesList = [];
@@ -58,7 +173,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     'تلمسان',
     'أخرى',
   ];
-  final List<File> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
+  List<String> _imageUrls = [];
 
   // متغيرات خاصة بمعلومات المركبة (للنقل)
   String _selectedVehicleType = 'وانيت';
@@ -76,7 +192,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   final _vehicleCapacityController = TextEditingController();
   final _vehicleDimensionsController = TextEditingController();
   final _vehicleSpecialFeaturesController = TextEditingController();
-  final List<File> _vehicleImages = [];
+  final List<XFile> _selectedVehicleImages = [];
+  List<String> _vehicleImageUrls = [];
 
   // متغيرات للإحصائيات
   int _totalServices = 0;
@@ -436,7 +553,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       // التحقق من بيانات المركبة في حالة خدمة النقل
       if (_selectedServiceType == 'نقل') {
-        if (_vehicleImages.isEmpty) {
+        if (_selectedVehicleImages.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('الرجاء إضافة صورة واحدة على الأقل للمركبة'),
@@ -459,7 +576,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
             'services/$userId/$imageName',
           );
 
-          final uploadTask = storageRef.putFile(imageFile);
+          final uploadTask = storageRef.putFile(File(imageFile.path));
           final snapshot = await uploadTask.whenComplete(() => null);
           final imageUrl = await snapshot.ref.getDownloadURL();
           imageUrls.add(imageUrl);
@@ -483,7 +600,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       // تحميل صور المركبة إلى Firebase Storage (للنقل)
       final List<String> vehicleImageUrls = [];
       if (_selectedServiceType == 'نقل') {
-        for (var imageFile in _vehicleImages) {
+        for (var imageFile in _selectedVehicleImages) {
           try {
             final timestamp = DateTime.now().millisecondsSinceEpoch;
             final imageName =
@@ -492,7 +609,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
               'vehicles/$userId/$imageName',
             );
 
-            final uploadTask = storageRef.putFile(imageFile);
+            final uploadTask = storageRef.putFile(File(imageFile.path));
             final snapshot = await uploadTask.whenComplete(() => null);
             final imageUrl = await snapshot.ref.getDownloadURL();
             vehicleImageUrls.add(imageUrl);
@@ -503,7 +620,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         }
 
         // التحقق من نجاح تحميل صور المركبة
-        if (vehicleImageUrls.isEmpty && _vehicleImages.isNotEmpty) {
+        if (vehicleImageUrls.isEmpty && _selectedVehicleImages.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('فشل تحميل صور المركبة، يرجى المحاولة مرة أخرى'),
@@ -631,7 +748,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     _vehicleCapacityController.clear();
     _vehicleDimensionsController.clear();
     _vehicleSpecialFeaturesController.clear();
-    _vehicleImages.clear();
+    _selectedVehicleImages.clear();
   }
 
   // اختيار صور للخدمة
@@ -646,9 +763,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       if (images.isNotEmpty) {
         setState(() {
-          _selectedImages.addAll(
-            images.map((xFile) => File(xFile.path)).toList(),
-          );
+          _selectedImages.addAll(images);
         });
       }
     } catch (e) {
@@ -668,9 +783,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       if (images.isNotEmpty) {
         setState(() {
-          _vehicleImages.addAll(
-            images.map((xFile) => File(xFile.path)).toList(),
-          );
+          _selectedVehicleImages.addAll(images);
         });
       }
     } catch (e) {
@@ -1506,7 +1619,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     }
   }
 
-  // بطاقة إحصائية عصرية
+  // بطاقة إحصائية عصرية بتصميم لوجستي
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -1517,80 +1630,153 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       width: 100,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.9),
+            Colors.white.withOpacity(0.7),
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: color.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: 1,
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
+          // Icon with circular background
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 10),
+          // Value with larger, bolder text
           Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: color,
+              fontSize: 20,
+              color: const Color(0xFF0A2463),
             ),
           ),
           const SizedBox(height: 4),
+          // Title with color matching the icon
           Text(
             title,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13, 
+              color: color.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
     );
   }
 
-  // شريط تنقل سفلي حديث
+  // شريط تنقل سفلي بتصميم لوجستي عصري
   Widget _buildBottomNavigationBar() {
+    // Define our logistics theme colors
+    final deepBlue = const Color(0xFF0A2463);
+    final vibrantOrange = const Color(0xFFFF7F11);
+    final teal = const Color(0xFF2EC4B6);
+    
     return Container(
+      height: 75,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(18),
-          topRight: Radius.circular(18),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            color: deepBlue.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, -3),
+            spreadRadius: 1,
           ),
         ],
       ),
-      child: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: const Color(0xFF8B5CF6),
-        unselectedItemColor: Colors.grey[400],
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'خدماتي'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: 'الطلبات',
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          // Logistics-themed wave decoration at the top of the navbar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: CustomPaint(
+              size: const Size(double.infinity, 15),
+              painter: LogisticsWavePainter(
+                color: vibrantOrange.withOpacity(0.2),
+                amplitude: 4.0,
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'الإحصائيات',
+          // Main navigation bar
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              selectedItemColor: vibrantOrange,
+              unselectedItemColor: Colors.grey[400],
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              type: BottomNavigationBarType.fixed,
+              showUnselectedLabels: true,
+              selectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 11,
+              ),
+              items: [
+                BottomNavigationBarItem(
+                  icon: Icon(_currentIndex == 0 
+                    ? Icons.list_alt 
+                    : Icons.list_alt_outlined),
+                  label: 'خدماتي',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(_currentIndex == 1 
+                    ? Icons.assignment 
+                    : Icons.assignment_outlined),
+                  label: 'الطلبات',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(_currentIndex == 2 
+                    ? Icons.bar_chart 
+                    : Icons.bar_chart_outlined),
+                  label: 'الإحصائيات',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(_currentIndex == 3 
+                    ? Icons.person 
+                    : Icons.person_outline),
+                  label: 'حسابي',
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
         ],
       ),
     );
@@ -2169,11 +2355,11 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                   ).logout();
                                   if (mounted) {
                                     Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(
-                                        builder: (_) => BiLinkHomePage(),
-                                      ),
-                                      (route) => false,
-                                    );
+                                    MaterialPageRoute(
+                                      builder: (_) => const BiLinkHomePage(),
+                                    ),
+                                    (route) => false,
+                                  );
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -2333,45 +2519,71 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // خلفية لوجستية حديثة
+    // Define our logistics theme colors
+    final deepBlue = const Color(0xFF0A2463);
+    final vibrantOrange = const Color(0xFFFF7F11);
+    final teal = const Color(0xFF2EC4B6);
+    
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF8B5CF6), Color(0xFF60A5FA)],
+          colors: [deepBlue, deepBlue.withOpacity(0.85)],
         ),
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('لوحة مزود الخدمات اللوجستية'),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.local_shipping_outlined, color: vibrantOrange),
+              const SizedBox(width: 8),
+              const Text('لوحة مزود الخدمات اللوجستية',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
           actions: [
             // زر المحادثات مع إشعار عدد الرسائل غير المقروءة
             StreamBuilder<int>(
-              stream: ChatService(FirebaseAuth.instance.currentUser?.uid ?? '').getUnreadMessageCount(),
+              stream: ChatService(
+                FirebaseAuth.instance.currentUser?.uid ?? '',
+              ).getUnreadMessageCount(),
               builder: (context, snapshot) {
                 final unreadCount = snapshot.data ?? 0;
-                
+
                 return Stack(
                   children: [
-                    IconButton(
-                      icon: Icon(Icons.chat),
-                      tooltip: 'المحادثات',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ChatListScreen()),
-                        );
-                      },
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.chat_bubble_outline, color: Colors.white),
+                        tooltip: 'المحادثات',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatListScreen(),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                     if (unreadCount > 0)
                       Positioned(
-                        right: 8,
-                        top: 8,
+                        right: 4,
+                        top: 4,
                         child: NotificationBadge(count: unreadCount),
                       ),
                   ],
@@ -2381,79 +2593,205 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           ],
         ),
         body: SafeArea(
-          child:
+          child: Stack(
+            children: [
+              // Logistics themed background elements
+              Positioned(
+                top: -50,
+                right: -50,
+                child: CustomPaint(
+                  size: const Size(150, 150),
+                  painter: LogisticsCirclesPainter(color: vibrantOrange.withOpacity(0.1)),
+                ),
+              ),
+              Positioned(
+                bottom: 100,
+                left: -30,
+                child: CustomPaint(
+                  size: const Size(100, 100),
+                  painter: LogisticsCirclesPainter(color: teal.withOpacity(0.1)),
+                ),
+              ),
+              
+              // Main content
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _currentIndex == 0
-                  ? SingleChildScrollView(
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF7F11)))
+                : _currentIndex == 0
+                ? SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
+                    physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // إحصائيات سريعة
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildStatCard(
-                              title: 'خدماتي',
-                              value: '$_totalServices',
-                              icon: Icons.list_alt,
-                              color: Color(0xFF60A5FA),
+                        // Dashboard header with wave decoration
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [teal.withOpacity(0.2), deepBlue.withOpacity(0.3)],
                             ),
-                            _buildStatCard(
-                              title: 'الطلبات',
-                              value: '$_totalRequests',
-                              icon: Icons.assignment,
-                              color: Color(0xFFF472B6),
-                            ),
-                            _buildStatCard(
-                              title: 'الإيرادات',
-                              value: '${_totalEarnings.toStringAsFixed(0)} دج',
-                              icon: Icons.monetization_on,
-                              color: Color(0xFF34D399),
-                            ),
-                          ],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: vibrantOrange.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.dashboard_rounded,
+                                      color: vibrantOrange,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'لوحة التحكم',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        'إدارة خدماتك اللوجستية',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              // إحصائيات سريعة
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildStatCard(
+                                    title: 'خدماتي',
+                                    value: '$_totalServices',
+                                    icon: Icons.list_alt,
+                                    color: teal,
+                                  ),
+                                  _buildStatCard(
+                                    title: 'الطلبات',
+                                    value: '$_totalRequests',
+                                    icon: Icons.assignment,
+                                    color: vibrantOrange,
+                                  ),
+                                  _buildStatCard(
+                                    title: 'الإيرادات',
+                                    value: '${_totalEarnings.toStringAsFixed(0)} دج',
+                                    icon: Icons.monetization_on,
+                                    color: const Color(0xFF34D399),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 24),
                         // عنوان
-                        Row(
-                          children: const [
-                            Icon(
-                              Icons.local_shipping_rounded,
-                              color: Color(0xFF8B5CF6),
-                              size: 28,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'خدماتي اللوجستية',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: vibrantOrange.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.local_shipping_rounded,
+                                  color: vibrantOrange,
+                                  size: 24,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Text(
+                                'خدماتي اللوجستية',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
                         // قائمة الخدمات
                         _buildServicesList(),
                       ],
                     ),
                   )
-                  : _currentIndex == 1
-                  ? Center(child: Text('صفحة الطلبات'))
-                  : _currentIndex == 2
-                  ? Center(child: Text('صفحة الإحصائيات'))
-                  : _buildProfilePage(),
+                : _currentIndex == 1
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.assignment_outlined, size: 80, color: vibrantOrange.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'صفحة الطلبات',
+                          style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ستتوفر هذه الميزة قريبًا',
+                          style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7)),
+                        ),
+                      ],
+                    ),
+                  )
+                : _currentIndex == 2
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bar_chart, size: 80, color: teal.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'صفحة الإحصائيات',
+                          style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ستتوفر هذه الميزة قريبًا',
+                          style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7)),
+                        ),
+                      ],
+                    ),
+                  )
+                : _buildProfilePage(),
+            ],
+          ),
         ),
         floatingActionButton:
             _currentIndex == 0
                 ? FloatingActionButton.extended(
-                  onPressed: _openAddServiceScreen,
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  icon: const Icon(Icons.add),
-                  label: const Text('إضافة خدمة'),
-                )
+                    onPressed: _openAddServiceScreen,
+                    backgroundColor: vibrantOrange,
+                    icon: const Icon(Icons.add),
+                    label: const Text('إضافة خدمة'),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  )
                 : null,
         bottomNavigationBar: _buildBottomNavigationBar(),
       ),
@@ -2462,22 +2800,67 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
   // قائمة الخدمات الحديثة
   Widget _buildServicesList() {
+    // Define our logistics theme colors
+    final deepBlue = const Color(0xFF0A2463);
+    final vibrantOrange = const Color(0xFFFF7F11);
+    final teal = const Color(0xFF2EC4B6);
+    
     if (_servicesList.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            SizedBox(height: 40),
-            Icon(Icons.inbox, size: 80, color: Colors.white54),
-            SizedBox(height: 20),
+          children: [
+            const SizedBox(height: 40),
+            // Empty state with logistics-themed illustration
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: vibrantOrange.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: vibrantOrange.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Icon(
+                  Icons.local_shipping_outlined,
+                  size: 50,
+                  color: vibrantOrange.withOpacity(0.7),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             Text(
               'لا توجد خدمات لوجستية بعد',
-              style: TextStyle(fontSize: 18, color: Colors.white70),
+              style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'أضف خدمتك الأولى للبدء',
+                style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.9)),
+              ),
             ),
           ],
         ),
       );
     }
+    
+    // Animated list with staggered appearance
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -2485,13 +2868,23 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       separatorBuilder: (_, __) => const SizedBox(height: 18),
       itemBuilder: (context, index) {
         final service = _servicesList[index];
-        return _buildModernServiceCard(service);
+        // Add a slight delay based on index for staggered animation effect
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 500),
+          opacity: 1.0,
+          child: _buildModernServiceCard(service),
+        );
       },
     );
   }
 
-  // بطاقة خدمة حديثة
+  // بطاقة خدمة حديثة بتصميم لوجستي عصري
   Widget _buildModernServiceCard(Map<String, dynamic> service) {
+    // Define our logistics theme colors
+    final deepBlue = const Color(0xFF0A2463);
+    final vibrantOrange = const Color(0xFFFF7F11);
+    final teal = const Color(0xFF2EC4B6);
+    
     final String title = service['title'] ?? 'خدمة بدون عنوان';
     final String type = service['type'] ?? 'غير محدد';
     final String region = service['region'] ?? 'غير محدد';
@@ -2499,6 +2892,12 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     final bool isActive = service['isActive'] ?? true;
     // --- التعديل للصور ---
     List<dynamic> imageUrls = service['imageUrls'] ?? [];
+
+    // Debug print for service images
+    print(
+      'ProviderInterface: Service ${service['id']} has ${imageUrls.length} images: $imageUrls',
+    );
+
     if (type == 'نقل' &&
         (imageUrls.isEmpty ||
             (imageUrls.length == 1 &&
@@ -2510,6 +2909,9 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         final vehicleImgs = service['vehicle']['imageUrls'];
         if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
           imageUrls = vehicleImgs;
+          print(
+            'ProviderInterface: Using vehicle images instead: ${imageUrls.length} images: $imageUrls',
+          );
         }
       }
     }
@@ -2520,8 +2922,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     // ألوان تدل على الخدمات اللوجستية
     final Color typeColor =
         type == 'تخزين'
-            ? Color(0xFF2563EB) // أزرق غامق للتخزين
-            : Color(0xFFEA580C); // برتقالي للنقل
+            ? teal // تيل للتخزين
+            : vibrantOrange; // برتقالي للنقل
 
     final IconData typeIcon =
         type == 'تخزين'
@@ -2546,21 +2948,21 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
               colors: [
                 Colors.white,
                 type == 'تخزين'
-                    ? Color(0xFFEFF6FF) // خلفية بلون أزرق فاتح جدا للتخزين
-                    : Color(0xFFFFF7ED), // خلفية بلون برتقالي فاتح جدا للنقل
+                    ? teal.withOpacity(0.05) // خلفية بلون تيل فاتح جدا للتخزين
+                    : vibrantOrange.withOpacity(0.05), // خلفية بلون برتقالي فاتح جدا للنقل
               ],
             ),
             borderRadius: BorderRadius.circular(24), // زوايا أكثر استدارة
             boxShadow: [
               BoxShadow(
-                color: typeColor.withOpacity(0.15),
+                color: deepBlue.withOpacity(0.1),
                 blurRadius: 15,
                 offset: const Offset(0, 6),
                 spreadRadius: 2,
               ),
             ],
           ),
-          margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: Column(
@@ -2579,7 +2981,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 10,
-                            offset: Offset(0, 3),
+                            offset: const Offset(0, 3),
                             spreadRadius: 1,
                           ),
                         ],
@@ -2605,7 +3007,16 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                         stackTrace,
                                       ) {
                                         return Container(
-                                          color: typeColor.withOpacity(0.08),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                typeColor.withOpacity(0.05),
+                                                typeColor.withOpacity(0.15),
+                                              ],
+                                            ),
+                                          ),
                                           child: Center(
                                             child: Column(
                                               mainAxisAlignment:
@@ -2618,7 +3029,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                                     0.4,
                                                   ),
                                                 ),
-                                                SizedBox(height: 8),
+                                                const SizedBox(height: 8),
                                                 Text(
                                                   type == 'تخزين'
                                                       ? 'خدمة تخزين'
@@ -2658,7 +3069,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                         size: 60,
                                         color: typeColor.withOpacity(0.4),
                                       ),
-                                      SizedBox(height: 10),
+                                      const SizedBox(height: 10),
                                       Text(
                                         type == 'تخزين'
                                             ? 'خدمة تخزين'

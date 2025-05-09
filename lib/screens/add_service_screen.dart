@@ -524,6 +524,9 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
         // تحديث المستند مع روابط الصور - مهم استخدام imageUrls وليس images
         await docRef.update({'imageUrls': imageUrls});
+        
+        // Print debug information about uploaded images
+        print('تم رفع ${imageUrls.length} صورة للخدمة: $imageUrls');
       }
 
       // رفع صور مكان التخزين إذا كانت خدمة تخزين
