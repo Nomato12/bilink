@@ -12,35 +12,37 @@ import 'models/home_page.dart';
 import 'services/auth_service.dart';
 
 void main() async {
-  // Asegurarse de que las vinculaciones de Flutter se inicialicen
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Mejorar el manejo de errores para evitar mensajes corruptos
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    developer.log(
-      'Flutter error caught',
-      error: details.exception,
-      stackTrace: details.stack,
-    );
-  };
-
-  // Actualizar a la configuración de la UI más reciente para mejorar el rendimiento
-  // Uso del API no-deprecado para manejar errores de plataforma
-  ui.PlatformDispatcher.instance.onError = (error, stack) {
-    developer.log('Platform error caught', error: error, stackTrace: stack);
-    return true;
-  };
-
-  // Aumentar el tamaño del buffer para los canales de mensajes
-  const int bufferSize = 1024 * 1024; // 1MB
-
-  // Inicializar Firebase con las opciones configuradas
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
   // Iniciar la aplicación en una zona de error controlada
   runZonedGuarded(
-    () {
+    () async {
+      // Asegurarse de que las vinculaciones de Flutter se inicialicen dentro de la misma zona
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Mejorar el manejo de errores para evitar mensajes corruptos
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        developer.log(
+          'Flutter error caught',
+          error: details.exception,
+          stackTrace: details.stack,
+        );
+      };
+
+      // Actualizar a la configuración de la UI más reciente para mejorar el rendimiento
+      // Uso del API no-deprecado para manejar errores de plataforma
+      ui.PlatformDispatcher.instance.onError = (error, stack) {
+        developer.log('Platform error caught', error: error, stackTrace: stack);
+        return true;
+      };
+
+      // Aumentar el tamaño del buffer para los canales de mensajes
+      const int bufferSize = 1024 * 1024; // 1MB
+
+      // Inicializar Firebase con las opciones configuradas
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
       runApp(const MyApp());
     },
     (error, stack) {

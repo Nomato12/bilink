@@ -29,17 +29,30 @@ class ChatService {
 
   // الحصول على قائمة المحادثات للمستخدم الحالي
   Stream<List<Chat>> getChats() {
-    return _firestore
-        .collection(_chatsCollection)
-        .where('participantIds', arrayContains: _userId)
-        .orderBy('lastMessageTime', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => Chat.fromFirestore(doc, _userId))
-                  .toList(),
-        );
+    try {
+      // استخدام استعلام بسيط لتجنب الحاجة إلى فهرس مركب
+      return _firestore
+          .collection(_chatsCollection)
+          .where('participantIds', arrayContains: _userId)
+          .snapshots()
+          .map((snapshot) {
+            // فرز البيانات في الذاكرة بدلاً من استخدام orderBy في قاعدة البيانات
+            final chats =
+                snapshot.docs
+                    .map((doc) => Chat.fromFirestore(doc, _userId))
+                    .toList();
+
+            // فرز يدوي حسب وقت آخر رسالة
+            chats.sort(
+              (a, b) => b.lastMessageTime.compareTo(a.lastMessageTime),
+            );
+
+            return chats;
+          });
+    } catch (e) {
+      print('Error getting chats: $e');
+      return Stream.value([]);
+    }
   }
 
   // الحصول على تفاصيل محادثة محددة
@@ -184,23 +197,32 @@ class ChatService {
 
   // تحديث حالة قراءة الرسائل
   Future<void> markChatAsRead(String chatId) async {
-    // تحديث حالة المحادثة
-    await _chats.doc(chatId).update({'unreadCount_$_userId': 0});
+    try {
+      // تحديث حالة المحادثة (عداد الرسائل غير المقروءة)
+      await _chats.doc(chatId).update({'unreadCount_$_userId': 0});
 
-    // تحديث حالة الرسائل غير المقروءة
-    final unreadMessages =
-        await _getChatMessages(chatId)
-            .where('receiverId', isEqualTo: _userId)
-            .where('isRead', isEqualTo: false)
-            .get();
+      // الطريقة المعدلة لتجنب استخدام استعلام مركب يتطلب فهرس خاص
+      // جلب جميع الرسائل أولاً ثم فلترتها في الذاكرة
+      final allMessages = await _getChatMessages(chatId).get();
 
-    // تحديث كل رسالة على حدة
-    final batch = _firestore.batch();
-    for (var doc in unreadMessages.docs) {
-      batch.update(doc.reference, {'isRead': true});
+      // فلترة الرسائل التي تم استلامها ولم يتم قراءتها بعد
+      final unreadDocs =
+          allMessages.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['receiverId'] == _userId && data['isRead'] == false;
+          }).toList();
+
+      // تحديث كل رسالة على حدة
+      if (unreadDocs.isNotEmpty) {
+        final batch = _firestore.batch();
+        for (var doc in unreadDocs) {
+          batch.update(doc.reference, {'isRead': true});
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      print('فشل تحديث حالة القراءة: $e');
     }
-
-    await batch.commit();
   }
 
   // حذف محادثة
