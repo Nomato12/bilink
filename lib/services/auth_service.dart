@@ -603,8 +603,9 @@ class AuthService extends ChangeNotifier {
       }
       // تحديث الهاتف في Firestore فقط (تغيير الهاتف في Auth يتطلب تحقق جديد)
       final updateData = <String, dynamic>{};
-      if (fullName != null && fullName.isNotEmpty)
+      if (fullName != null && fullName.isNotEmpty) {
         updateData['fullName'] = fullName;
+      }
       if (email != null && email.isNotEmpty) updateData['email'] = email;
       if (phone != null && phone.isNotEmpty) updateData['phoneNumber'] = phone;
       if (updateData.isNotEmpty) {

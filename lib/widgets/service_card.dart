@@ -7,37 +7,45 @@ class ServiceCard extends StatelessWidget {
   final Function(String) onDelete;
 
   const ServiceCard({
-    Key? key,
+    super.key,
     required this.service,
     required this.onEdit,
     required this.onToggleStatus,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     // Extraer datos del servicio
-    final String title = service['title'] ?? 'u062eu062fu0645u0629 u0628u062fu0648u0646 u0639u0646u0648u0627u0646';
-    final String type = service['type'] ?? 'u063au064au0631 u0645u062du062fu062f';
-    final String region = service['region'] ?? 'u063au064au0631 u0645u062du062fu062f';
+    final String title =
+        service['title'] ??
+        'u062eu062fu0645u0629 u0628u062fu0648u0646 u0639u0646u0648u0627u0646';
+    final String type =
+        service['type'] ?? 'u063au064au0631 u0645u062du062fu062f';
+    final String region =
+        service['region'] ?? 'u063au064au0631 u0645u062du062fu062f';
     final double price = service['price'] ?? 0.0;
     final bool isActive = service['isActive'] ?? true;
     final List<dynamic> imageUrls = service['imageUrls'] ?? [];
     final double rating = service['rating'] ?? 0.0;
     final int reviewCount = service['reviewCount'] ?? 0;
-    final String currency = service['currency'] ?? 'u062fu064au0646u0627u0631 u062cu0632u0627u0626u0631u064a';
+    final String currency =
+        service['currency'] ??
+        'u062fu064au0646u0627u0631 u062cu0632u0627u0626u0631u064a';
     final String description = service['description'] ?? '';
     final String serviceId = service['id'] ?? '';
 
     // Colores segu00fan el tipo de servicio
-    final Color serviceColor = type == 'u062au062eu0632u064au0646' 
-        ? Color(0xFF3498DB) // Azul para almacenamiento
-        : Color(0xFFE67E22); // Naranja para transporte
-    
+    final Color serviceColor =
+        type == 'u062au062eu0632u064au0646'
+            ? Color(0xFF3498DB) // Azul para almacenamiento
+            : Color(0xFFE67E22); // Naranja para transporte
+
     // Icono segu00fan el tipo de servicio
-    final IconData serviceIcon = type == 'u062au062eu0632u064au0646' 
-        ? Icons.warehouse 
-        : Icons.local_shipping;
+    final IconData serviceIcon =
+        type == 'u062au062eu0632u064au0646'
+            ? Icons.warehouse
+            : Icons.local_shipping;
 
     return Container(
       margin: EdgeInsets.only(bottom: 20),
@@ -61,40 +69,41 @@ class ServiceCard extends StatelessWidget {
             Stack(
               children: [
                 // Imagen del servicio
-                Container(
+                SizedBox(
                   height: 180,
                   width: double.infinity,
-                  child: imageUrls.isNotEmpty
-                      ? Image.network(
-                          imageUrls[0],
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 180,
-                              width: double.infinity,
-                              color: serviceColor.withOpacity(0.2),
+                  child:
+                      imageUrls.isNotEmpty
+                          ? Image.network(
+                            imageUrls[0],
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 180,
+                                width: double.infinity,
+                                color: serviceColor.withOpacity(0.2),
+                                child: Icon(
+                                  serviceIcon,
+                                  size: 60,
+                                  color: serviceColor,
+                                ),
+                              );
+                            },
+                          )
+                          : Container(
+                            color: serviceColor.withOpacity(0.2),
+                            child: Center(
                               child: Icon(
                                 serviceIcon,
                                 size: 60,
                                 color: serviceColor,
                               ),
-                            );
-                          },
-                        )
-                      : Container(
-                          color: serviceColor.withOpacity(0.2),
-                          child: Center(
-                            child: Icon(
-                              serviceIcon,
-                              size: 60,
-                              color: serviceColor,
                             ),
                           ),
-                        ),
                 ),
-                
+
                 // Indicador de estado (activo/inactivo)
                 Positioned(
                   top: 15,
@@ -121,7 +130,9 @@ class ServiceCard extends StatelessWidget {
                         ),
                         SizedBox(width: 4),
                         Text(
-                          isActive ? 'u0646u0634u0637' : 'u063au064au0631 u0646u0634u0637',
+                          isActive
+                              ? 'u0646u0634u0637'
+                              : 'u063au064au0631 u0646u0634u0637',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -132,7 +143,7 @@ class ServiceCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 // Tipo de servicio
                 Positioned(
                   top: 15,
@@ -152,11 +163,7 @@ class ServiceCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          serviceIcon,
-                          color: serviceColor,
-                          size: 14,
-                        ),
+                        Icon(serviceIcon, color: serviceColor, size: 14),
                         SizedBox(width: 4),
                         Text(
                           type,
@@ -172,7 +179,7 @@ class ServiceCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             // Informaciu00f3n del servicio
             Padding(
               padding: EdgeInsets.all(16),
@@ -196,7 +203,10 @@ class ServiceCard extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: serviceColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -213,23 +223,24 @@ class ServiceCard extends StatelessWidget {
                     ],
                   ),
                   SizedBox(height: 12),
-                  
+
                   // Regiu00f3n
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
                       SizedBox(width: 4),
                       Text(
                         region,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                   SizedBox(height: 12),
-                  
+
                   // Valoraciu00f3n si estu00e1 disponible
                   if (rating > 0)
                     Row(
@@ -241,8 +252,8 @@ class ServiceCard extends StatelessWidget {
                               index < rating.floor()
                                   ? Icons.star
                                   : index < rating
-                                      ? Icons.star_half
-                                      : Icons.star_border,
+                                  ? Icons.star_half
+                                  : Icons.star_border,
                               color: Colors.amber,
                               size: 16,
                             ),
@@ -259,7 +270,7 @@ class ServiceCard extends StatelessWidget {
                       ],
                     ),
                   SizedBox(height: 16),
-                  
+
                   // Botones de acciu00f3n
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -271,8 +282,12 @@ class ServiceCard extends StatelessWidget {
                         onTap: () => onEdit(serviceId),
                       ),
                       _buildActionButton(
-                        icon: isActive ? Icons.visibility_off : Icons.visibility,
-                        label: isActive ? 'u0625u062eu0641u0627u0621' : 'u0625u0638u0647u0627u0631',
+                        icon:
+                            isActive ? Icons.visibility_off : Icons.visibility,
+                        label:
+                            isActive
+                                ? 'u0625u062eu0641u0627u0621'
+                                : 'u0625u0638u0647u0627u0631',
                         color: isActive ? Colors.orange : Colors.green,
                         onTap: () => onToggleStatus(serviceId, isActive),
                       ),
@@ -314,20 +329,10 @@ class ServiceCard extends StatelessWidget {
                 color: color.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 20,
-              ),
+              child: Icon(icon, color: color, size: 20),
             ),
             SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
           ],
         ),
       ),

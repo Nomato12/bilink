@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'service_details_screen.dart';
+import 'transport_service_map.dart'; // إضافة استيراد صفحة خريطة خدمة النقل
+import 'chat_list_screen.dart'; // إضافة استيراد صفحة قائمة المحادثات
+import 'storage_locations_map_screen.dart'; // إضافة استيراد صفحة مواقع التخزين
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -122,31 +125,52 @@ class _ClientHomePageState extends State<ClientHomePage> {
     _loadServices();
   }
 
+  // توجيه المستخدم إلى صفحة مواقع التخزين
+  void _navigateToStorageLocationsMap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => StorageLocationsMapScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("واجهة العملاء"),
-        backgroundColor: Color(0xFF9B59B6),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            tooltip: 'تحديث الخدمات',
-            onPressed: _loadServices,
-          ),
-          IconButton(
-            icon: Icon(Icons.filter_list),
-            tooltip: 'تصفية الخدمات',
-            onPressed: _showFilterDialog,
-          ),
-        ],
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF8B5CF6), Color(0xFF60A5FA)],
+        ),
       ),
-      body:
-          _isLoading
-              ? Center(
-                child: CircularProgressIndicator(color: Color(0xFF9B59B6)),
-              )
-              : _buildBody(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('لوحة العميل'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          actions: [
+            // زر المحادثات
+            IconButton(
+              icon: Icon(Icons.chat),
+              tooltip: 'المحادثات',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ChatListScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+        body:
+            _isLoading
+                ? Center(
+                  child: CircularProgressIndicator(color: Color(0xFF9B59B6)),
+                )
+                : _buildBody(),
+      ),
     );
   }
 
@@ -196,13 +220,24 @@ class _ClientHomePageState extends State<ClientHomePage> {
           // عرض معلومات الفلترة النشطة
           if (_activeFilters.isNotEmpty) _buildActiveFilters(),
 
-          // فئات الخدمات
+          // فئات الخدمات الأساسية فقط: التخزين والنقل
+          Text(
+            "الخدمات المتاحة",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
+          ),
+          SizedBox(height: 16),
+
+          // عرض فقط التخزين والنقل
           Row(
             children: [
               Expanded(
                 child: _buildServiceCategory(
                   title: "التخزين",
-                  details: "حسب المساحة، الموقع، السعر",
+                  details: "مستودعات ومساحات تخزين آمنة بالقرب منك",
                   icon: Icons.warehouse,
                   color: Colors.blue,
                   onTap: () {
@@ -211,6 +246,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
                       _activeFilters.add('النوع: تخزين');
                     });
                     _updateFilters();
+                    // توجيه المستخدم إلى صفحة مواقع التخزين
+                    _navigateToStorageLocationsMap();
                   },
                 ),
               ),
@@ -218,9 +255,9 @@ class _ClientHomePageState extends State<ClientHomePage> {
               Expanded(
                 child: _buildServiceCategory(
                   title: "النقل",
-                  details: "حسب نوع البضائع، المسافة",
+                  details: "خدمات النقل والشحن لجميع احتياجاتك",
                   icon: Icons.local_shipping,
-                  color: Colors.red,
+                  color: Colors.orange,
                   onTap: () {
                     setState(() {
                       _selectedType = 'نقل';
@@ -232,44 +269,48 @@ class _ClientHomePageState extends State<ClientHomePage> {
               ),
             ],
           ),
-          SizedBox(height: 24),
+          SizedBox(height: 32),
 
-          // عنوان قسم الخدمات المتاحة
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "الخدمات المتاحة",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
+          // عنوان قسم الخدمات المتاحة - يظهر فقط إذا تم اختيار فئة
+          if (_selectedType != 'الكل') ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _selectedType == 'تخزين'
+                      ? "خدمات التخزين المتاحة"
+                      : "خدمات النقل المتاحة",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
+                  ),
                 ),
-              ),
-              Text(
-                "${_servicesList.length} خدمة",
-                style: TextStyle(
-                  color: Color(0xFF9B59B6),
-                  fontWeight: FontWeight.bold,
+                Text(
+                  "${_servicesList.length} خدمة",
+                  style: TextStyle(
+                    color: Color(0xFF9B59B6),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
+              ],
+            ),
+            SizedBox(height: 16),
 
-          // عرض قائمة الخدمات
-          ListView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: _servicesList.length,
-            itemBuilder: (context, index) {
-              final service = _servicesList[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: _buildServiceCard(service),
-              );
-            },
-          ),
+            // عرض قائمة الخدمات
+            ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: _servicesList.length,
+              itemBuilder: (context, index) {
+                final service = _servicesList[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: _buildServiceCard(service),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -577,48 +618,84 @@ class _ClientHomePageState extends State<ClientHomePage> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+    // عرض زر الخريطة إذا كانت الخدمة هي النقل
+    final bool isTransport = title == "النقل";
+
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 28),
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withOpacity(0.3)),
             ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    shape: BoxShape.circle,
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    details,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        details,
+                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // زر إضافي للنقل - البحث بالخريطة
+        if (isTransport)
+          Container(
+            margin: EdgeInsets.only(top: 8),
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TransportServiceMapScreen(),
+                  ),
+                );
+              },
+              icon: Icon(Icons.map_outlined, size: 18),
+              label: Text('استخدام الخريطة للبحث'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 10),
+                elevation: 0,
+                textStyle: TextStyle(fontSize: 13),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 
@@ -630,9 +707,22 @@ class _ClientHomePageState extends State<ClientHomePage> {
     final double price = (service['price'] as num?)?.toDouble() ?? 0.0;
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
-    final List<dynamic> imageUrls = service['imageUrls'] ?? [];
+    // معالجة الصور لخدمات النقل
+    List<dynamic> imageUrls = service['imageUrls'] ?? [];
+    if (type == 'نقل' &&
+        (imageUrls.isEmpty ||
+            (imageUrls.length == 1 &&
+                (imageUrls[0] == null || imageUrls[0].toString().isEmpty)))) {
+      if (service['vehicle'] != null &&
+          service['vehicle'] is Map &&
+          (service['vehicle'] as Map).containsKey('imageUrls')) {
+        final vehicleImgs = service['vehicle']['imageUrls'];
+        if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
+          imageUrls = vehicleImgs;
+        }
+      }
+    }
     final String description = service['description'] ?? '';
-
     final Color typeColor = type == 'تخزين' ? Colors.blue : Colors.red;
     final IconData typeIcon =
         type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;

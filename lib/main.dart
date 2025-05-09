@@ -280,7 +280,9 @@ class _SplashScreenState extends State<SplashScreen>
     bool isLoggedIn = false;
     try {
       isLoggedIn = await authService.checkPreviousLogin();
-      print("Auth check result: User is " + (isLoggedIn ? "logged in" : "not logged in"));
+      print(
+        "Auth check result: User is ${isLoggedIn ? "logged in" : "not logged in"}",
+      );
       if (isLoggedIn && authService.currentUser != null) {
         print("Logged in user ID: ${authService.currentUser!.uid}");
         print("User role: ${authService.currentUser!.role}");

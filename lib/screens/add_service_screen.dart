@@ -1411,7 +1411,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                 ),
               ),
               // Botón de edición más pequeño y eficiente
-              Container(
+              SizedBox(
                 width: 32, // Reducido de 40 a 32
                 height: 32, // Reducido de 40 a 32
                 child: IconButton(

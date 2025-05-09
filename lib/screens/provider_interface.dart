@@ -11,6 +11,7 @@ import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart'; // Corrected import path
 import '../models/home_page.dart';
+import 'chat_list_screen.dart'; // Import for chat functionality
 
 class ServiceProviderHomePage extends StatefulWidget {
   const ServiceProviderHomePage({super.key});
@@ -1601,7 +1602,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     final phoneController = TextEditingController(
       text: user?.phoneNumber ?? '',
     );
-    final _formKeyProfile = GlobalKey<FormState>();
+    final formKeyProfile = GlobalKey<FormState>();
     bool isSaving = false;
 
     return StatefulBuilder(
@@ -1796,7 +1797,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                   child: Padding(
                     padding: EdgeInsets.all(20),
                     child: Form(
-                      key: _formKeyProfile,
+                      key: formKeyProfile,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1875,7 +1876,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                   isSaving
                                       ? null
                                       : () async {
-                                        if (_formKeyProfile.currentState!
+                                        if (formKeyProfile.currentState!
                                             .validate()) {
                                           setState(() => isSaving = true);
                                           try {
@@ -2345,6 +2346,19 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
+          actions: [
+            // زر المحادثات
+            IconButton(
+              icon: Icon(Icons.chat),
+              tooltip: 'المحادثات',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ChatListScreen()),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child:
@@ -2463,179 +2477,578 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     final String region = service['region'] ?? 'غير محدد';
     final double price = (service['price'] as num?)?.toDouble() ?? 0.0;
     final bool isActive = service['isActive'] ?? true;
-    final List<dynamic> imageUrls = service['imageUrls'] ?? [];
+    // --- التعديل للصور ---
+    List<dynamic> imageUrls = service['imageUrls'] ?? [];
+    if (type == 'نقل' &&
+        (imageUrls.isEmpty ||
+            (imageUrls.length == 1 &&
+                (imageUrls[0] == null || imageUrls[0].toString().isEmpty)))) {
+      // جلب صور المركبة إذا كانت متوفرة
+      if (service['vehicle'] != null &&
+          service['vehicle'] is Map &&
+          (service['vehicle'] as Map).containsKey('imageUrls')) {
+        final vehicleImgs = service['vehicle']['imageUrls'];
+        if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
+          imageUrls = vehicleImgs;
+        }
+      }
+    }
+
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
-    final Color typeColor =
-        type == 'تخزين' ? Color(0xFF60A5FA) : Color(0xFFF472B6);
-    final IconData typeIcon =
-        type == 'تخزين' ? Icons.warehouse : Icons.local_shipping;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: typeColor.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () {}, // يمكن ربطها بصفحة التفاصيل
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // صورة الخدمة
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
-              ),
-              child:
-                  imageUrls.isNotEmpty
-                      ? Image.network(
-                        imageUrls[0],
-                        height: 170,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                      : Container(
-                        height: 170,
-                        color: typeColor.withOpacity(0.08),
-                        child: Center(
-                          child: Icon(
-                            typeIcon,
-                            size: 60,
-                            color: typeColor.withOpacity(0.4),
-                          ),
-                        ),
-                      ),
+    // ألوان تدل على الخدمات اللوجستية
+    final Color typeColor =
+        type == 'تخزين'
+            ? Color(0xFF2563EB) // أزرق غامق للتخزين
+            : Color(0xFFEA580C); // برتقالي للنقل
+
+    final IconData typeIcon =
+        type == 'تخزين'
+            ? Icons.warehouse_rounded
+            : Icons.local_shipping_rounded;
+
+    // Debug: طباعة روابط الصور لهذه الخدمة
+    print('صور الخدمة ($title): $imageUrls');
+
+    // مؤشر الصفحة للصور
+    int currentImage = 0;
+    final PageController pageController = PageController();
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Container(
+          decoration: BoxDecoration(
+            // تدرج لوني جميل بدلا من لون أبيض
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                type == 'تخزين'
+                    ? Color(0xFFEFF6FF) // خلفية بلون أزرق فاتح جدا للتخزين
+                    : Color(0xFFFFF7ED), // خلفية بلون برتقالي فاتح جدا للنقل
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: typeColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(typeIcon, color: typeColor, size: 22),
+            borderRadius: BorderRadius.circular(24), // زوايا أكثر استدارة
+            boxShadow: [
+              BoxShadow(
+                color: typeColor.withOpacity(0.15),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // سلايدر صور الخدمة بارتفاع أكبر
+                Stack(
+                  children: [
+                    // الصور
+                    Container(
+                      height: 200, // ارتفاع أكبر للصور
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        // ظل خفيف داخلي
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: Offset(0, 3),
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                      child:
+                          imageUrls.isNotEmpty
+                              ? PageView.builder(
+                                controller: pageController,
+                                itemCount: imageUrls.length,
+                                onPageChanged: (index) {
+                                  setState(() => currentImage = index);
+                                },
+                                itemBuilder: (context, index) {
+                                  return Hero(
+                                    tag:
+                                        'service_image_${service['id']}_$index',
+                                    child: Image.network(
+                                      imageUrls[index],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (
+                                        context,
+                                        error,
+                                        stackTrace,
+                                      ) {
+                                        return Container(
+                                          color: typeColor.withOpacity(0.08),
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  typeIcon,
+                                                  size: 60,
+                                                  color: typeColor.withOpacity(
+                                                    0.4,
+                                                  ),
+                                                ),
+                                                SizedBox(height: 8),
+                                                Text(
+                                                  type == 'تخزين'
+                                                      ? 'خدمة تخزين'
+                                                      : 'خدمة نقل',
+                                                  style: TextStyle(
+                                                    color: typeColor
+                                                        .withOpacity(0.7),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              )
+                              : Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      typeColor.withOpacity(0.05),
+                                      typeColor.withOpacity(0.15),
+                                    ],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        typeIcon,
+                                        size: 60,
+                                        color: typeColor.withOpacity(0.4),
+                                      ),
+                                      SizedBox(height: 10),
+                                      Text(
+                                        type == 'تخزين'
+                                            ? 'خدمة تخزين'
+                                            : 'خدمة نقل',
+                                        style: TextStyle(
+                                          color: typeColor.withOpacity(0.7),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                    ),
+
+                    // شريط عنوان مع بيانات الخدمة الرئيسية
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: isActive ? Colors.green[100] : Colors.red[100],
-                          borderRadius: BorderRadius.circular(8),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.5),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              isActive ? Icons.check_circle : Icons.cancel,
-                              size: 16,
-                              color: isActive ? Colors.green : Colors.red,
+                            Container(
+                              padding: EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(typeIcon, color: Colors.white, size: 16),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    type,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              isActive ? 'نشط' : 'غير نشط',
-                              style: TextStyle(
-                                color: isActive ? Colors.green : Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                            Spacer(),
+                            // شارة الحالة
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isActive
+                                        ? Colors.green.withOpacity(0.8)
+                                        : Colors.red.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isActive
+                                        ? Icons.check_circle
+                                        : Icons.cancel,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    isActive ? 'نشط' : 'غير نشط',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ),
+
+                    // مؤشرات عدد الصور
+                    if (imageUrls.length > 1)
+                      Positioned(
+                        bottom: 10,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            imageUrls.length,
+                            (index) => AnimatedContainer(
+                              duration: Duration(milliseconds: 300),
+                              margin: EdgeInsets.symmetric(horizontal: 3),
+                              width: currentImage == index ? 18 : 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color:
+                                    currentImage == index
+                                        ? Colors.white
+                                        : Colors.white.withOpacity(0.5),
+                                boxShadow: [
+                                  if (currentImage == index)
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 2,
+                                      spreadRadius: 0.5,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (imageUrls.length > 1) ...[
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (currentImage > 0) {
+                              pageController.previousPage(
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            } else {
+                              pageController.animateToPage(
+                                imageUrls.length - 1,
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withOpacity(0.3),
+                                  Colors.transparent,
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_back_ios_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (currentImage < imageUrls.length - 1) {
+                              pageController.nextPage(
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            } else {
+                              pageController.animateToPage(
+                                0,
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.3),
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
+                  ],
+                ),
+
+                // بيانات الخدمة
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on, color: typeColor, size: 16),
-                      const SizedBox(width: 4),
+                      // عنوان الخدمة
                       Text(
-                        region,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const Spacer(),
-                      Icon(Icons.star, color: Color(0xFFF1C40F), size: 16),
-                      const SizedBox(width: 2),
-                      Text(
-                        rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      Text(
-                        ' ($reviewCount)',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Text(
-                        '$price',
+                        title,
                         style: TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: typeColor,
-                          fontSize: 16,
+                          color: Color(0xFF1F2937),
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Color(0xFF60A5FA)),
-                        tooltip: 'تعديل',
-                        onPressed: () => _loadServiceForEdit(service),
+
+                      SizedBox(height: 12),
+
+                      // معلومات الخدمة: السعر والمنطقة والتقييم
+                      Row(
+                        children: [
+                          // السعر بتصميم مميز
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: typeColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: typeColor.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.payments_rounded,
+                                  size: 16,
+                                  color: typeColor,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  '${price.toStringAsFixed(0)} دج',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: typeColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(width: 12),
+
+                          // المنطقة
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: Colors.grey[700],
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  region,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          Spacer(),
+
+                          // التقييم
+                          if (rating > 0)
+                            Row(
+                              children: [
+                                Icon(Icons.star, color: Colors.amber, size: 18),
+                                SizedBox(width: 4),
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(width: 2),
+                                Text(
+                                  '($reviewCount)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
-                      IconButton(
-                        icon: Icon(
-                          isActive ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
-                        ),
-                        tooltip: isActive ? 'تعطيل' : 'تفعيل',
-                        onPressed:
-                            () => _toggleServiceStatus(service['id'], isActive),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'حذف',
-                        onPressed: () => _deleteService(service['id']),
+
+                      SizedBox(height: 12),
+
+                      // أزرار التحكم بشكل جديد
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildControlButton(
+                            icon: Icons.edit_rounded,
+                            label: 'تعديل',
+                            color: Color(0xFF3B82F6),
+                            onTap: () => _loadServiceForEdit(service),
+                          ),
+                          _buildControlButton(
+                            icon:
+                                isActive
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                            label: isActive ? 'تعطيل' : 'تفعيل',
+                            color: isActive ? Colors.orange : Colors.green,
+                            onTap:
+                                () => _toggleServiceStatus(
+                                  service['id'],
+                                  isActive,
+                                ),
+                          ),
+                          _buildControlButton(
+                            icon: Icons.delete_rounded,
+                            label: 'حذف',
+                            color: Colors.red,
+                            onTap: () => _deleteService(service['id']),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // زر تحكم بشكل جديد
+  Widget _buildControlButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 18),
+            SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
           ],
