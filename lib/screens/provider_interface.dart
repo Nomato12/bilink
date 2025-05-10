@@ -10,12 +10,14 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../services/chat_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/notification_badge.dart';
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart';
 import 'chat_list_screen.dart';
 import '../models/home_page.dart';
+import 'notifications_screen.dart';
 
 // Custom painters for logistics-themed decorations
 
@@ -2550,9 +2552,46 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
             ],
           ),
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
+          elevation: 0,          centerTitle: true,
           actions: [
+            // زر الإشعارات مع عدد الإشعارات غير المقروءة
+            StreamBuilder<int>(
+              stream: NotificationService().getUnreadNotificationsCount(
+                FirebaseAuth.instance.currentUser?.uid ?? '',
+              ),
+              builder: (context, snapshot) {
+                final unreadNotificationsCount = snapshot.data ?? 0;
+                
+                return Stack(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.notifications_outlined),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    if (unreadNotificationsCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: NotificationBadge(count: unreadNotificationsCount),
+                      ),
+                  ],
+                );
+              },
+            ),
             // زر المحادثات مع إشعار عدد الرسائل غير المقروءة
             StreamBuilder<int>(
               stream: ChatService(

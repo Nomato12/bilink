@@ -8,6 +8,7 @@ import 'dart:async'; // Importando dart:async para usar Timer
 import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/services/chat_service.dart'; // Añadir importación de chat_service
 import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de chat_screen
+import 'package:bilink/services/notification_service.dart'; // Importar el servicio de notificaciones
 // للتحكم بوضع الشاشة الكاملة
 // لعرض الصور بشكل تفاعلي
 // لعرض معرض الصور
@@ -1669,7 +1670,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     if (authService.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('يجب تسجيل الدخول لطلب الخدمة'),
+          content: const Text('يجب تسجيل الدخول لطلب الخدمة'),
           action: SnackBarAction(
             label: 'تسجيل الدخول',
             onPressed: () {
@@ -1689,109 +1690,149 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder: (context, setState) {
-              return AlertDialog(
-                title: Row(
-                  children: [
-                    Icon(Icons.send_rounded, color: Color(0xFF9B59B6)),
-                    SizedBox(width: 8),
-                    Text('طلب الخدمة'),
-                  ],
-                ),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'يرجى تقديم التفاصيل المطلوبة لطلب هذه الخدمة',
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
-                      SizedBox(height: 16),
-
-                      // Campo de fecha
-                      TextField(
-                        controller: dateController,
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          labelText: 'التاريخ المطلوب',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        onTap: () async {
-                          final DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now().add(Duration(days: 1)),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(Duration(days: 90)),
-                          );
-
-                          if (pickedDate != null) {
-                            setState(() {
-                              selectedDate = pickedDate;
-                              dateController.text =
-                                  '${pickedDate.day}/${pickedDate.month}/${pickedDate.year}';
-                            });
-                          }
-                        },
-                      ),
-                      SizedBox(height: 16),
-
-                      // Campo de detalles
-                      TextField(
-                        controller: detailsController,
-                        maxLines: 4,
-                        decoration: InputDecoration(
-                          labelText: 'تفاصيل الطلب',
-                          hintText:
-                              'اكتب هنا أي تفاصيل إضافية تود إضافتها للطلب...',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            title: Row(
+              children: const [
+                Icon(Icons.send_rounded, color: Color(0xFF9B59B6)),
+                SizedBox(width: 8),
+                Text('طلب الخدمة'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'يرجى تقديم التفاصيل المطلوبة لطلب هذه الخدمة',
+                    style: TextStyle(color: Colors.grey[700]),
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('إلغاء'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Validar los campos
-                      if (selectedDate == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('يرجى اختيار التاريخ المطلوب'),
-                          ),
-                        );
-                        return;
+                  const SizedBox(height: 16),
+
+                  // Campo de fecha
+                  TextField(
+                    controller: dateController,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'التاريخ المطلوب',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    onTap: () async {
+                      final DateTime? pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now().add(const Duration(days: 1)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 90)),
+                      );
+
+                      if (pickedDate != null) {
+                        setState(() {
+                          selectedDate = pickedDate;
+                          dateController.text =
+                              '${pickedDate.day}/${pickedDate.month}/${pickedDate.year}';
+                        });
                       }
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
-                      // Enviar solicitud (aquí se implementaría la lógica real)
-                      Navigator.pop(context);
+                  // Campo de detalles
+                  TextField(
+                    controller: detailsController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'تفاصيل الطلب',
+                      hintText:
+                          'اكتب هنا أي تفاصيل إضافية تود إضافتها للطلب...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  // Validar los campos
+                  if (selectedDate == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('يرجى اختيار التاريخ المطلوب'),
+                      ),
+                    );
+                    return;
+                  }
 
-                      // Mostrar mensaje de éxito
+                  try {
+                    // Mostrar indicador de carga
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext context) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                    );
+
+                    // Crear instancia del servicio de notificaciones
+                    final notificationService = NotificationService();
+
+                    // Enviar la solicitud y notificación al proveedor
+                    await notificationService.sendServiceRequest(
+                      serviceId: widget.serviceId,
+                      providerId: _serviceData!['providerId'],
+                      serviceName: _serviceData!['title'] ?? 'خدمة',
+                      details: detailsController.text,
+                      requestDate: selectedDate!,
+                    );
+
+                    // Cerrar el diálogo de carga y el formulario
+                    if (mounted) Navigator.pop(context); // Cierra el indicador de carga
+                    if (mounted) Navigator.pop(context); // Cierra el formulario
+
+                    // Mostrar mensaje de éxito
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
+                          content: const Text(
                             'تم إرسال طلبك بنجاح! سيتصل بك مزود الخدمة قريبًا.',
                           ),
                           backgroundColor: Colors.green,
                         ),
                       );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF9B59B6),
-                    ),
-                    child: Text('إرسال الطلب'),
-                  ),
-                ],
-              );
-            },
-          ),
+                    }
+                  } catch (e) {
+                    // Cerrar el diálogo de carga
+                    if (mounted) Navigator.pop(context);
+                    
+                    // Mostrar mensaje de error
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('حدث خطأ أثناء إرسال الطلب: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9B59B6),
+                ),
+                child: const Text('إرسال الطلب'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
