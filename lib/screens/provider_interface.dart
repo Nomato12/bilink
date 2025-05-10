@@ -12,14 +12,13 @@ import '../models/user_model.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/notification_badge.dart';
+import '../widgets/request_tabs.dart';
 import 'driver_tracking_map.dart';
 import 'storage_location_map.dart';
 import 'add_service_screen.dart';
 import 'chat_list_screen.dart';
 import '../models/home_page.dart';
 import 'notifications_screen.dart';
-
-// Custom painters for logistics-themed decorations
 
 // Circles painter for logistics network pattern
 class LogisticsCirclesPainter extends CustomPainter {
@@ -2780,24 +2779,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                     ),
                   )
                 : _currentIndex == 1
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.assignment_outlined, size: 80, color: vibrantOrange.withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'صفحة الطلبات',
-                          style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'ستتوفر هذه الميزة قريبًا',
-                          style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7)),
-                        ),
-                      ],
-                    ),
-                  )
+                ? const RequestTabs()
                 : _currentIndex == 2
                 ? Center(
                     child: Column(

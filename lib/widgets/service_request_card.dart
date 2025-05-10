@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:bilink/services/notification_service.dart';
+import 'package:bilink/screens/client_details_screen.dart';
 
 class ServiceRequestCard extends StatelessWidget {
   final Map<String, dynamic> requestData;
@@ -249,6 +250,32 @@ class ServiceRequestCard extends StatelessWidget {
                 ],
               ),
             ],
+            
+            // Show client details button for accepted requests
+            if (status == 'accepted') ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final clientId = requestData['clientId'];
+                    if (clientId != null) {
+                      _showClientDetails(context, clientId);
+                    }
+                  },
+                  icon: const Icon(Icons.person, size: 16),
+                  label: const Text('عرض معلومات العميل'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -281,6 +308,14 @@ class ServiceRequestCard extends StatelessWidget {
 
       // Close loading dialog
       if (context.mounted) Navigator.pop(context);
+
+      // If the request was accepted, show client details
+      if (status == 'accepted' && context.mounted) {
+        final clientId = requestData['clientId'];
+        if (clientId != null) {
+          _showClientDetails(context, clientId);
+        }
+      }
 
       // Show success message
       if (context.mounted) {
@@ -315,5 +350,15 @@ class ServiceRequestCard extends StatelessWidget {
         );
       }
     }
+  }
+
+  // Show client details in a full screen
+  void _showClientDetails(BuildContext context, String clientId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ClientDetailsScreen(clientId: clientId),
+      ),
+    );
   }
 }

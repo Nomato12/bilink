@@ -78,11 +78,14 @@ class NotificationService {
       final clientId = requestData['clientId'];
       final serviceName = requestData['serviceName'];
 
-      // Update request status
-      await _requestsCollection.doc(requestId).update({
+      // Update request status with response date
+      Map<String, dynamic> updateData = {
         'status': status,
+        'responseDate': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      await _requestsCollection.doc(requestId).update(updateData);
 
       // Create a notification for the client
       await _notificationsCollection.add({
@@ -138,5 +141,40 @@ class NotificationService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs);
+  }
+  
+  // Get accepted requests for a provider
+  Stream<List<DocumentSnapshot>> getProviderAcceptedRequests(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'accepted')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs);
+  }
+  
+  // Get client details for an accepted request
+  Future<Map<String, dynamic>> getClientDetails(String clientId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(clientId).get();
+      
+      if (!userDoc.exists) {
+        throw Exception('User not found');
+      }
+      
+      final userData = userDoc.data() as Map<String, dynamic>;
+      
+      return {
+        'id': userDoc.id,
+        'name': userData['displayName'] ?? 'عميل',
+        'email': userData['email'] ?? '',
+        'phone': userData['phoneNumber'] ?? '',
+        'profilePicture': userData['profilePicture'] ?? '',
+        'address': userData['address'] ?? '',
+      };
+    } catch (e) {
+      print('Error getting client details: $e');
+      throw Exception('Failed to get client details');
+    }
   }
 }
