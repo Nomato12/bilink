@@ -50,16 +50,77 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   String _selectedType = 'الكل';
   String _sortBy = 'التقييم';
   RangeValues _priceRange = RangeValues(0, 10000);
-
   // القيم الحالية للفلاتر المفعلة
   final Set<String> _activeFilters = {};
 
+  // قائمة المناطق
+  final List<String> _regions = [
+    'الكل',
+    'أدرار',
+    'الشلف',
+    'الأغواط',
+    'أم البواقي',
+    'باتنة',
+    'بجاية',
+    'بسكرة',
+    'بشار',
+    'البليدة',
+    'البويرة',
+    'تمنراست',
+    'تبسة',
+    'تلمسان',
+    'تيارت',
+    'تيزي وزو',
+    'الجزائر العاصمة',
+    'الجلفة',
+    'جيجل',
+    'سطيف',
+    'سعيدة',
+    'سكيكدة',
+    'سيدي بلعباس',
+    'عنابة',
+    'قالمة',
+    'قسنطينة',
+    'المدية',
+    'مستغانم',
+    'المسيلة',
+    'معسكر',
+    'ورقلة',
+    'وهران',
+    'البيض',
+    'إليزي',
+    'برج بوعريريج',
+    'بومرداس',
+    'الطارف',
+    'تندوف',
+    'تيسمسيلت',
+    'الوادي',
+    'خنشلة',
+    'سوق أهراس',
+    'تيبازة',
+    'ميلة',
+    'عين الدفلى',
+    'النعامة',
+    'عين تموشنت',
+    'غرداية',
+    'غليزان',
+    'المغير',
+    'المنيعة',
+  ];
+  
+  // متغيرات نطاق السعر
+  double _minPrice = 0;
+  double _maxPrice = 10000;
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
     _loadServices();
+    
+    // تعيين القيم الافتراضية لنطاق السعر
+    _minPrice = _priceRange.start;
+    _maxPrice = _priceRange.end;
     
     // استخدام رسالة النظام لضبط شريط الحالة
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
@@ -121,9 +182,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       // تحويل وثائق Firestore إلى قائمة من البيانات
       for (var doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id; // إضافة معرف الوثيقة
-
-        // تطبيق فلتر نطاق السعر (لا يمكن تطبيقه مباشرة في الاستعلام)
+        data['id'] = doc.id; // إضافة معرف الوثيقة        // تطبيق فلتر نطاق السعر (لا يمكن تطبيقه مباشرة في الاستعلام)
         final price = data['price'] as num? ?? 0;
         if (price >= _priceRange.start && price <= _priceRange.end) {
           servicesList.add(data);
@@ -977,57 +1036,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     icon: Icons.location_on,
                     child: Column(
                       children: [
-                        _buildFilterOption(
-                          title: 'الكل',
-                          isSelected: _selectedRegion == 'الكل',
-                          onTap: () {
-                            setState(() {
-                              _selectedRegion = 'الكل';
-                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
-                            });
-                            _updateFilters();
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildFilterOption(
-                          title: 'الجزائر العاصمة',
-                          isSelected: _selectedRegion == 'الجزائر العاصمة',
-                          onTap: () {
-                            setState(() {
-                              _selectedRegion = 'الجزائر العاصمة';
-                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
-                              _activeFilters.add('المنطقة: الجزائر العاصمة');
-                            });
-                            _updateFilters();
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildFilterOption(
-                          title: 'وهران',
-                          isSelected: _selectedRegion == 'وهران',
-                          onTap: () {
-                            setState(() {
-                              _selectedRegion = 'وهران';
-                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
-                              _activeFilters.add('المنطقة: وهران');
-                            });
-                            _updateFilters();
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildFilterOption(
-                          title: 'قسنطينة',
-                          isSelected: _selectedRegion == 'قسنطينة',
-                          onTap: () {
-                            setState(() {
-                              _selectedRegion = 'قسنطينة';
-                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
-                              _activeFilters.add('المنطقة: قسنطينة');
-                            });
-                            _updateFilters();
-                            Navigator.pop(context);
-                          },
-                        ),
+                        _buildRegionDropdown(),
                       ],
                     ),
                   ),
@@ -1039,26 +1048,77 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     title: 'نطاق السعر',
                     icon: Icons.attach_money,
                     child: Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        RangeSlider(
-                          values: _priceRange,
-                          min: 0,
-                          max: 10000,
-                          divisions: 20,
-                          activeColor: _primaryColor,
-                          inactiveColor: Colors.grey.shade300,
-                          labels: RangeLabels(
-                            '${_priceRange.start.round()} دج',
-                            '${_priceRange.end.round()} دج',
-                          ),
-                          onChanged: (RangeValues values) {
+                      children: [                        const SizedBox(height: 8),                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'الحد الأدنى',
+                                  labelStyle: TextStyle(color: _primaryColor),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  suffixText: 'دج',
+                                ),
+                                controller: TextEditingController(text: _priceRange.start.round().toString()),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _minPrice = double.tryParse(value) ?? 0;
+                                  });
+                                },
+                                onSubmitted: (value) {
+                                  setState(() {
+                                    _minPrice = double.tryParse(value) ?? 0;
+                                    _priceRange = RangeValues(_minPrice, _priceRange.end);
+                                    _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
+                                    _activeFilters.add(
+                                      'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
+                                    );
+                                  });
+                                  _updateFilters();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'الحد الأقصى',
+                                  labelStyle: TextStyle(color: _primaryColor),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  suffixText: 'دج',
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _maxPrice = double.tryParse(value) ?? 10000;
+                                  });
+                                },
+                                onSubmitted: (value) {
+                                  setState(() {
+                                    _maxPrice = double.tryParse(value) ?? 10000;
+                                    _priceRange = RangeValues(_priceRange.start, _maxPrice);
+                                    _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
+                                    _activeFilters.add(
+                                      'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
+                                    );
+                                  });
+                                  _updateFilters();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () {
                             setState(() {
-                              _priceRange = values;
-                            });
-                          },
-                          onChangeEnd: (RangeValues values) {
-                            setState(() {
+                              _priceRange = RangeValues(_minPrice, _maxPrice);
                               _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
                               _activeFilters.add(
                                 'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
@@ -1066,21 +1126,21 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                             });
                             _updateFilters();
                           },
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${_priceRange.start.round()} دج',
-                                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            minimumSize: const Size(double.infinity, 40),
+                          ),
+                          child: Text(
+                            'تطبيق نطاق السعر',
+                            style: GoogleFonts.cairo(
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
-                              Text(
-                                '${_priceRange.end.round()} دج',
-                                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
@@ -1339,13 +1399,14 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               ),
               const Spacer(),
               TextButton(
-                onPressed: () {
-                  setState(() {
+                onPressed: () {                  setState(() {
                     _activeFilters.clear();
                     _selectedRegion = 'الكل';
                     _selectedType = 'الكل';
                     _sortBy = 'التقييم';
                     _priceRange = RangeValues(0, 10000);
+                    _minPrice = 0;
+                    _maxPrice = 10000;
                   });
                   _updateFilters();
                 },
@@ -2254,6 +2315,55 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // بناء قائمة منسدلة للمناطق
+  Widget _buildRegionDropdown() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isExpanded: true,
+            value: _selectedRegion,
+            icon: Icon(Icons.arrow_drop_down, color: _primaryColor),
+            elevation: 16,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            borderRadius: BorderRadius.circular(10),
+            items: _regions.map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(
+                  value,
+                  style: GoogleFonts.cairo(
+                    textStyle: TextStyle(
+                      color: _selectedRegion == value ? _secondaryColor : Colors.black87,
+                      fontWeight: _selectedRegion == value ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  _selectedRegion = newValue;
+                  _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
+                  if (newValue != 'الكل') {
+                    _activeFilters.add('المنطقة: $newValue');
+                  }
+                });
+                _updateFilters();
+              }
+            },
           ),
         ),
       ),
