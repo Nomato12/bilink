@@ -174,7 +174,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     'أخرى',
   ];
   final List<XFile> _selectedImages = [];
-  List<String> _imageUrls = [];
+  final List<String> _imageUrls = [];
 
   // متغيرات خاصة بمعلومات المركبة (للنقل)
   String _selectedVehicleType = 'وانيت';
@@ -193,7 +193,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   final _vehicleDimensionsController = TextEditingController();
   final _vehicleSpecialFeaturesController = TextEditingController();
   final List<XFile> _selectedVehicleImages = [];
-  List<String> _vehicleImageUrls = [];
+  final List<String> _vehicleImageUrls = [];
 
   // متغيرات للإحصائيات
   int _totalServices = 0;
@@ -655,6 +655,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           'latitude': _locationLatitude,
           'longitude': _locationLongitude,
           'address': _locationAddress,
+          'timestamp': FieldValue.serverTimestamp(),
         };
       }
 
@@ -691,6 +692,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                 'longitude': _locationLongitude,
                 'address': _locationAddress,
                 'createdAt': FieldValue.serverTimestamp(),
+                'lastUpdate': FieldValue.serverTimestamp(),
               });
         }
 

@@ -8,9 +8,9 @@ import 'dart:async'; // Importando dart:async para usar Timer
 import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/services/chat_service.dart'; // Añadir importación de chat_service
 import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de chat_screen
-import 'package:flutter/services.dart'; // للتحكم بوضع الشاشة الكاملة
-import 'package:photo_view/photo_view.dart'; // لعرض الصور بشكل تفاعلي
-import 'package:photo_view/photo_view_gallery.dart'; // لعرض معرض الصور
+// للتحكم بوضع الشاشة الكاملة
+// لعرض الصور بشكل تفاعلي
+// لعرض معرض الصور
 import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
 
 // Controlador personalizado para el carrusel de imágenes
@@ -85,19 +85,20 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
       _startAutoPlay();
     }
   }
-  
+
   // فتح عارض الصور بملء الشاشة
   void _openFullScreenImageViewer(BuildContext context, int index) {
     // إيقاف التشغيل التلقائي مؤقتًا عند فتح الصورة بملء الشاشة
     _timer?.cancel();
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FullScreenImageViewer(
-          imageUrls: widget.imageUrls,
-          initialIndex: index,
-        ),
+        builder:
+            (context) => FullScreenImageViewer(
+              imageUrls: widget.imageUrls,
+              initialIndex: index,
+            ),
       ),
     ).then((_) {
       // إعادة تشغيل التشغيل التلقائي بعد العودة من عرض الشاشة الكاملة
@@ -522,22 +523,25 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     final currency = _serviceData!['currency'] ?? 'دينار جزائري';
     final rating = (_serviceData!['rating'] as num?)?.toDouble() ?? 0.0;
     final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;
-    
+
     // جمع جميع الصور المتاحة للخدمة
     List<dynamic> imageUrls = [];
-    
+
     // إضافة الصور الرئيسية للخدمة
-    if (_serviceData!['imageUrls'] != null && _serviceData!['imageUrls'] is List) {
+    if (_serviceData!['imageUrls'] != null &&
+        _serviceData!['imageUrls'] is List) {
       imageUrls = List<dynamic>.from(_serviceData!['imageUrls']);
     }
-    
+
     // Debug print to check image URLs before conversion
     print(
       'Service ${widget.serviceId} has ${imageUrls.length} main images: $imageUrls',
     );
-    
+
     // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
-    if (type == 'نقل' && _serviceData!['vehicle'] != null && _serviceData!['vehicle'] is Map) {
+    if (type == 'نقل' &&
+        _serviceData!['vehicle'] != null &&
+        _serviceData!['vehicle'] is Map) {
       if ((_serviceData!['vehicle'] as Map).containsKey('imageUrls')) {
         final vehicleImgs = _serviceData!['vehicle']['imageUrls'];
         if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
@@ -547,11 +551,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               imageUrls.add(img);
             }
           }
-          print('ServiceDetailsScreen: Added vehicle images, total now: ${imageUrls.length} images');
+          print(
+            'ServiceDetailsScreen: Added vehicle images, total now: ${imageUrls.length} images',
+          );
         }
       }
     }
-    
+
     // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
     if (type == 'تخزين' && _serviceData!['storageLocationImageUrls'] != null) {
       final locationImgs = _serviceData!['storageLocationImageUrls'];
@@ -562,10 +568,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             imageUrls.add(img);
           }
         }
-        print('ServiceDetailsScreen: Added storage location images, total now: ${imageUrls.length} images');
+        print(
+          'ServiceDetailsScreen: Added storage location images, total now: ${imageUrls.length} images',
+        );
       }
     }
-    
+
     // Additional debug print to check the type of each URL in the list
     if (imageUrls.isNotEmpty) {
       print('First image URL type: ${imageUrls[0].runtimeType}');
@@ -1033,6 +1041,72 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Location information for transport service
+        if (locationInfo != null) ...[
+          Text(
+            'معلومات الموقع',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
+          ),
+          SizedBox(height: 16),
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              children: [
+                _buildInfoRow(
+                  'العنوان',
+                  locationInfo['address'] ?? 'غير محدد',
+                  Icons.location_on,
+                ),
+                if (locationInfo['latitude'] != null &&
+                    locationInfo['longitude'] != null) ...[
+                  SizedBox(height: 16),
+                  SizedBox(
+                    height: 150,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(
+                            locationInfo['latitude'],
+                            locationInfo['longitude'],
+                          ),
+                          zoom: 15,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: MarkerId('serviceLocation'),
+                            position: LatLng(
+                              locationInfo['latitude'],
+                              locationInfo['longitude'],
+                            ),
+                            infoWindow: InfoWindow(
+                              title: 'موقع الخدمة',
+                              snippet: locationInfo['address'] ?? '',
+                            ),
+                          ),
+                        },
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        myLocationButtonEnabled: false,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: 24),
+        ],
+
         Text(
           'معلومات المركبة',
           style: TextStyle(
@@ -2099,6 +2173,97 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Location information for transport service
+          if (locationInfo != null) ...[
+            Row(
+              children: [
+                Icon(Icons.location_on, color: Color(0xFFEF4444), size: 24),
+                SizedBox(width: 10),
+                Text(
+                  'معلومات الموقع',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow(
+                    'العنوان',
+                    locationInfo['address'] ?? 'غير محدد',
+                    Icons.location_on,
+                  ),
+                  if (locationInfo['latitude'] != null &&
+                      locationInfo['longitude'] != null) ...[
+                    SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        height: 150,
+                        width: double.infinity,
+                        child: GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            target: LatLng(
+                              locationInfo['latitude'],
+                              locationInfo['longitude'],
+                            ),
+                            zoom: 15,
+                          ),
+                          markers: {
+                            Marker(
+                              markerId: MarkerId('serviceLocation'),
+                              position: LatLng(
+                                locationInfo['latitude'],
+                                locationInfo['longitude'],
+                              ),
+                              infoWindow: InfoWindow(
+                                title: 'موقع الخدمة',
+                                snippet: locationInfo['address'] ?? '',
+                              ),
+                            ),
+                          },
+                          zoomControlsEnabled: false,
+                          mapToolbarEnabled: false,
+                          myLocationButtonEnabled: false,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            SizedBox(height: 24),
+          ],
+
+          // Vehicle title
+          Row(
+            children: [
+              Icon(Icons.local_shipping, color: Color(0xFFEF4444), size: 24),
+              SizedBox(width: 10),
+              Text(
+                'معلومات المركبة',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
           // Vehicle details with modern cards
           GridView.count(
             crossAxisCount: 2,

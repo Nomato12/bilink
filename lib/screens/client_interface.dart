@@ -9,6 +9,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
 import 'package:bilink/screens/service_details_screen.dart';
 import 'package:bilink/screens/transport_service_map.dart';
+import 'package:bilink/services/location_synchronizer.dart'; // Importar el sincronizador
 import 'package:bilink/screens/storage_locations_map_screen.dart';
 import 'package:bilink/screens/account_profile_screen.dart';
 import 'package:bilink/services/chat_service.dart';
@@ -32,6 +33,9 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   int _currentImageIndex = 0;
+  
+  // متغيرات القائمة الجانبية
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // الألوان الأساسية - نظام ألوان متناسق للخدمات اللوجستية
   final Color _primaryColor = const Color(0xFF0B3D91); // لون أزرق بحري عميق يرمز للموثوقية والاحترافية
@@ -176,14 +180,52 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   // تحديث خيارات الفلتر وإعادة تحميل البيانات
   void _updateFilters() {
     _loadServices();
-  }
-
-  // توجيه المستخدم إلى صفحة مواقع التخزين
+  }  // توجيه المستخدم إلى صفحة مواقع التخزين
   void _navigateToStorageLocationsMap() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => StorageLocationsMapScreen()),
     );
+  }
+  
+  // توجيه المستخدم إلى خريطة خدمات النقل مع مزامنة البيانات
+  Future<void> _navigateToTransportServicesMap() async {
+    try {
+      // عرض مؤشر التحميل
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20, 
+                height: 20, 
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.0,
+                  valueColor: AlwaysStoppedAnimation<Color>(_secondaryColor),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('جاري تحميل خدمات النقل...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // استخدام مزامن المواقع لتحديث بيانات المواقع
+      final synchronizer = LocationSynchronizer();
+      await synchronizer.synchronizeTransportLocations();
+      
+      // التنقل إلى شاشة خريطة النقل
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const TransportServiceMapScreen()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء تحميل خدمات النقل. حاول مرة أخرى.')),
+      );
+    }
   }
 
   @override
@@ -192,6 +234,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     final screenSize = MediaQuery.of(context).size;
     
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _buildSideDrawer(),
       body: SafeArea(
         child: Stack(
           children: [
@@ -684,12 +728,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           if (_selectedType == 'تخزين') {
             _navigateToStorageLocationsMap();
           } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const TransportServiceMapScreen(),
-              ),
-            );
+            _navigateToTransportServicesMap();
           }
         },
         backgroundColor: _secondaryColor,
@@ -710,64 +749,59 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                'ابحث بسهولة',
+                'الخدمات الرئيسية',
                 style: GoogleFonts.cairo(
                   textStyle: TextStyle(
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: _primaryColor,
                   ),
                 ),
               ),
+              const Spacer(),
+              // زر فتح القائمة الجانبية
+              IconButton(
+                icon: Icon(
+                  Icons.menu,
+                  color: _primaryColor,
+                  size: 28,
+                ),
+                onPressed: () {
+                  _scaffoldKey.currentState?.openDrawer();
+                },
+                tooltip: 'عرض جميع الخدمات',
+              ),
             ],
           ),
-          const SizedBox(height: 15),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                _buildFeatureCard(
-                  title: 'تتبع الشحنات',
-                  color: const Color(0xFF2E7D32), // أخضر
-                  icon: 'assets/images/tracking.svg',
-                  onTap: () {
-                    // تنفيذ وظيفة تتبع الشحنات
-                  },
-                ),
-                _buildFeatureCard(
-                  title: 'مراكز الخدمة',
-                  color: const Color(0xFF673AB7), // أرجواني
-                  icon: 'assets/images/logistics_hub.svg',
-                  onTap: () {
-                    // عرض مراكز الخدمة
-                  },
-                ),
-                _buildFeatureCard(
-                  title: 'التخزين',
-                  color: const Color(0xFF1565C0), // أزرق
+          const SizedBox(height: 20),
+          // خدمتي النقل والتخزين كأيقونتين كبيرتين
+          Row(
+            children: [
+              // خدمة التخزين
+              Expanded(
+                child: _buildLargeServiceCard(
+                  title: 'خدمة التخزين',
                   icon: 'assets/images/warehouse.svg',
+                  color: _accentColor,
                   onTap: () {
                     _navigateToStorageLocationsMap();
                   },
                 ),
-                _buildFeatureCard(
-                  title: 'النقل',
-                  color: const Color(0xFFFF6F00), // برتقالي
+              ),
+              const SizedBox(width: 15),
+              // خدمة النقل
+              Expanded(
+                child: _buildLargeServiceCard(
+                  title: 'خدمة النقل',
                   icon: 'assets/images/truck.svg',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TransportServiceMapScreen(),
-                      ),
-                    );
+                  color: _secondaryColor,          onTap: () {
+                    _navigateToTransportServicesMap();
                   },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 25),
           Divider(
             color: Colors.grey.withOpacity(0.3),
             thickness: 1,
@@ -777,7 +811,459 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء بطاقة ميزة في الشريط العلوي
+  // بناء بطاقة خدمة كبيرة
+  Widget _buildLargeServiceCard({
+    required String title,
+    required String icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: 180,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                color,
+                color.withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(
+                icon,
+                width: 60,
+                height: 60,
+                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                title,
+                style: GoogleFonts.cairo(
+                  textStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // بناء القائمة الجانبية
+  Widget _buildSideDrawer() {
+    return Drawer(
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            // رأس القائمة الجانبية
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_primaryColor, _accentColor],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'جميع الخدمات',
+                        style: GoogleFonts.cairo(
+                          textStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'تصفية وعرض جميع الخدمات المتاحة',
+                    style: GoogleFonts.cairo(
+                      textStyle: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // قسم الفلاتر
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // فلتر نوع الخدمة
+                  _buildFilterSection(
+                    title: 'نوع الخدمة',
+                    icon: Icons.category,
+                    child: Column(
+                      children: [
+                        _buildFilterOption(
+                          title: 'الكل',
+                          isSelected: _selectedType == 'الكل',
+                          onTap: () {
+                            setState(() {
+                              _selectedType = 'الكل';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('النوع'));
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'خدمات النقل',
+                          isSelected: _selectedType == 'نقل',
+                          onTap: () {
+                            setState(() {
+                              _selectedType = 'نقل';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('النوع'));
+                              _activeFilters.add('النوع: نقل');
+                              _tabController.animateTo(1);
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'خدمات التخزين',
+                          isSelected: _selectedType == 'تخزين',
+                          onTap: () {
+                            setState(() {
+                              _selectedType = 'تخزين';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('النوع'));
+                              _activeFilters.add('النوع: تخزين');
+                              _tabController.animateTo(0);
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const Divider(),
+                  
+                  // فلتر المنطقة/الولاية
+                  _buildFilterSection(
+                    title: 'المنطقة',
+                    icon: Icons.location_on,
+                    child: Column(
+                      children: [
+                        _buildFilterOption(
+                          title: 'الكل',
+                          isSelected: _selectedRegion == 'الكل',
+                          onTap: () {
+                            setState(() {
+                              _selectedRegion = 'الكل';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'الجزائر العاصمة',
+                          isSelected: _selectedRegion == 'الجزائر العاصمة',
+                          onTap: () {
+                            setState(() {
+                              _selectedRegion = 'الجزائر العاصمة';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
+                              _activeFilters.add('المنطقة: الجزائر العاصمة');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'وهران',
+                          isSelected: _selectedRegion == 'وهران',
+                          onTap: () {
+                            setState(() {
+                              _selectedRegion = 'وهران';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
+                              _activeFilters.add('المنطقة: وهران');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'قسنطينة',
+                          isSelected: _selectedRegion == 'قسنطينة',
+                          onTap: () {
+                            setState(() {
+                              _selectedRegion = 'قسنطينة';
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المنطقة'));
+                              _activeFilters.add('المنطقة: قسنطينة');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const Divider(),
+                  
+                  // فلتر السعر
+                  _buildFilterSection(
+                    title: 'نطاق السعر',
+                    icon: Icons.attach_money,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 8),
+                        RangeSlider(
+                          values: _priceRange,
+                          min: 0,
+                          max: 10000,
+                          divisions: 20,
+                          activeColor: _primaryColor,
+                          inactiveColor: Colors.grey.shade300,
+                          labels: RangeLabels(
+                            '${_priceRange.start.round()} دج',
+                            '${_priceRange.end.round()} دج',
+                          ),
+                          onChanged: (RangeValues values) {
+                            setState(() {
+                              _priceRange = values;
+                            });
+                          },
+                          onChangeEnd: (RangeValues values) {
+                            setState(() {
+                              _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
+                              _activeFilters.add(
+                                'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
+                              );
+                            });
+                            _updateFilters();
+                          },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${_priceRange.start.round()} دج',
+                                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${_priceRange.end.round()} دج',
+                                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const Divider(),
+                  
+                  // فلتر المسافة
+                  _buildFilterSection(
+                    title: 'المسافة',
+                    icon: Icons.social_distance,
+                    child: Column(
+                      children: [
+                        _buildFilterOption(
+                          title: 'الكل',
+                          isSelected: !_activeFilters.any((filter) => filter.startsWith('المسافة')),
+                          onTap: () {
+                            setState(() {
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المسافة'));
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'أقل من 5 كم',
+                          isSelected: _activeFilters.contains('المسافة: أقل من 5 كم'),
+                          onTap: () {
+                            setState(() {
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المسافة'));
+                              _activeFilters.add('المسافة: أقل من 5 كم');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: '5 - 15 كم',
+                          isSelected: _activeFilters.contains('المسافة: 5 - 15 كم'),
+                          onTap: () {
+                            setState(() {
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المسافة'));
+                              _activeFilters.add('المسافة: 5 - 15 كم');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        _buildFilterOption(
+                          title: 'أكثر من 15 كم',
+                          isSelected: _activeFilters.contains('المسافة: أكثر من 15 كم'),
+                          onTap: () {
+                            setState(() {
+                              _activeFilters.removeWhere((filter) => filter.startsWith('المسافة'));
+                              _activeFilters.add('المسافة: أكثر من 15 كم');
+                            });
+                            _updateFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const Divider(),
+                  
+                  // زر تطبيق الفلاتر
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _updateFilters();
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _secondaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'تطبيق الفلاتر',
+                        style: GoogleFonts.cairo(
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // بناء قسم فلتر في القائمة الجانبية
+  Widget _buildFilterSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: _primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.cairo(
+                textStyle: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+  
+  // بناء خيار فلتر في القائمة الجانبية
+  Widget _buildFilterOption({
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: isSelected ? _secondaryColor : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.cairo(
+                textStyle: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? _secondaryColor : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // بناء بطاقة ميزة في الشريط العلوي (لم تعد مستخدمة)
   Widget _buildFeatureCard({
     required String title,
     required Color color,
@@ -1360,12 +1846,22 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                         ),
                       ],
                     ),
-                    const SizedBox(height: 15),
-                    
-                    // تفاصيل إضافية
+                    const SizedBox(height: 15),                    // تفاصيل إضافية
                     Row(
                       children: [
                         _buildInfoChip(Icons.attach_money, '$price', Colors.green[700]!),
+                        const SizedBox(width: 8),
+                        // إضافة معلومات الموقع إذا كانت متوفرة لخدمة النقل
+                        if (type == 'نقل' && service.containsKey('location') && service['location'] != null && service['location'] is Map)
+                          _buildInfoChip(
+                            Icons.location_on, 
+                            service['location']['address'] != null && service['location']['address'].toString().isNotEmpty
+                                ? service['location']['address'].toString().length > 15
+                                    ? '${service['location']['address'].toString().substring(0, 15)}...'
+                                    : service['location']['address']
+                                : 'موقع متاح',
+                            Colors.blue[700]!,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 15),

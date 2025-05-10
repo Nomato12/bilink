@@ -16,9 +16,7 @@ void main() async {
   runZonedGuarded(
     () async {
       // Asegurarse de que las vinculaciones de Flutter se inicialicen dentro de la misma zona
-      WidgetsFlutterBinding.ensureInitialized();
-
-      // Mejorar el manejo de errores para evitar mensajes corruptos
+      WidgetsFlutterBinding.ensureInitialized();      // Mejorar el manejo de errores para evitar mensajes corruptos
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
         developer.log(

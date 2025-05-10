@@ -21,7 +21,7 @@ class FullScreenImageViewer extends StatefulWidget {
 class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
   late PageController _pageController;
   late int _currentIndex;
-  bool _isFullScreen = true;
+  bool _isFullScreen = true; // Start in fullscreen mode (controls hidden)
 
   @override
   void initState() {
@@ -100,9 +100,9 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             },
           ),
           
-          // Controls overlay
+          // Controls overlay - show when not in fullscreen mode
           AnimatedOpacity(
-            opacity: _isFullScreen ? 0.0 : 1.0,
+            opacity: _isFullScreen ? 0.0 : 1.0, // Hide controls when in fullscreen mode
             duration: const Duration(milliseconds: 200),
             child: Container(
               color: Colors.black.withOpacity(0.4),
@@ -129,7 +129,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                           ),
                           IconButton(
                             icon: Icon(
-                              _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                              _isFullScreen ? Icons.fullscreen : Icons.fullscreen_exit,
                               color: Colors.white,
                               size: 28,
                             ),
