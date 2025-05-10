@@ -235,7 +235,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     
     return Scaffold(
       key: _scaffoldKey,
-      drawer: _buildSideDrawer(),
+      endDrawer: _buildSideDrawer(),
       body: SafeArea(
         child: Stack(
           children: [
@@ -744,8 +744,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        children: [          Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
@@ -759,18 +758,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                 ),
               ),
               const Spacer(),
-              // زر فتح القائمة الجانبية
-              IconButton(
-                icon: Icon(
-                  Icons.menu,
-                  color: _primaryColor,
-                  size: 28,
-                ),
-                onPressed: () {
-                  _scaffoldKey.currentState?.openDrawer();
-                },
-                tooltip: 'عرض جميع الخدمات',
-              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -1589,11 +1576,10 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     child: Container(
                       height: 180,
                       width: double.infinity,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
+                      decoration: const BoxDecoration(                        gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.black12, Colors.black26],
+                          colors: [const Color(0x1F000000), const Color(0x42000000)],
                         ),
                       ),
                       child: imageUrls.isNotEmpty
@@ -1640,8 +1626,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0),
-                            Colors.black.withOpacity(0.7),
+                            Colors.transparent,
+                            const Color(0xB3000000), // استخدام لون ثابت مع قيمة ألفا تساوي 0.7 (حوالي 0xB3)
                           ],
                         ),
                       ),

@@ -9,10 +9,8 @@ import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/services/chat_service.dart'; // Añadir importación de chat_service
 import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de chat_screen
 import 'package:bilink/services/notification_service.dart'; // Importar el servicio de notificaciones
-// للتحكم بوضع الشاشة الكاملة
-// لعرض الصور بشكل تفاعلي
-// لعرض معرض الصور
 import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
+import 'package:bilink/screens/service_details_fix.dart'; // Import our fix for image handling
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -190,49 +188,73 @@ class _CustomImageCarouselState extends State<CustomImageCarousel> {
                 widget.onPageChanged!(index);
               }
             },
-            itemBuilder: (context, index) {
-              final imageUrl = widget.imageUrls[index];
+            itemBuilder: (context, index) {              final imageUrl = widget.imageUrls[index];
               print('Building image at index $index: $imageUrl');
+              
+              // تحقق أن URL الصورة سليم
+              bool isValidUrl = imageUrl.isNotEmpty && 
+                  (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+              
+              if (!isValidUrl) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image,
+                          size: 40,
+                          color: Colors.grey[600],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'رابط الصورة غير صالح',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              
               return GestureDetector(
                 onTap: () => _openFullScreenImageViewer(context, index),
                 child: Hero(
-                  tag: 'image-$imageUrl',
-                  child: CachedNetworkImage(
+                  tag: 'image-$index-${widget.imageUrls.hashCode}',                  child: CachedNetworkImage(
                     imageUrl: imageUrl,
                     fit: BoxFit.cover,
                     width: double.infinity,
-                    placeholder:
-                        (context, url) => Container(
-                          color: Colors.grey[300],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF9B59B6),
-                              ),
-                            ),
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[300],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF9B59B6),
                           ),
                         ),
-                    errorWidget:
-                        (context, url, error) => Container(
-                          color: Colors.grey[300],
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 40,
-                                  color: Colors.red,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'خطأ في تحميل الصورة',
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                              ],
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey[300],
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 40,
+                              color: Colors.red,
                             ),
-                          ),
+                            SizedBox(height: 8),
+                            Text(
+                              'خطأ في تحميل الصورة',
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                          ],
                         ),
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -523,64 +545,70 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     final price = (_serviceData!['price'] as num?)?.toDouble() ?? 0.0;
     final currency = _serviceData!['currency'] ?? 'دينار جزائري';
     final rating = (_serviceData!['rating'] as num?)?.toDouble() ?? 0.0;
-    final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;
+    final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;    // جمع جميع الصور المتاحة للخدمة
+    List<String> imageUrls = [];    try {
+      // إضافة الصور الرئيسية للخدمة
+      if (_serviceData!['imageUrls'] != null && _serviceData!['imageUrls'] is List) {
+        // تحويل القائمة بأمان وفلترة أي قيم null أو غير صالحة
+        List<dynamic> rawImages = List<dynamic>.from(_serviceData!['imageUrls']);
+        for (var img in rawImages) {
+          if (img != null && img.toString().isNotEmpty && 
+              (img.toString().startsWith('http://') || img.toString().startsWith('https://'))) {
+            imageUrls.add(img.toString());
+          }
+        }
+      }
 
-    // جمع جميع الصور المتاحة للخدمة
-    List<dynamic> imageUrls = [];
+      // Debug print to check image URLs after filtering
+      print(
+        'Service ${widget.serviceId} has ${imageUrls.length} filtered main images: $imageUrls',
+      );
 
-    // إضافة الصور الرئيسية للخدمة
-    if (_serviceData!['imageUrls'] != null &&
-        _serviceData!['imageUrls'] is List) {
-      imageUrls = List<dynamic>.from(_serviceData!['imageUrls']);
-    }
+      // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
+      if (type == 'نقل' &&
+          _serviceData!['vehicle'] != null &&
+          _serviceData!['vehicle'] is Map) {
+        if ((_serviceData!['vehicle'] as Map).containsKey('imageUrls')) {
+          final vehicleImgs = _serviceData!['vehicle']['imageUrls'];
+          if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
+            // إضافة صور المركبة إلى قائمة الصور الحالية بعد فلترة القيم غير الصالحة
+            for (var img in vehicleImgs) {
+              if (img != null && img.toString().isNotEmpty && 
+                  (img.toString().startsWith('http://') || img.toString().startsWith('https://')) &&
+                  !imageUrls.contains(img.toString())) {
+                imageUrls.add(img.toString());
+              }
+            }
+            print('Added vehicle images, total now: ${imageUrls.length} images');
+          }
+        }
+      }
 
-    // Debug print to check image URLs before conversion
-    print(
-      'Service ${widget.serviceId} has ${imageUrls.length} main images: $imageUrls',
-    );
-
-    // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
-    if (type == 'نقل' &&
-        _serviceData!['vehicle'] != null &&
-        _serviceData!['vehicle'] is Map) {
-      if ((_serviceData!['vehicle'] as Map).containsKey('imageUrls')) {
-        final vehicleImgs = _serviceData!['vehicle']['imageUrls'];
-        if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
-          // إضافة صور المركبة إلى قائمة الصور الحالية
-          for (var img in vehicleImgs) {
-            if (!imageUrls.contains(img)) {
-              imageUrls.add(img);
+      // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
+      if (type == 'تخزين' && _serviceData!['storageLocationImageUrls'] != null) {
+        final locationImgs = _serviceData!['storageLocationImageUrls'];
+        if (locationImgs is List && locationImgs.isNotEmpty) {
+          // إضافة صور موقع التخزين إلى قائمة الصور الحالية بعد فلترة القيم غير الصالحة
+          for (var img in locationImgs) {
+            if (img != null && img.toString().isNotEmpty && 
+                (img.toString().startsWith('http://') || img.toString().startsWith('https://')) &&
+                !imageUrls.contains(img.toString())) {
+              imageUrls.add(img.toString());
             }
           }
-          print(
-            'ServiceDetailsScreen: Added vehicle images, total now: ${imageUrls.length} images',
-          );
+          print('Added storage location images, total now: ${imageUrls.length} images');
         }
       }
-    }
-
-    // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
-    if (type == 'تخزين' && _serviceData!['storageLocationImageUrls'] != null) {
-      final locationImgs = _serviceData!['storageLocationImageUrls'];
-      if (locationImgs is List && locationImgs.isNotEmpty) {
-        // إضافة صور موقع التخزين إلى قائمة الصور الحالية
-        for (var img in locationImgs) {
-          if (!imageUrls.contains(img)) {
-            imageUrls.add(img);
-          }
-        }
-        print(
-          'ServiceDetailsScreen: Added storage location images, total now: ${imageUrls.length} images',
-        );
+        
+      // تحقق إضافي من صحة الروابط في قائمة الصور النهائية
+      print('Final image URLs count: ${imageUrls.length}');
+      for (int i = 0; i < imageUrls.length; i++) {
+        print('Image $i: ${imageUrls[i]} (${imageUrls[i].runtimeType})');
       }
-    }
-
-    // Additional debug print to check the type of each URL in the list
-    if (imageUrls.isNotEmpty) {
-      print('First image URL type: ${imageUrls[0].runtimeType}');
-      for (var url in imageUrls) {
-        print('Image URL: $url (${url.runtimeType})');
-      }
+    } catch (e) {
+      print('Error processing image URLs: $e');
+      // في حالة حدوث أي خطأ، نحتفظ بقائمة فارغة
+      imageUrls = [];
     }
 
     // Extract location and vehicle information
@@ -613,41 +641,35 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         // Hero image section with gradient overlay
         SliverToBoxAdapter(
           child: Stack(
-            children: [
-              // Main image or placeholder
+            children: [              // Main image or placeholder
               SizedBox(
                 height: 350,
                 width: double.infinity,
-                child:
-                    imageUrls.isNotEmpty
-                        ? Hero(
-                          tag: 'service-image-${widget.serviceId}',
-                          child: CustomImageCarousel(
-                            imageUrls:
-                                imageUrls.map((url) => url.toString()).toList(),
-                            height: 350,
-                            controller: _carouselController,
-                            onPageChanged: (index) {
-                              setState(() {
-                                // يمكن تحديث مؤشر الصورة هنا إذا رغبت
-                              });
-                            },
+                child: imageUrls.isNotEmpty 
+                  ? Hero(
+                      tag: 'service-image-${widget.serviceId}',
+                      child: SafeImageCarousel(
+                        imageUrls: imageUrls,
+                        height: 350,
+                        onPageChanged: (index) {
+                          // Optional page change handling
+                        },
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(typeIcon, size: 80, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'لا توجد صورة متاحة',
+                            style: TextStyle(color: Colors.grey[600]),
                           ),
-                        )
-                        : Container(
-                          color: Colors.grey[200],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(typeIcon, size: 80, color: Colors.grey[400]),
-                              const SizedBox(height: 8),
-                              Text(
-                                'لا توجد صورة متاحة',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
+                        ],
+                      ),
+                    ),
               ),
 
               // Gradient overlay
@@ -660,10 +682,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
+                      end: Alignment.bottomCenter,                      colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.8),
+                        const Color(0xCC000000), // استخدام لون ثابت مع قيمة ألفا تساوي 0.8
                       ],
                     ),
                   ),
