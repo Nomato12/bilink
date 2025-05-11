@@ -6,21 +6,25 @@ import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:bilink/services/directions_helper.dart';
 
-class DirectionsMapScreen extends StatefulWidget {
+class LiveTrackingMapScreen extends StatefulWidget {
   final LatLng? destinationLocation;
   final String? destinationName;
+  final LatLng? originLocation; // إضافة نقطة البداية
+  final String? originName; // إضافة عنوان نقطة البداية
   
-  const DirectionsMapScreen({
+  const LiveTrackingMapScreen({
     super.key, 
     this.destinationLocation,
     this.destinationName,
+    this.originLocation,
+    this.originName,
   });
 
   @override
-  _DirectionsMapScreenState createState() => _DirectionsMapScreenState();
+  _LiveTrackingMapScreenState createState() => _LiveTrackingMapScreenState();
 }
 
-class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
+class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
   final Completer<GoogleMapController> _controller = Completer();
 
   // نقطة الانطلاق الافتراضية (الجزائر العاصمة)
@@ -69,29 +73,66 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
-
-    // إذا كان هناك وجهة محددة، استخدمها مباشرة
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (widget.destinationLocation != null) {
+    
+    // استخدام نقطة البداية المحددة إذا كانت متوفرة، وإلا استخدام الموقع الحالي
+    if (widget.originLocation != null) {
+      setState(() {
+        _originPosition = widget.originLocation;
+      });
+      
+      if (widget.originName != null && widget.originName!.isNotEmpty) {
         setState(() {
-          _destinationPosition = widget.destinationLocation;
+          _originAddress = widget.originName!;
         });
         
-        if (widget.destinationName != null && widget.destinationName!.isNotEmpty) {
-          setState(() {
-            _destinationAddress = widget.destinationName!;
-          });
-          
-          // إضافة علامة للوجهة
-          _addMarker(
-            _destinationPosition!,
-            'destination',
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-            _destinationAddress,
-          );
-        } else {
-          final address = await _getAddressFromLatLng(_destinationPosition!);
+        // إضافة علامة لنقطة البداية
+        _addMarker(
+          _originPosition!,
+          'origin',
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          _originAddress,
+        );
+      } else {
+        _getAddressFromLatLng(_originPosition!).then((address) {
+          if (address.isNotEmpty) {
+            setState(() {
+              _originAddress = address;
+            });
+            
+            // إضافة علامة لنقطة البداية
+            _addMarker(
+              _originPosition!,
+              'origin',
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+              _originAddress,
+            );
+          }
+        });
+      }
+    } else {
+      _getCurrentLocation();
+    }
+
+    // إذا كان هناك وجهة محددة، استخدمها مباشرة
+    if (widget.destinationLocation != null) {
+      setState(() {
+        _destinationPosition = widget.destinationLocation;
+      });
+      
+      if (widget.destinationName != null && widget.destinationName!.isNotEmpty) {
+        setState(() {
+          _destinationAddress = widget.destinationName!;
+        });
+        
+        // إضافة علامة للوجهة
+        _addMarker(
+          _destinationPosition!,
+          'destination',
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          _destinationAddress,
+        );
+      } else {
+        _getAddressFromLatLng(_destinationPosition!).then((address) {
           if (address.isNotEmpty) {
             setState(() {
               _destinationAddress = address;
@@ -105,13 +146,213 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
               _destinationAddress,
             );
           }
-        }
-        
-        // عندما يتم تحديد نقطة البداية، عرض المسار
-        if (_originPosition != null) {
-          _calculateAndDisplayRoute();
-        }
+        });
       }
+    }
+    
+    // حساب المسار بمجرد توفر نقطة البداية والوجهة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_originPosition != null && _destinationPosition != null) {
+        _calculateAndDisplayRoute();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // إلغاء الاشتراك في تحديثات الموقع عند إنهاء الشاشة
+    _stopTracking();
+    super.dispose();
+  }
+  
+  // بدء تتبع الموقع الحالي في الوقت الفعلي
+  void _startTracking() async {
+    if (_originPosition == null || _destinationPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى تحديد نقطة البداية والوجهة أولاً')),
+      );
+      return;
+    }
+    
+    // التحقق من صلاحيات تحديد الموقع
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لم يتم منح صلاحيات الوصول إلى الموقع')),
+        );
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('صلاحيات الموقع مرفوضة بشكل دائم، يرجى تغييرها من إعدادات الجهاز')),
+      );
+      return;
+    }
+      // بدء حالة التتبع
+    setState(() {
+      _isTracking = true;
+      _currentNavigationPosition = _originPosition;
+    });
+    
+    // تنبيه صوتي وتنبيه على الشاشة لبدء التنقل
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('بدء التنقل في الوقت الفعلي'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    // حساب الوقت المتبقي بالثواني بشكل دقيق
+    if (_tripInfo.containsKey('duration') && _tripInfo['duration']!.isNotEmpty) {
+      final durationText = _tripInfo['duration']!;
+      final RegExp regExp = RegExp(r'(\d+)');
+      final match = regExp.firstMatch(durationText);
+      if (match != null) {
+        final minutes = int.tryParse(match.group(1) ?? "0") ?? 0;
+        _remainingTimeInSeconds = minutes * 60;
+      }
+    }
+    
+    // إنشاء مؤقت لتحديث بيانات الملاحة كل ثانية
+    _navigationUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingTimeInSeconds > 0) {
+        setState(() {
+          _remainingTimeInSeconds--;
+          // تحديث نسبة التقدم
+          final totalTime = int.tryParse(_tripInfo['duration']?.replaceAll(RegExp(r'[^0-9]'), '') ?? "0") ?? 0;
+          if (totalTime > 0) {
+            _progressPercentage = 1.0 - (_remainingTimeInSeconds / (totalTime * 60));
+            _progressPercentage = _progressPercentage.clamp(0.0, 1.0);
+            
+            // تحديث الخطوة الحالية بناءً على النسبة المئوية
+            if (_directionSteps.isNotEmpty) {
+              _currentStepIndex = (_progressPercentage * (_directionSteps.length - 1)).floor();
+              _currentStepIndex = _currentStepIndex.clamp(0, _directionSteps.length - 1);
+            }
+          }
+        });
+      } else {
+        // إذا انتهى الوقت، أوقف التتبع
+        _stopTracking();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لقد وصلت إلى وجهتك!')),
+        );
+      }
+    });
+    
+    // الاشتراك في تحديثات الموقع في الوقت الفعلي
+    final locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.best, 
+      distanceFilter: 5, // تحديث كل 5 أمتار
+    );
+    
+    _positionStreamSubscription = Geolocator.getPositionStream(locationSettings: locationSettings)
+        .listen((Position position) async {
+      final newPosition = LatLng(position.latitude, position.longitude);
+      
+      setState(() {
+        _currentNavigationPosition = newPosition;
+      });
+      
+      // تحديث علامة الموقع الحالي
+      _updateCurrentLocationMarker(newPosition);
+        // تحريك الخريطة لمتابعة الموقع الحالي بحركة سلسة
+      final GoogleMapController controller = await _controller.future;
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: newPosition,
+            zoom: 17.0,
+            tilt: 45, // إضافة زاوية مائلة لتحسين عرض الملاحة
+            bearing: position.heading, // توجيه الخريطة حسب اتجاه الحركة
+          ),
+        ),
+      );
+        // حساب المسافة المتبقية للوجهة
+      final double distanceToDestination = Geolocator.distanceBetween(
+        newPosition.latitude,
+        newPosition.longitude,
+        _destinationPosition!.latitude,
+        _destinationPosition!.longitude,
+      );
+      
+      // إذا وصلنا إلى مسافة قريبة من الوجهة (أقل من 30 متر)
+      if (distanceToDestination < 30 && _isTracking) {
+        _stopTracking();
+        
+        // تنبيه صوتي وشاشة عند الوصول للوجهة
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لقد وصلت إلى وجهتك!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // تحريك الكاميرا لإظهار الوجهة
+        final GoogleMapController controller = await _controller.future;
+        controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: _destinationPosition!,
+              zoom: 18.0,
+              tilt: 0,
+              bearing: 0,
+            ),
+          ),
+        );
+      }
+    });
+    
+    // عرض شريط التتبع
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('بدء التتبع في الوقت الفعلي...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+  
+  // إيقاف التتبع وتنظيف الموارد
+  void _stopTracking() {
+    if (_navigationUpdateTimer != null) {
+      _navigationUpdateTimer!.cancel();
+      _navigationUpdateTimer = null;
+    }
+    
+    if (_positionStreamSubscription != null) {
+      _positionStreamSubscription!.cancel();
+      _positionStreamSubscription = null;
+    }
+    
+    setState(() {
+      _isTracking = false;
+    });
+  }
+  
+  // تحديث علامة الموقع الحالي مع السهم للإشارة إلى الاتجاه
+  void _updateCurrentLocationMarker(LatLng position) async {
+    setState(() {
+      // إزالة علامة الموقع الحالي إذا كانت موجودة
+      _markers.removeWhere((marker) => marker.markerId.value == 'current_location');
+      
+      // إضافة علامة جديدة للموقع الحالي
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('current_location'),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(title: 'موقعك الحالي'),
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+          zIndex: 2,
+        ),
+      );
     });
   }
 
@@ -294,13 +535,13 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('تم حساب المسار: ${_tripInfo['distance']} (${_tripInfo['duration']})'),
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
     } catch (e) {
       print('Error calculating route: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('حدث خطأ أثناء حساب المسار'),
         ),
       );
@@ -346,6 +587,98 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
     } catch (e) {
       print('Error fitting bounds: $e');
     }
+  }
+  
+  // عرض شريط تقدم الرحلة أثناء التتبع  
+  Widget _buildTrackingProgressBar() {
+    final durationInMinutes = _remainingTimeInSeconds ~/ 60;
+    final seconds = _remainingTimeInSeconds % 60;
+    final formattedDuration = '$durationInMinutes:${seconds.toString().padLeft(2, '0')}';
+    final percentComplete = (_progressPercentage * 100).toInt();
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.navigation, color: Colors.blue),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _directionSteps.isNotEmpty && _currentStepIndex < _directionSteps.length
+                          ? _parseHtmlInstructions(_directionSteps[_currentStepIndex]['instruction'])
+                          : 'متابعة السير',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'الوقت المتبقي: $formattedDuration',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$percentComplete%',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _stopTracking,
+                color: Colors.grey[600],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _progressPercentage,
+              minHeight: 6,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                percentComplete > 75 ? Colors.green : Colors.blue
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
   
   // بناء لوحة الاتجاهات التفصيلية
@@ -488,14 +821,13 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
                   },
                 ),
               ),
-              
-              // زر بدء التنقل
+                // زر بدء التنقل (فتح خرائط Google)
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(16),
                 child: ElevatedButton.icon(
                   icon: Icon(Icons.navigation),
-                  label: Text('بدء التنقل'),
+                  label: Text('خرائط Google'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -504,9 +836,7 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {
-                    _launchGoogleMapsNavigation();
-                  },
+                  onPressed: _launchGoogleMapsNavigation,
                 ),
               ),
             ],
@@ -641,8 +971,17 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
             },
           ),
 
+          // شريط تقدم التتبع
+          if (_isTracking)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: _buildTrackingProgressBar(),
+            ),
+
           // لوحة الاتجاهات
-          if (_showDirectionsPanel && _directionSteps.isNotEmpty)
+          if (_showDirectionsPanel && _directionSteps.isNotEmpty && !_isTracking)
             Positioned(
               bottom: 0,
               left: 0,
@@ -658,45 +997,65 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
             ),
         ],
       ),
-
       // أزرار تحكم الخريطة
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton.small(
-            onPressed: () async {
-              final GoogleMapController controller = await _controller.future;
-              controller.animateCamera(CameraUpdate.zoomIn());
-            },
-            heroTag: 'zoom_in',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            child: const Icon(Icons.add),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            onPressed: () async {
-              final GoogleMapController controller = await _controller.future;
-              controller.animateCamera(CameraUpdate.zoomOut());
-            },
-            heroTag: 'zoom_out',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            child: const Icon(Icons.remove),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            onPressed: () async {
-              if (_originPosition != null) {
-                _animateToPosition(_originPosition!);
-              }
-            },
-            heroTag: 'my_location',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.blue,
-            child: const Icon(Icons.my_location),
-          ),
-        ],
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            // زر بدء أو إيقاف التتبع
+            Container(
+              margin: const EdgeInsets.only(bottom: 30),
+              child: FloatingActionButton.extended(
+                onPressed: _isTracking ? _stopTracking : _startTracking,
+                icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
+                label: Text(_isTracking ? 'إيقاف التتبع' : 'بدء التتبع'),
+                backgroundColor: _isTracking ? Colors.red : Colors.green,
+                foregroundColor: Colors.white,
+                elevation: 4,
+                heroTag: 'toggle_tracking',
+              ),
+            ),
+            
+            // أزرار التحكم بالخريطة
+            FloatingActionButton.small(
+              onPressed: () async {
+                final GoogleMapController controller = await _controller.future;
+                controller.animateCamera(CameraUpdate.zoomIn());
+              },
+              heroTag: 'zoom_in',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              child: const Icon(Icons.add),
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton.small(
+              onPressed: () async {
+                final GoogleMapController controller = await _controller.future;
+                controller.animateCamera(CameraUpdate.zoomOut());
+              },
+              heroTag: 'zoom_out',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              child: const Icon(Icons.remove),
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton(
+              onPressed: () async {
+                if (_isTracking && _currentNavigationPosition != null) {
+                  _animateToPosition(_currentNavigationPosition!);
+                } else if (_originPosition != null) {
+                  _animateToPosition(_originPosition!);
+                }
+              },
+              heroTag: 'my_location',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.blue,
+              child: const Icon(Icons.my_location),
+            ),
+          ],
+        ),
       ),
     );
   }

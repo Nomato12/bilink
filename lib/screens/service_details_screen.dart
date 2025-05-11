@@ -12,6 +12,7 @@ import 'package:bilink/services/notification_service.dart'; // Importar el servi
 import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
 import 'package:bilink/screens/service_details_fix.dart'; // Import our fix for image handling
 import 'package:bilink/screens/directions_map_screen_simple.dart'; // إضافة استيراد شاشة خريطة الاتجاهات البسيطة
+import 'package:bilink/screens/directions_map_tracking.dart'; // إضافة استيراد شاشة خريطة التتبع في الوقت الفعلي
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -1673,7 +1674,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DirectionsMapScreen(
+        builder: (context) => LiveTrackingMapScreen(
           destinationLocation: LatLng(latitude, longitude),
           destinationName: locationInfo?['name'] ?? _serviceData?['title'] ?? '',
         ),
