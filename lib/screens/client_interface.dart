@@ -661,91 +661,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  // قائمة التبويبات
-                  SliverPersistentHeader(
-                    delegate: _SliverAppBarDelegate(
-                      TabBar(
-                        controller: _tabController,
-                        indicatorColor: _secondaryColor,
-                        indicatorWeight: 3,
-                        labelColor: _primaryColor,
-                        unselectedLabelColor: Colors.grey,
-                        labelStyle: GoogleFonts.cairo(
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        unselectedLabelStyle: GoogleFonts.cairo(
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        tabs: [
-                          Tab(
-                            icon: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SvgPicture.asset(
-                                  'assets/images/warehouse.svg',
-                                  width: 20,
-                                  height: 20,
-                                  colorFilter: ColorFilter.mode(
-                                    _tabController.index == 0 ? _primaryColor : Colors.grey,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('خدمات التخزين'),
-                              ],
-                            ),
-                          ),
-                          Tab(
-                            icon: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SvgPicture.asset(
-                                  'assets/images/truck.svg',
-                                  width: 20,
-                                  height: 20,
-                                  colorFilter: ColorFilter.mode(
-                                    _tabController.index == 1 ? _primaryColor : Colors.grey,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('خدمات النقل'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 5,
-                        ),
-                      ),
-                    ),
-                    pinned: true,
-                  ),
-                  
                   // القسم العلوي المميز
                   SliverToBoxAdapter(
                     child: _buildFeaturedSection(),
@@ -1640,7 +1555,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       decoration: const BoxDecoration(                        gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [const Color(0x1F000000), const Color(0x42000000)],
+                          colors: [Color(0x1F000000), Color(0x42000000)],
                         ),
                       ),
                       child: imageUrls.isNotEmpty
