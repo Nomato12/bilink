@@ -9,15 +9,18 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
 import 'package:bilink/services/location_synchronizer.dart';
 import 'package:bilink/services/directions_helper.dart';
+import 'package:bilink/screens/transport_map_fix.dart';
 
 class TransportServiceMapScreen extends StatefulWidget {
   final LatLng? destinationLocation;
   final String? destinationName;
+  final Map<String, dynamic>? serviceData;
   
   const TransportServiceMapScreen({
     super.key, 
     this.destinationLocation,
     this.destinationName,
+    this.serviceData,
   });
 
   @override
@@ -102,6 +105,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           }
         });
         
+        // إذا كان هناك معلومات خدمة، قم بتحميلها
+        if (widget.serviceData != null) {
+          _highlightSelectedService(widget.serviceData!);
+        }
+        
         // عرض المسار عندما يتم تحديد نقطة البداية
         if (_originPosition != null) {
           _showDirections();
@@ -113,13 +121,17 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     _originSearchController.addListener(_updateOriginSuggestions);
     _destinationSearchController.addListener(_updateDestinationSuggestions);
   }
-
   // تحميل وتشغيل مزامن الموقع
   Future<void> _loadLocationSynchronizer() async {
     try {
       final synchronizer = LocationSynchronizer();
       await synchronizer.synchronizeTransportLocations();
       print("DEBUG: Location synchronization completed on map init");
+      
+      // إذا كان هناك بيانات خدمة معينة، قم بتمييزها بعد مزامنة المواقع
+      if (widget.serviceData != null) {
+        _highlightSelectedService(widget.serviceData!);
+      }
     } catch (e) {
       print("ERROR: Failed to synchronize locations: $e");
     }
@@ -950,7 +962,54 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         _destinationAddress.isEmpty ? 'الوجهة' : _destinationAddress,
       );
-    });
+    });  }
+  
+  // تمييز الخدمة المحددة وعرض معلوماتها على الخريطة
+    // تسليط الضوء على الخدمة المختارة
+  void _highlightSelectedService(Map<String, dynamic> service) {
+    // استخدام الوظائف المساعدة من ملف transport_map_fix.dart
+    final serviceLocation = safeGetLatLng(service['location'] as Map<String, dynamic>?);
+    if (serviceLocation != null) {
+      final String serviceId = service['id'] ?? DateTime.now().toString();
+      final String address = safeGetAddress(service['location'] as Map<String, dynamic>?, 'انقر للتفاصيل');
+      
+      // إنشاء علامة مميزة
+      setState(() {
+        // إزالة العلامة القديمة إذا كانت موجودة
+        _markers.removeWhere((marker) => marker.markerId.value == 'selected_service_$serviceId');
+        
+        // إضافة العلامة الجديدة
+        _markers.add(
+          Marker(
+            markerId: MarkerId('selected_service_$serviceId'),
+            position: serviceLocation,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+            infoWindow: InfoWindow(
+              title: service['title'] ?? 'خدمة نقل',
+              snippet: service['description'] != null
+                ? (service['description'].toString().length > 50 
+                    ? '${service['description'].toString().substring(0, 50)}...' 
+                    : service['description'])
+                : address,
+            ),
+            onTap: () {
+              _showVehicleDetailsBottomSheet(service);
+            },
+          ),
+        );
+        
+        // إضافة الخدمة إلى قائمة المركبات المتاحة إذا لم تكن موجودة
+        if (!_availableVehicles.any((v) => v['id'] == service['id'])) {
+          _availableVehicles.add(service);
+        }
+        
+        // عرض قائمة المركبات
+        _showVehiclesList = true;
+      });
+      
+      // تحريك الخريطة إلى موقع الخدمة
+      _animateToPosition(serviceLocation);
+    }
   }
 
   @override

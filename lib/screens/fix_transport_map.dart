@@ -2,8 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'data_fixer.dart' as fixer;
+import 'transport_map_fix.dart';
 import '../services/location_synchronizer.dart';
 import 'dart:math' as math;
+
+// Custom Random class that can be consistently used across different files
+class Random {
+  final math.Random _random = math.Random();
+  
+  double nextDouble() {
+    return _random.nextDouble();
+  }
+  
+  int nextInt(int max) {
+    return _random.nextInt(max);
+  }
+}
 
 // وظيفة محسنة لتحميل خدمات النقل المتاحة من قاعدة البيانات
 Future<List<Map<String, dynamic>>> loadTransportServices() async {
@@ -247,7 +261,7 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
       print("DEBUG: No location found for vehicle ${vehicle['id']}. Creating default location.");
 
       // إنشاء موقع عشوائي قريب من موقع المستخدم
-      final math.Random random = math.Random(42); // Using a fixed seed
+      final Random random = Random(); // Using the custom Random class
       final double latOffset = (random.nextDouble() - 0.5) * 0.02; // تغيير عشوائي ±0.01 درجة
       final double lngOffset = (random.nextDouble() - 0.5) * 0.02;
 
@@ -314,9 +328,7 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
           userPosition.longitude,
         ) / 1000; // تحويل من متر إلى كم
 
-    print("DEBUG: Vehicle distance to user: $distanceToOrigin km");
-
-    // إضافة المركبة إذا كانت ضمن نطاق البحث
+    print("DEBUG: Vehicle distance to user: $distanceToOrigin km");    // إضافة المركبة إذا كانت ضمن نطاق البحث
     if (distanceToOrigin <= searchRadius) {
       // نسخ البيانات لتجنب تعديل الكائنات الأصلية
       final Map<String, dynamic> vehicleCopy = Map<String, dynamic>.from(vehicle);
@@ -328,7 +340,7 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
       print("DEBUG: Adding vehicle to nearby list: ${vehicleCopy['title']} (${vehicleCopy['id']}");
       nearbyVehicles.add(vehicleCopy);
     }
-    }
+  }
   
   print("DEBUG: Found ${nearbyVehicles.length} nearby vehicles");
   
@@ -353,8 +365,7 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
       final double distB = double.parse(b['distance']);
       return distA.compareTo(distB);
     });
-    
-    print("DEBUG: Vehicles sorted by distance. Closest: ${nearbyVehicles.first['distance']} km");
+      print("DEBUG: Vehicles sorted by distance. Closest: ${nearbyVehicles.first['distance']} km");
   }
 
   return nearbyVehicles;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,6 +11,7 @@ import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
 import 'package:bilink/services/location_synchronizer.dart';
 import 'package:bilink/services/directions_helper.dart';
 import 'package:bilink/screens/directions_map_tracking.dart';
+import 'package:bilink/screens/transport_map_fix.dart';
 
 // إضافة مفتاح لتخزين الإشارة إلى زر "بدء" التتبع في الوقت الفعلي في الزاوية السفلية
 GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -49,7 +51,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   bool _isLoading = false;
   // خدمات النقل المتاحة في المنطقة
   List<Map<String, dynamic>> _availableVehicles = [];
-    // حالة عرض قائمة المركبات
+  // حالة عرض قائمة المركبات
   bool _showVehiclesList = false;
 
   // نوع الخريطة
@@ -98,88 +100,106 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         _destinationAddress.isEmpty ? 'الوجهة' : _destinationAddress,
       );
-
-      // محاكاة البحث عن مركبات قريبة من الوجهة
+      
+      // محاكاة المركبات القريبة من الوجهة
       _simulateNearbyVehicles(_destinationPosition!);
     }
   }
 
-  // الحصول على الموقع الحالي
+  // الحصول على الموقع الحالي للمستخدم
   Future<void> _getCurrentLocation() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // التحقق من إذن الوصول إلى الموقع
+      // التحقق من صلاحيات الموقع
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // يمكن عرض رسالة للمستخدم بأن خدمة الموقع غير مفعلة
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى تفعيل خدمة الموقع للوصول إلى مزايا الخريطة بشكل كامل.'),
+          ),
+        );
+        
+        return;
+      }
+
+      // التحقق من إذن الوصول للموقع
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('لم يتم السماح باستخدام خدمة الموقع')),
-          );
           setState(() {
             _isLoading = false;
           });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم رفض إذن الوصول للموقع. بعض الميزات قد لا تعمل.'),
+            ),
+          );
+          
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'تم حظر استخدام خدمة الموقع. يرجى تفعيلها من إعدادات الجهاز',
-            ),
-            action: SnackBarAction(
-              label: 'الإعدادات',
-              onPressed: () => Geolocator.openAppSettings(),
-            ),
-          ),
-        );
         setState(() {
           _isLoading = false;
         });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('إذن الوصول للموقع مرفوض بشكل دائم. يرجى تغيير الإعدادات.'),
+          ),
+        );
+        
         return;
       }
 
       // الحصول على الموقع الحالي
-      final Position position = await Geolocator.getCurrentPosition(
+      Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
+      
+      // تحديث موقع المستخدم وإضافة علامة
       setState(() {
-        _originPosition = LatLng(position.latitude, position.longitude);
+        if (_originPosition == null) {
+          _originPosition = LatLng(position.latitude, position.longitude);
+          _addMarker(
+            _originPosition!,
+            'origin',
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
+          );
+        }
       });
-
-      // الحصول على العنوان من الموقع
+      
+      // محاولة الحصول على العنوان من الإحداثيات
       final address = await _getAddressFromLatLng(_originPosition!);
-      if (address.isNotEmpty) {
-        setState(() {
-          _originAddress = address;
-        });
-      }
-
-      // تحريك الخريطة إلى الموقع الحالي
-      _animateToPosition(_originPosition!);
-
-      // إضافة علامة للموقع الحالي
-      _addMarker(
-        _originPosition!,
-        'origin',
-        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
-      );
-
-      // إذا تم تحديد وجهة، حساب المسار
+      setState(() {
+        _originAddress = address;
+      });
+      
+      _isStartTrackingVisible = true;
+      
       if (_destinationPosition != null) {
         _calculateAndDisplayRoute();
       }
+      
+      _animateToPosition(_originPosition!);
     } catch (e) {
-      print('Error getting location: $e');
+      print('Error getting current location: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ أثناء تحديد الموقع: $e')),
+        const SnackBar(
+          content: Text('حدث خطأ أثناء تحديد موقعك الحالي.'),
+        ),
       );
     } finally {
       setState(() {
@@ -188,27 +208,24 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     }
   }
 
-  // تحريك الخريطة إلى موقع محدد
-  Future<void> _animateToPosition(LatLng position) async {
-    final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: position, zoom: 15.0),
-      ),
-    );
-  }
-
   // الحصول على العنوان من الإحداثيات
   Future<String> _getAddressFromLatLng(LatLng position) async {
     try {
-      final List<Placemark> placemarks = await placemarkFromCoordinates(
+      List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
+        localeIdentifier: 'ar',
       );
 
       if (placemarks.isNotEmpty) {
-        final Placemark place = placemarks.first;
-        return '${place.street}, ${place.locality}, ${place.country}';
+        Placemark place = placemarks.first;
+        return [
+          place.street,
+          place.locality,
+          place.subAdministrativeArea,
+          place.administrativeArea,
+          place.country,
+        ].where((element) => element != null && element.isNotEmpty).join(', ');
       }
     } catch (e) {
       print('Error getting address: $e');
@@ -216,7 +233,30 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     return '';
   }
 
-  // محاكاة وجود مركبات قريبة من موقع محدد
+  // إضافة علامة على الخريطة
+  void _addMarker(
+    LatLng position,
+    String markerId,
+    BitmapDescriptor icon,
+    String title,
+  ) {
+    setState(() {
+      // إزالة العلامة القديمة إذا كانت موجودة
+      _markers.removeWhere((marker) => marker.markerId.value == markerId);
+      
+      // إضافة العلامة الجديدة
+      _markers.add(
+        Marker(
+          markerId: MarkerId(markerId),
+          position: position,
+          icon: icon,
+          infoWindow: InfoWindow(title: title),
+        ),
+      );
+    });
+  }
+
+  // قائمة بأنواع المركبات المتاحة للتوضيح
   void _simulateNearbyVehicles(LatLng position) {
     // قائمة بأنواع المركبات المتاحة للتوضيح
     final vehicleTypes = [
@@ -290,28 +330,6 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     return vehicleImages[index % vehicleImages.length];
   }
 
-  // إضافة علامة على الخريطة
-  void _addMarker(
-    LatLng position,
-    String markerId,
-    BitmapDescriptor icon,
-    String title,
-  ) {
-    setState(() {
-      // إزالة العلامة القديمة إذا كانت موجودة
-      _markers.removeWhere((marker) => marker.markerId.value == markerId);
-
-      // إضافة علامة جديدة
-      _markers.add(
-        Marker(
-          markerId: MarkerId(markerId),
-          position: position,
-          icon: icon,
-          infoWindow: InfoWindow(title: title),
-        ),
-      );
-    });  }
-
   // حساب وعرض المسار بين نقطتين
   Future<void> _calculateAndDisplayRoute() async {
     if (_originPosition == null || _destinationPosition == null) {
@@ -320,84 +338,40 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
 
     setState(() {
       _isLoading = true;
-      // إعادة تعيين حالة زر التتبع
-      _isStartTrackingVisible = false;
     });
 
-    try {
-      // الحصول على بيانات المسار
-      _directionsData = await DirectionsHelper.getDirections(
-        _originPosition!,
-        _destinationPosition!,
-      );
+    // حدود الخريطة لتضمين نقطتي البداية والنهاية
+    LatLngBounds bounds = LatLngBounds(
+      southwest: LatLng(
+        math.min(_originPosition!.latitude, _destinationPosition!.latitude),
+        math.min(_originPosition!.longitude, _destinationPosition!.longitude),
+      ),
+      northeast: LatLng(
+        math.max(_originPosition!.latitude, _destinationPosition!.latitude),
+        math.max(_originPosition!.longitude, _destinationPosition!.longitude),
+      ),
+    );
 
-      // إنشاء خطوط المسار على الخريطة
-      _polylines = await DirectionsHelper.createPolylines(
-        _originPosition!,
-        _destinationPosition!,
-        color: Colors.blue,
-        width: 5,
-      );
+    // التحريك لعرض المسار بالكامل
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
 
-      // تحريك الخريطة لإظهار المسار بالكامل
-      _fitBoundsForRoute();
-
-      // عرض زر بدء التتبع بعد حساب المسار
-      setState(() {
-        _isStartTrackingVisible = true;
-      });
-
-    } catch (e) {
-      print('Error calculating route: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ أثناء حساب المسار')),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
-  // ضبط حدود الخريطة لتناسب المسار
-  Future<void> _fitBoundsForRoute() async {
-    if (_originPosition == null || _destinationPosition == null) {
-      return;
-    }
-
-    try {
-      // إنشاء حدود تشمل نقطتي البداية والنهاية
-      final bounds = LatLngBounds(
-        southwest: LatLng(
-          math.min(_originPosition!.latitude, _destinationPosition!.latitude),
-          math.min(_originPosition!.longitude, _destinationPosition!.longitude),
-        ),
-        northeast: LatLng(
-          math.max(_originPosition!.latitude, _destinationPosition!.latitude),
-          math.max(_originPosition!.longitude, _destinationPosition!.longitude),
-        ),
-      );
-
-      // تطبيق الحدود الجديدة على الخريطة
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 100),
-      );
-    } catch (e) {
-      print('Error fitting bounds: $e');
-    }
-  }
-
-  // فتح شاشة التنقل في الوقت الفعلي مع التتبع
+  // فتح شاشة التتبع في الوقت الفعلي
   void _openRealTimeTracking() {
     if (_originPosition == null || _destinationPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى تحديد نقطة البداية والوجهة أولاً')),
+        const SnackBar(
+          content: Text('يرجى تحديد موقعك ووجهتك أولاً'),
+        ),
       );
       return;
     }
-    
-    // فتح شاشة التتبع المباشر وإرسال نقطة البداية والوجهة
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -406,6 +380,19 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           destinationName: _destinationAddress,
           originLocation: _originPosition,
           originName: _originAddress,
+        ),
+      ),
+    );
+  }
+
+  // تحريك الخريطة لموقع معين
+  Future<void> _animateToPosition(LatLng position) async {
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: position,
+          zoom: 15,
         ),
       ),
     );
@@ -431,34 +418,37 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                         : MapType.normal;
               });
             },
-            tooltip: 'تغيير نوع الخريطة',
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.my_location),
             onPressed: _getCurrentLocation,
-            tooltip: 'تحديث الموقع',
           ),
         ],
       ),
       body: Stack(
         children: [
-          // خريطة جوجل
           GoogleMap(
-            initialCameraPosition: const CameraPosition(
+            initialCameraPosition: CameraPosition(
               target: _defaultLocation,
-              zoom: 14,
+              zoom: 14.0,
             ),
             markers: _markers,
             polylines: _polylines,
             mapType: _currentMapType,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            onMapCreated: (controller) {
+            onMapCreated: (GoogleMapController controller) {
               _controller.complete(controller);
+              
+              // تحديد الموقع الحالي عند تهيئة الخريطة
+              if (_originPosition == null) {
+                setState(() {
+                  _getCurrentLocation();
+                });
+              }
             },
-            onTap: (position) {
-              // إذا لم يتم تحديد موقع البداية بعد
+            onTap: (LatLng position) {
+              // عند النقر على الخريطة، نضيف علامة الوجهة
               if (_originPosition == null) {
                 setState(() {
                   _originPosition = position;
@@ -472,10 +462,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   _addMarker(
                     position,
                     'origin',
-                    BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueBlue,
-                    ),
-                    address.isEmpty ? 'موقعك الحالي' : address,
+                    BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                    _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
                   );
                   
                   if (_destinationPosition != null) {
@@ -483,7 +471,6 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   }
                 });
               }
-              // إذا تم تحديد موقع البداية ولكن ليس الوجهة
               else if (_destinationPosition == null) {
                 setState(() {
                   _destinationPosition = position;
@@ -497,10 +484,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   _addMarker(
                     position,
                     'destination',
-                    BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueRed,
-                    ),
-                    address.isEmpty ? 'الوجهة' : address,
+                    BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                    _destinationAddress.isEmpty ? 'الوجهة' : _destinationAddress,
                   );
                   
                   _calculateAndDisplayRoute();
@@ -509,7 +494,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
               }
             },
           ),
-
+          
           // قائمة المركبات المتاحة
           if (_showVehiclesList && _availableVehicles.isNotEmpty)
             Positioned(
@@ -517,7 +502,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
               left: 0,
               right: 0,
               child: Container(
-                height: 220,
+                height: 300,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -534,18 +519,29 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                 ),
                 child: Column(
                   children: [
-                    Padding(
-                      padding: EdgeInsets.all(8),
+                    // عنوان القائمة مع زر الإغلاق
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'المركبات المتاحة',
                             style: TextStyle(
-                              fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              fontSize: 18,
                             ),
                           ),
+                          const Spacer(),
                           IconButton(
                             icon: Icon(Icons.close),
                             onPressed: () {
@@ -557,48 +553,29 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                         ],
                       ),
                     ),
+                    
+                    // قائمة المركبات
                     Expanded(
                       child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.all(8),
                         itemCount: _availableVehicles.length,
-                        padding: EdgeInsets.symmetric(horizontal: 10),
                         itemBuilder: (context, index) {
                           final vehicle = _availableVehicles[index];
-                          return GestureDetector(
-                            onTap: () {
-                              _animateToPosition(vehicle['position']);
-                            },
-                            child: Container(
-                              width: 180,
-                              margin: EdgeInsets.symmetric(
-                                horizontal: 8, 
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 5,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          return Card(
+                            margin: EdgeInsets.only(bottom: 8),
+                            child: InkWell(
+                              onTap: () {
+                                _animateToPosition(vehicle['position']);
+                              },
+                              child: Row(
                                 children: [
                                   // صورة المركبة
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(10),
-                                      topRight: Radius.circular(10),
-                                    ),
+                                  Container(
+                                    width: 80,
+                                    height: 80,
                                     child: CachedNetworkImage(
                                       imageUrl: vehicle['image'],
-                                      height: 90,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
+                                      fit: BoxFit.contain,
                                       placeholder: (context, url) => Container(
                                         color: Colors.grey[200],
                                         child: Icon(
@@ -688,7 +665,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                ),              ),
+                ),
+              ),
             ),
             
           // مؤشر التحميل
@@ -698,66 +676,61 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
               child: const Center(child: CircularProgressIndicator()),
             ),
         ],
-      ),        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        floatingActionButton: Padding(
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16.0),
         child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // زر بدء التتبع - إضافة في الأعلى من عمود أزرار FAB بمساحة كافية
-          if (_isStartTrackingVisible)
-            Container(
-              margin: const EdgeInsets.only(bottom: 30),
-              child: FloatingActionButton.extended(
-                onPressed: _openRealTimeTracking,
-                icon: const Icon(Icons.navigation),
-                label: const Text('بدء التتبع'),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                heroTag: 'start_tracking',
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            // زر بدء التتبع - إضافة في الأعلى من عمود أزرار FAB بمساحة كافية
+            if (_isStartTrackingVisible)
+              Container(
+                margin: const EdgeInsets.only(bottom: 30),
+                child: FloatingActionButton.extended(
+                  onPressed: _openRealTimeTracking,
+                  icon: const Icon(Icons.navigation),
+                  label: const Text('بدء التتبع'),
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  heroTag: 'start_tracking',
+                ),
               ),
+              
+            // أزرار التحكم في الخريطة
+            FloatingActionButton.small(
+              onPressed: () async {
+                final GoogleMapController controller = await _controller.future;
+                controller.animateCamera(CameraUpdate.zoomIn());
+              },
+              heroTag: 'zoom_in',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              child: const Icon(Icons.add),
             ),
-            
-          // أزرار التحكم في الخريطة
-          FloatingActionButton.small(
-            onPressed: () async {
-              final GoogleMapController controller = await _controller.future;
-              controller.animateCamera(CameraUpdate.zoomIn());
-            },
-            heroTag: 'zoom_in',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            child: const Icon(Icons.add),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            onPressed: () async {
-              final GoogleMapController controller = await _controller.future;
-              controller.animateCamera(CameraUpdate.zoomOut());
-            },
-            heroTag: 'zoom_out',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            child: const Icon(Icons.remove),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            onPressed: _getCurrentLocation,
-            heroTag: 'my_location',
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.blue,
-            child: const Icon(Icons.my_location),
-          ),
-        ],
-      ),
+            const SizedBox(height: 8),
+            FloatingActionButton.small(
+              onPressed: () async {
+                final GoogleMapController controller = await _controller.future;
+                controller.animateCamera(CameraUpdate.zoomOut());
+              },
+              heroTag: 'zoom_out',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              child: const Icon(Icons.remove),
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton(
+              onPressed: _getCurrentLocation,
+              heroTag: 'my_location',
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.blue,
+              child: const Icon(Icons.my_location),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-// Import dart:math
-class math {
-  static double min(double a, double b) => a < b ? a : b;
-  static double max(double a, double b) => a > b ? a : b;
 }

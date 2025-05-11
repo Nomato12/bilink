@@ -7,8 +7,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/service_details_screen.dart';
-import 'package:bilink/screens/transport_service_map.dart';
+import 'package:bilink/screens/transport_service_map_wrapper.dart'; // استيراد الملف الجديد للخريطة
 import 'package:bilink/services/location_synchronizer.dart'; // Importar el sincronizador
 import 'package:bilink/screens/storage_locations_map_screen.dart';
 import 'package:bilink/screens/account_profile_screen.dart';
@@ -18,6 +19,7 @@ import 'package:bilink/widgets/notification_badge.dart';
 import 'package:bilink/models/home_page.dart';
 import 'package:bilink/screens/chat_list_screen.dart';
 import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
+import 'package:bilink/screens/transport_map_fix.dart'; // Import utility functions for location handling
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -270,21 +272,34 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           duration: Duration(seconds: 2),
         ),
       );
-      
-      // استخدام مزامن المواقع لتحديث بيانات المواقع
+        // استخدام مزامن المواقع لتحديث بيانات المواقع
       final synchronizer = LocationSynchronizer();
       await synchronizer.synchronizeTransportLocations();
       
       // التنقل إلى شاشة خريطة النقل
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const TransportServiceMapScreen()),
+        MaterialPageRoute(builder: (context) => const TransportServiceMapWrapper()),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('حدث خطأ أثناء تحميل خدمات النقل. حاول مرة أخرى.')),
       );
     }
+  }
+  
+  // فتح موقع خدمة النقل المحدد على الخريطة
+  void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransportServiceMapWrapper(
+          destinationLocation: location,
+          destinationName: locationName,
+          serviceData: service,
+        ),
+      ),
+    );
   }
 
   @override
@@ -1812,17 +1827,25 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     Row(
                       children: [
                         _buildInfoChip(Icons.attach_money, '$price', Colors.green[700]!),
-                        const SizedBox(width: 8),
-                        // إضافة معلومات الموقع إذا كانت متوفرة لخدمة النقل
-                        if (type == 'نقل' && service.containsKey('location') && service['location'] != null && service['location'] is Map)
-                          _buildInfoChip(
-                            Icons.location_on, 
-                            service['location']['address'] != null && service['location']['address'].toString().isNotEmpty
-                                ? service['location']['address'].toString().length > 15
-                                    ? '${service['location']['address'].toString().substring(0, 15)}...'
-                                    : service['location']['address']
-                                : 'موقع متاح',
-                            Colors.blue[700]!,
+                        const SizedBox(width: 8),                        // إضافة معلومات الموقع إذا كانت متوفرة لخدمة النقل                        if (type == 'نقل' && service.containsKey('location') && service['location'] != null && service['location'] is Map)
+                          GestureDetector(
+                            onTap: () {
+                              final locationData = service['location'] as Map<String, dynamic>?;
+                              final serviceLocation = safeGetLatLng(locationData);
+                              
+                              if (serviceLocation != null) {
+                                _openTransportLocationOnMap(
+                                  serviceLocation,
+                                  safeGetAddress(locationData, 'موقع خدمة النقل'),
+                                  service
+                                );
+                              }
+                            },
+                            child: _buildInfoChip(
+                              Icons.location_on, 
+                              _formatLocationAddress(service['location'] as Map<String, dynamic>?),
+                              Colors.blue[700]!,
+                            ),
                           ),
                       ],
                     ),
@@ -2283,6 +2306,14 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         ),
       ),
     );
+  }
+  
+  // تنسيق عنوان الموقع بشكل آمن
+  String _formatLocationAddress(Map<String, dynamic>? location) {
+    if (location == null) return 'موقع غير محدد';
+    
+    // استخدام الدالة المساعدة safeGetAddress من utility
+    return safeGetAddress(location, 'موقع غير محدد');
   }
 }
 

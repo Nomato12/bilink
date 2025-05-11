@@ -181,7 +181,6 @@ class LocationSynchronizer {
     
     return true;
   }
-  
   // Obtener LatLng desde un mapa de datos
   LatLng? getLatLngFromData(Map<String, dynamic>? locationData) {
     if (locationData == null) {

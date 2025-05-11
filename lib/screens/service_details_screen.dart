@@ -13,6 +13,7 @@ import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الص
 import 'package:bilink/screens/service_details_fix.dart'; // Import our fix for image handling
 import 'package:bilink/screens/directions_map_screen_simple.dart'; // إضافة استيراد شاشة خريطة الاتجاهات البسيطة
 import 'package:bilink/screens/directions_map_tracking.dart'; // إضافة استيراد شاشة خريطة التتبع في الوقت الفعلي
+import 'package:bilink/screens/transport_map_fix.dart'; // Import utility functions for location handling
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -386,23 +387,18 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
       if (docSnapshot.exists) {
         final data = docSnapshot.data() as Map<String, dynamic>;
-        data['id'] = docSnapshot.id;
-
-        // Si hay datos de ubicación, configurar el marcador del mapa
-        if (data.containsKey('location') &&
-            data['location'] != null &&
-            data['location']['latitude'] != null &&
-            data['location']['longitude'] != null) {
-          final location = data['location'];
-          final latLng = LatLng(location['latitude'], location['longitude']);
-
+        data['id'] = docSnapshot.id;        // استخدام الدالة المساعدة لاستخراج بيانات الموقع بشكل آمن
+        final serviceLocation = safeGetLatLng(data['location'] as Map<String, dynamic>?);
+        if (serviceLocation != null) {
+          final locationAddress = safeGetAddress(data['location'] as Map<String, dynamic>?, '');
+          
           _markers = {
             Marker(
               markerId: MarkerId('serviceLocation'),
-              position: latLng,
+              position: serviceLocation,
               infoWindow: InfoWindow(
                 title: data['title'] ?? 'موقع الخدمة',
-                snippet: location['address'] ?? '',
+                snippet: locationAddress,
               ),
             ),
           };
