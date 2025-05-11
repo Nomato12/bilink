@@ -67,11 +67,11 @@ class SafeImageCarousel extends StatefulWidget {
   final Function(int)? onPageChanged;
   
   const SafeImageCarousel({
-    Key? key,
+    super.key,
     required this.imageUrls,
     this.height = 350.0,
     this.onPageChanged,
-  }) : super(key: key);
+  });
   
   @override
   _SafeImageCarouselState createState() => _SafeImageCarouselState();

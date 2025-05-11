@@ -120,14 +120,16 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
         timeLimit: Duration(seconds: 15),
       );
 
-      setState(() {
-        _currentPosition = position;
-        _initialCameraPosition = CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: 14,
-        );
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _initialCameraPosition = CameraPosition(
+            target: LatLng(position.latitude, position.longitude),
+            zoom: 14,
+          );
+          _isLoading = false;
+        });
+      }
 
       // إضافة علامة للموقع الحالي
       _addCurrentLocationMarker();
@@ -142,9 +144,11 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
       _findNearbyStorageServices();
     } catch (e) {
       print('Error getting current location: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('حدث خطأ أثناء تحديد الموقع الحالي: $e'),
@@ -159,21 +163,23 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
   void _addCurrentLocationMarker() {
     if (_currentPosition == null) return;
 
-    setState(() {
-      _markers.add(
-        Marker(
-          markerId: MarkerId('current_location'),
-          position: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
+    if (mounted) {
+      setState(() {
+        _markers.add(
+          Marker(
+            markerId: MarkerId('current_location'),
+            position: LatLng(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+            ),
+            infoWindow: InfoWindow(title: 'موقعك الحالي'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueAzure,
+            ),
           ),
-          infoWindow: InfoWindow(title: 'موقعك الحالي'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
-        ),
-      );
-    });
+        );
+      });
+    }
   }
 
   // حساب المسافة بين نقطتين جغرافيتين بالكيلومتر
@@ -199,11 +205,13 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
       return;
     }
 
-    setState(() {
-      _isLoadingServices = true;
-      _markers.clear();
-      _addCurrentLocationMarker();
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingServices = true;
+        _markers.clear();
+        _addCurrentLocationMarker();
+      });
+    }
 
     try {
       // استعلام لجلب خدمات التخزين النشطة
@@ -269,10 +277,12 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
         return distanceA.compareTo(distanceB);
       });
 
-      setState(() {
-        _nearbyStorageServices = services;
-        _isLoadingServices = false;
-      });
+      if (mounted) {
+        setState(() {
+          _nearbyStorageServices = services;
+          _isLoadingServices = false;
+        });
+      }
 
       // عرض رسالة بعدد الخدمات المتوفرة
       if (_nearbyStorageServices.isEmpty) {
@@ -296,9 +306,11 @@ class _StorageLocationsMapScreenState extends State<StorageLocationsMapScreen> {
       }
     } catch (e) {
       print('Error finding nearby storage services: $e');
-      setState(() {
-        _isLoadingServices = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingServices = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('حدث خطأ أثناء البحث عن خدمات التخزين: $e'),

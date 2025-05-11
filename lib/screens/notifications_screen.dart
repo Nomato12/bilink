@@ -17,7 +17,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   late NotificationService _notificationService;
   late String _userId;
   late TabController _tabController;
-  bool _isLoading = true;
+  final bool _isLoading = true;
   int _activeTabIndex = 0;
 
   @override

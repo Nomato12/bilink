@@ -11,6 +11,7 @@ import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de cha
 import 'package:bilink/services/notification_service.dart'; // Importar el servicio de notificaciones
 import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
 import 'package:bilink/screens/service_details_fix.dart'; // Import our fix for image handling
+import 'package:bilink/screens/directions_map_screen_simple.dart'; // إضافة استيراد شاشة خريطة الاتجاهات البسيطة
 
 // Controlador personalizado para el carrusel de imágenes
 class CustomCarouselController {
@@ -1662,25 +1663,22 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             );
           }).toList(),
     );
-  }
-
-  // Abrir Google Maps con la ubicación
+  }  // Abrir Google Maps con la ubicación  
   Future<void> _launchMapsUrl(double latitude, double longitude) async {
-    final url =
-        'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude';
-    try {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('لا يمكن فتح خرائط Google')));
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
-    }
+    // بدلا من فتح Google Maps، سننتقل إلى خريطة التطبيق مع تحديد الوجهة
+    final Map<String, dynamic>? locationInfo = _serviceData != null && _serviceData!.containsKey('location') 
+        ? _serviceData!['location'] as Map<String, dynamic>? 
+        : null;
+        
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DirectionsMapScreen(
+          destinationLocation: LatLng(latitude, longitude),
+          destinationName: locationInfo?['name'] ?? _serviceData?['title'] ?? '',
+        ),
+      ),
+    );
   }
 
   // Mostrar diálogo de solicitud de خدمة

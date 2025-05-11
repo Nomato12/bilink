@@ -178,7 +178,7 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
     return [];
   }
 
-  print("DEBUG: Searching for vehicles near ${userPosition.latitude}, ${userPosition.longitude} with radius ${searchRadius} km");
+  print("DEBUG: Searching for vehicles near ${userPosition.latitude}, ${userPosition.longitude} with radius $searchRadius km");
   print("DEBUG: Total available vehicles: ${allVehicles.length}");
 
   final List<Map<String, dynamic>> nearbyVehicles = [];
@@ -306,31 +306,29 @@ Future<List<Map<String, dynamic>>> findNearbyVehicles(
     }
 
     // حساب المسافة بين المستخدم والمركبة
-    if (vehiclePosition != null) {
-      final double distanceToOrigin =
-          Geolocator.distanceBetween(
-            vehiclePosition.latitude,
-            vehiclePosition.longitude,
-            userPosition.latitude,
-            userPosition.longitude,
-          ) / 1000; // تحويل من متر إلى كم
+    final double distanceToOrigin =
+        Geolocator.distanceBetween(
+          vehiclePosition.latitude,
+          vehiclePosition.longitude,
+          userPosition.latitude,
+          userPosition.longitude,
+        ) / 1000; // تحويل من متر إلى كم
 
-      print("DEBUG: Vehicle distance to user: $distanceToOrigin km");
+    print("DEBUG: Vehicle distance to user: $distanceToOrigin km");
 
-      // إضافة المركبة إذا كانت ضمن نطاق البحث
-      if (distanceToOrigin <= searchRadius) {
-        // نسخ البيانات لتجنب تعديل الكائنات الأصلية
-        final Map<String, dynamic> vehicleCopy = Map<String, dynamic>.from(vehicle);
-        
-        // إضافة معلومات إضافية مفيدة
-        vehicleCopy['distance'] = distanceToOrigin.toStringAsFixed(2);
-        vehicleCopy['calculatedPosition'] = vehiclePosition;
-        
-        print("DEBUG: Adding vehicle to nearby list: ${vehicleCopy['title']} (${vehicleCopy['id']}");
-        nearbyVehicles.add(vehicleCopy);
-      }
+    // إضافة المركبة إذا كانت ضمن نطاق البحث
+    if (distanceToOrigin <= searchRadius) {
+      // نسخ البيانات لتجنب تعديل الكائنات الأصلية
+      final Map<String, dynamic> vehicleCopy = Map<String, dynamic>.from(vehicle);
+      
+      // إضافة معلومات إضافية مفيدة
+      vehicleCopy['distance'] = distanceToOrigin.toStringAsFixed(2);
+      vehicleCopy['calculatedPosition'] = vehiclePosition;
+      
+      print("DEBUG: Adding vehicle to nearby list: ${vehicleCopy['title']} (${vehicleCopy['id']}");
+      nearbyVehicles.add(vehicleCopy);
     }
-  }
+    }
   
   print("DEBUG: Found ${nearbyVehicles.length} nearby vehicles");
   

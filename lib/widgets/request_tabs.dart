@@ -5,7 +5,7 @@ import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/widgets/service_request_card.dart';
 
 class RequestTabs extends StatefulWidget {
-  const RequestTabs({Key? key}) : super(key: key);
+  const RequestTabs({super.key});
 
   @override
   State<RequestTabs> createState() => _RequestTabsState();

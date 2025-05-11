@@ -5,7 +5,7 @@ import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/widgets/service_request_card.dart';
 
 class AcceptedRequestsScreen extends StatefulWidget {
-  const AcceptedRequestsScreen({Key? key}) : super(key: key);
+  const AcceptedRequestsScreen({super.key});
 
   @override
   State<AcceptedRequestsScreen> createState() => _AcceptedRequestsScreenState();

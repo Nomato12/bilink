@@ -9,10 +9,10 @@ class ServiceRequestCard extends StatelessWidget {
   final VoidCallback? onRequestUpdated;
 
   const ServiceRequestCard({
-    Key? key,
+    super.key,
     required this.requestData,
     this.onRequestUpdated,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
