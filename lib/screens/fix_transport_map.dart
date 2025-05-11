@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'data_fixer.dart' as fixer;
-import 'transport_map_fix.dart';
 import '../services/location_synchronizer.dart';
 import 'dart:math' as math;
 

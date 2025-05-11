@@ -56,7 +56,7 @@ Map<String, dynamic> processLocationData(Map<String, dynamic>? service) {
   // Check if service has location
   if (!service.containsKey('location') || 
       service['location'] == null ||
-      !(service['location'] is Map)) {
+      service['location'] is! Map) {
     return {'hasLocation': false};
   }
   

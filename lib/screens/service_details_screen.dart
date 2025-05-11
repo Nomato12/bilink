@@ -11,7 +11,7 @@ import 'package:bilink/screens/chat_screen.dart'; // Añadir importación de cha
 import 'package:bilink/services/notification_service.dart'; // Importar el servicio de notificaciones
 import 'package:bilink/screens/fullscreen_image_viewer.dart'; // لعرض الصور بملء الشاشة
 import 'package:bilink/screens/service_details_fix.dart'; // Import our fix for image handling
-import 'package:bilink/screens/directions_map_screen_simple.dart'; // إضافة استيراد شاشة خريطة الاتجاهات البسيطة
+// إضافة استيراد شاشة خريطة الاتجاهات البسيطة
 import 'package:bilink/screens/directions_map_tracking.dart'; // إضافة استيراد شاشة خريطة التتبع في الوقت الفعلي
 import 'package:bilink/screens/transport_map_fix.dart'; // Import utility functions for location handling
 

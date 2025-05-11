@@ -388,37 +388,37 @@ class DirectionsHelper {
       // إنشاء تعليمات مناسبة
       String instruction;
       if (i == 0) {
-        instruction = 'ابدأ بالتوجه في ${streetName}';
+        instruction = 'ابدأ بالتوجه في $streetName';
       } else if (i == points.length - 2) {
         instruction = 'استمر حتى الوصول إلى الوجهة';
       } else {
         switch (maneuver) {
           case 'straight':
-            instruction = 'استمر في ${streetName} لمسافة ${stepDistance.toStringAsFixed(1)} كم';
+            instruction = 'استمر في $streetName لمسافة ${stepDistance.toStringAsFixed(1)} كم';
             break;
           case 'turn-slight-right':
-            instruction = 'انعطف قليلاً إلى اليمين في ${streetName}';
+            instruction = 'انعطف قليلاً إلى اليمين في $streetName';
             break;
           case 'turn-right':
-            instruction = 'انعطف يميناً في ${streetName}';
+            instruction = 'انعطف يميناً في $streetName';
             break;
           case 'turn-sharp-right':
-            instruction = 'انعطف بشكل حاد إلى اليمين في ${streetName}';
+            instruction = 'انعطف بشكل حاد إلى اليمين في $streetName';
             break;
           case 'uturn-right':
-            instruction = 'قم بدوران كامل والعودة في ${streetName}';
+            instruction = 'قم بدوران كامل والعودة في $streetName';
             break;
           case 'turn-slight-left':
-            instruction = 'انعطف قليلاً إلى اليسار في ${streetName}';
+            instruction = 'انعطف قليلاً إلى اليسار في $streetName';
             break;
           case 'turn-left':
-            instruction = 'انعطف يساراً في ${streetName}';
+            instruction = 'انعطف يساراً في $streetName';
             break;
           case 'turn-sharp-left':
-            instruction = 'انعطف بشكل حاد إلى اليسار في ${streetName}';
+            instruction = 'انعطف بشكل حاد إلى اليسار في $streetName';
             break;
           default:
-            instruction = 'استمر في ${streetName}';
+            instruction = 'استمر في $streetName';
         }
       }
       

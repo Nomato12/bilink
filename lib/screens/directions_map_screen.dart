@@ -4,7 +4,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:bilink/screens/service_details_screen.dart';
 import 'package:bilink/services/directions_helper.dart';
 
 class DirectionsMapScreen extends StatefulWidget {

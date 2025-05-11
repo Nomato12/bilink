@@ -57,62 +57,13 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
 
   // قائمة المناطق
   final List<String> _regions = [
-    'الكل',
-    'أدرار',
-    'الشلف',
-    'الأغواط',
-    'أم البواقي',
-    'باتنة',
-    'بجاية',
-    'بسكرة',
-    'بشار',
-    'البليدة',
-    'البويرة',
-    'تمنراست',
-    'تبسة',
-    'تلمسان',
-    'تيارت',
-    'تيزي وزو',
-    'الجزائر العاصمة',
-    'الجلفة',
-    'جيجل',
-    'سطيف',
-    'سعيدة',
-    'سكيكدة',
-    'سيدي بلعباس',
-    'عنابة',
-    'قالمة',
-    'قسنطينة',
-    'المدية',
-    'مستغانم',
-    'المسيلة',
-    'معسكر',
-    'ورقلة',
-    'وهران',
-    'البيض',
-    'إليزي',
-    'برج بوعريريج',
-    'بومرداس',
-    'الطارف',
-    'تندوف',
-    'تيسمسيلت',
-    'الوادي',
-    'خنشلة',
-    'سوق أهراس',
-    'تيبازة',
-    'ميلة',
-    'عين الدفلى',
-    'النعامة',
-    'عين تموشنت',
-    'غرداية',
-    'غليزان',
-    'المغير',
-    'المنيعة',
+    'الكل', 'أدرار', 'الشلف', 'الأغواط', 'أم البواقي', 'باتنة', 'بجاية', 'بسكرة', 'بشار', 'البليدة', 'البويرة', 'تمنراست', 'تبسة', 'تلمسان', 'تيارت', 'تيزي وزو', 'الجزائر العاصمة', 'الجلفة', 'جيجل', 'سطيف', 'سعيدة', 'سكيكدة', 'سيدي بلعباس', 'عنابة', 'قالمة', 'قسنطينة', 'المدية', 'مستغانم', 'المسيلة', 'معسكر', 'ورقلة', 'وهران', 'البيض', 'إليزي', 'برج بوعريريج', 'بومرداس', 'الطارف', 'تندوف', 'تيسمسيلت', 'الوادي', 'خنشلة', 'سوق أهراس', 'تيبازة', 'ميلة', 'عين الدفلى', 'النعامة', 'عين تموشنت', 'غرداية', 'غليزان', 'المغير', 'المنيعة',
   ];
   
   // متغيرات نطاق السعر
   double _minPrice = 0;
   double _maxPrice = 10000;
+
   @override
   void initState() {
     super.initState();
@@ -120,11 +71,9 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     _tabController.addListener(_handleTabSelection);
     _loadServices();
     
-    // تعيين القيم الافتراضية لنطاق السعر
     _minPrice = _priceRange.start;
     _maxPrice = _priceRange.end;
     
-    // استخدام رسالة النظام لضبط شريط الحالة
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
@@ -138,7 +87,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     super.dispose();
   }
 
-  // استجابة لتغيير التبويب
   void _handleTabSelection() {
     if (!_tabController.indexIsChanging) {
       setState(() {
@@ -154,44 +102,36 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     }
   }
 
-  // تحميل الخدمات من Firestore
   Future<void> _loadServices() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // استعلام أساسي لجلب جميع الخدمات النشطة
       Query query = FirebaseFirestore.instance
           .collection('services')
           .where('isActive', isEqualTo: true);
 
-      // تطبيق فلتر المنطقة
       if (_selectedRegion != 'الكل') {
         query = query.where('region', isEqualTo: _selectedRegion);
       }
 
-      // تطبيق فلتر نوع الخدمة
       if (_selectedType != 'الكل') {
         query = query.where('type', isEqualTo: _selectedType);
       }
 
-      // تنفيذ الاستعلام
       final querySnapshot = await query.get();
-
       final List<Map<String, dynamic>> servicesList = [];
 
-      // تحويل وثائق Firestore إلى قائمة من البيانات
       for (var doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id; // إضافة معرف الوثيقة        // تطبيق فلتر نطاق السعر (لا يمكن تطبيقه مباشرة في الاستعلام)
+        data['id'] = doc.id; 
         final price = data['price'] as num? ?? 0;
         if (price >= _priceRange.start && price <= _priceRange.end) {
           servicesList.add(data);
         }
       }
 
-      // فرز النتائج حسب الاختيار
       if (_sortBy == 'التقييم') {
         servicesList.sort(
           (a, b) =>
@@ -226,22 +166,24 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         _isLoading = false;
       });
 
-      // عرض رسالة خطأ للمستخدم
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء تحميل الخدمات، يرجى المحاولة مرة أخرى'),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء تحميل الخدمات، يرجى المحاولة مرة أخرى'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: EdgeInsets.all(16),
+          ),
+        );
+      }
     }
   }
 
-  // تحديث خيارات الفلتر وإعادة تحميل البيانات
   void _updateFilters() {
     _loadServices();
-  }  // توجيه المستخدم إلى صفحة مواقع التخزين
+  }
+
   void _navigateToStorageLocationsMap() {
     Navigator.push(
       context,
@@ -249,46 +191,56 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // توجيه المستخدم إلى خريطة خدمات النقل مع مزامنة البيانات
   Future<void> _navigateToTransportServicesMap() async {
     try {
-      // عرض مؤشر التحميل
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20, 
-                height: 20, 
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.0,
-                  valueColor: AlwaysStoppedAnimation<Color>(_secondaryColor),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,  
+                  height: 20,  
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(_secondaryColor),
+                  ),
                 ),
-              ),
-              SizedBox(width: 12),
-              Text('جاري تحميل خدمات النقل...'),
-            ],
+                SizedBox(width: 16),
+                Text('جاري تحميل خدمات النقل...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: EdgeInsets.all(16),
           ),
-          duration: Duration(seconds: 2),
-        ),
-      );
-        // استخدام مزامن المواقع لتحديث بيانات المواقع
+        );
+      }
       final synchronizer = LocationSynchronizer();
       await synchronizer.synchronizeTransportLocations();
       
-      // التنقل إلى شاشة خريطة النقل
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const TransportServiceMapWrapper()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const TransportServiceMapWrapper()),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ أثناء تحميل خدمات النقل. حاول مرة أخرى.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء تحميل خدمات النقل. حاول مرة أخرى.'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: EdgeInsets.all(16),
+            backgroundColor: Colors.redAccent,
+            ),
+        );
+      }
     }
   }
   
-  // فتح موقع خدمة النقل المحدد على الخريطة
   void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
     Navigator.push(
       context,
@@ -304,7 +256,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    // الحصول على حجم الشاشة
     final screenSize = MediaQuery.of(context).size;
     
     return Scaffold(
@@ -313,7 +264,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       body: SafeArea(
         child: Stack(
           children: [
-            // خلفية مخصصة مع نمط
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
@@ -323,12 +273,12 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                   'assets/images/pattern.svg',
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    _primaryColor.withOpacity(0.03),
+                    _primaryColor.withOpacity(0.02), // Slightly reduced opacity for subtlety
                     BlendMode.srcIn,
                   ),
                 ),
               ),
-            ),              // رأس الصفحة المنحني مع الخلفية المتدرجة وزخارف لوجستية
+            ),
             Positioned(
               top: 0,
               left: 0,
@@ -336,7 +286,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               height: screenSize.height * 0.32,
               child: Stack(
                 children: [
-                  // الخلفية الرئيسية مع تدرج لوني متطور
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -350,21 +299,19 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                         stops: const [0.2, 0.6, 1.0],
                       ),
                       borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(40),
-                        bottomRight: Radius.circular(40),
+                        bottomLeft: Radius.circular(45), // Slightly increased radius
+                        bottomRight: Radius.circular(45),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: _primaryColor.withOpacity(0.4),
-                          blurRadius: 25,
-                          offset: const Offset(0, 12),
-                          spreadRadius: 2,
+                          color: _primaryColor.withOpacity(0.35), // Slightly adjusted shadow
+                          blurRadius: 30,
+                          offset: const Offset(0, 15),
+                          spreadRadius: 0,
                         ),
                       ],
                     ),
                   ),
-                  
-                  // زخارف لوجستية - خطوط متقطعة تشبه مسارات الشحن
                   Positioned(
                     top: 20,
                     right: -50,
@@ -383,8 +330,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       ),
                     ),
                   ),
-                  
-                  // زخرفة دائرية في الأسفل
                   Positioned(
                     bottom: -30,
                     left: -20,
@@ -408,8 +353,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       ),
                     ),
                   ),
-                  
-                  // زخرفة نقاط متصلة تشبه شبكة لوجستية
                   Positioned.fill(
                     child: CustomPaint(
                       painter: LogisticsNetworkPainter(
@@ -423,12 +366,10 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               ),
             ),
             
-            // محتوى الصفحة
             NestedScrollView(
               controller: _scrollController,
               headerSliverBuilder: (context, innerBoxScrolled) {
                 return [
-                  // رأس الصفحة
                   SliverAppBar(
                     expandedHeight: 180,
                     floating: false,
@@ -436,60 +377,59 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     flexibleSpace: FlexibleSpaceBar(
-                      titlePadding: const EdgeInsets.only(left: 20, bottom: 16, right: 20),
+                      titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 16), // Adjusted padding
                       centerTitle: true,
                       title: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [                              Flexible(  // Added Flexible to prevent overflow
+                        children: [
+                          Flexible(
                             child: Text(
                               'الخدمات',
                               style: GoogleFonts.cairo(
                                 textStyle: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 18,  // Reduced font size from 22 to 18
+                                  fontSize: 18, 
                                   fontWeight: FontWeight.bold,
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black26,
-                                      blurRadius: 5,
+                                      color: Colors.black38, // Slightly stronger shadow for readability
+                                      blurRadius: 6,
                                       offset: Offset(0, 2),
                                     ),
                                   ],
                                 ),
                               ),
-                              overflow: TextOverflow.ellipsis,  // Added text overflow handling
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Row(
                             children: [
-                              // زر الفلترة
                               Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(15),
+                                  borderRadius: BorderRadius.circular(12), // Consistent rounding
                                 ),
                                 child: IconButton(
                                   onPressed: _showSortingOptions,
-                                  icon: const Icon(Icons.filter_list, color: Colors.white),
+                                  icon: const Icon(Icons.filter_list, color: Colors.white, size: 22),
                                   tooltip: 'ترتيب الخدمات',
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              // زر تنبيهات المحادثات
+                              const SizedBox(width: 8),
                               Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(15),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: StreamBuilder<int>(
                                   stream: ChatService(FirebaseAuth.instance.currentUser?.uid ?? '').getUnreadMessageCount(),
                                   builder: (context, snapshot) {
                                     final unreadCount = snapshot.data ?? 0;
-                                    
                                     return Stack(
+                                      clipBehavior: Clip.none,
                                       children: [
                                         IconButton(
-                                          icon: const Icon(Icons.chat_outlined, color: Colors.white),
+                                          icon: const Icon(Icons.chat_outlined, color: Colors.white, size: 22),
                                           tooltip: 'المحادثات',
                                           onPressed: () {
                                             Navigator.push(
@@ -500,8 +440,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                         ),
                                         if (unreadCount > 0)
                                           Positioned(
-                                            right: 8,
-                                            top: 8,
+                                            right: 4,
+                                            top: 4,
                                             child: NotificationBadge(count: unreadCount),
                                           ),
                                       ],
@@ -509,8 +449,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              // زر الملف الشخصي
+                              const SizedBox(width: 8),
                               Consumer<AuthService>(
                                 builder: (context, authService, _) {
                                   final user = authService.currentUser;
@@ -519,45 +458,40 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                       _showAccountMenu(context);
                                     },
                                     child: Container(
-                                      width: 40,
-                                      height: 40,
+                                      width: 38, // Slightly smaller
+                                      height: 38,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
+                                          color: Colors.white.withOpacity(0.8), // Softer border
+                                          width: 1.5,
                                         ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 5,
+                                            offset: Offset(0,2)
+                                          )
+                                        ]
                                       ),
                                       child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(19),
                                         child: user?.profileImageUrl != null && user!.profileImageUrl.isNotEmpty
                                             ? CachedNetworkImage(
                                                 imageUrl: user.profileImageUrl,
                                                 fit: BoxFit.cover,
                                                 placeholder: (context, url) => Container(
-                                                  color: Colors.grey[300],
-                                                  child: Icon(
-                                                    Icons.person,
-                                                    color: _primaryColor,
-                                                    size: 24,
-                                                  ),
+                                                  color: Colors.grey[200],
+                                                  child: Icon(Icons.person, color: _primaryColor.withOpacity(0.7), size: 20),
                                                 ),
                                                 errorWidget: (context, url, error) => Container(
-                                                  color: _primaryColor.withOpacity(0.2),
-                                                  child: Icon(
-                                                    Icons.person,
-                                                    color: _primaryColor,
-                                                    size: 24,
-                                                  ),
+                                                  color: _primaryColor.withOpacity(0.1),
+                                                  child: Icon(Icons.person, color: _primaryColor, size: 20),
                                                 ),
                                               )
                                             : Container(
-                                                color: _primaryColor.withOpacity(0.2),
-                                                child: Icon(
-                                                  Icons.person,
-                                                  color: Colors.white,
-                                                  size: 24,
-                                                ),
+                                                color: _primaryColor.withOpacity(0.1),
+                                                child: Icon(Icons.person, color: Colors.white, size: 20),
                                               ),
                                       ),
                                     ),
@@ -571,49 +505,23 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       background: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // خلفية إضافية للعنوان
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [_primaryColor, _accentColor],
-                              ),
-                            ),
+                          Container( // This container seems redundant as SliverAppBar already has a background
+                            // decoration: BoxDecoration(
+                            //   gradient: LinearGradient(
+                            //     begin: Alignment.topLeft,
+                            //     end: Alignment.bottomRight,
+                            //     colors: [_primaryColor, _accentColor],
+                            //   ),
+                            // ),
                           ),
-                          // زخرفة للخلفية
-                          Positioned(
-                            right: -50,
-                            top: -50,
-                            child: Container(
-                              width: 200,
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: -30,
-                            bottom: -30,
-                            child: Container(
-                              width: 150,
-                              height: 150,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                          // شعار الخدمات
+                          // Decorative elements are now part of the main header stack
                           Align(
                             alignment: Alignment.center,
                             child: Padding(
-                              padding: EdgeInsets.only(bottom: 60), // تقليل التباعد السفلي من 80 الى 60
+                              padding: EdgeInsets.only(bottom: 50), // Adjusted padding
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min, // اضافة لضمان أن يأخذ العمود أقل حجم ممكن
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Consumer<AuthService>(
                                     builder: (context, authService, _) {
@@ -623,43 +531,47 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                         children: [
                                           Text(
                                             user?.fullName ?? 'مرحباً بك',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20, // تقليل حجم الخط من 22 الى 20
-                                              fontWeight: FontWeight.bold,
-                                              shadows: [
-                                                Shadow(
-                                                  color: Colors.black26,
-                                                  blurRadius: 5,
-                                                  offset: Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
+                                            style: GoogleFonts.cairo( // Using GoogleFonts here too
+                                              textStyle:TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 20, 
+                                                fontWeight: FontWeight.bold,
+                                                shadows: [
+                                                  Shadow(
+                                                    color: Colors.black38,
+                                                    blurRadius: 5,
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
                                           ),
-                                          SizedBox(height: 5),
+                                          SizedBox(height: 4), // Reduced space
                                           Text(
                                             user?.email ?? '',
-                                            style: TextStyle(
-                                              color: Colors.white.withOpacity(0.9),
-                                              fontSize: 14,
-                                            ),
+                                            style: GoogleFonts.cairo(
+                                              textStyle: TextStyle(
+                                                color: Colors.white.withOpacity(0.85),
+                                                fontSize: 13, // Slightly smaller
+                                              ),
+                                            )
                                           ),
-                                          SizedBox(height: 10), // تقليل المساحة من 20 الى 10
+                                          SizedBox(height: 12), // Adjusted space
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
                                               SvgPicture.asset(
                                                 'assets/images/truck.svg',
-                                                width: 30,
-                                                height: 30, // تقليل حجم الأيقونة
-                                                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                                                width: 28, // Slightly smaller
+                                                height: 28,
+                                                colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
                                               ),
-                                              const SizedBox(width: 10), // تقليل المسافة بين الأيقونات
+                                              const SizedBox(width: 12),
                                               SvgPicture.asset(
                                                 'assets/images/warehouse.svg',
-                                                width: 30, // تقليل حجم الأيقونة
-                                                height: 35,
-                                                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                                                width: 28,
+                                                height: 32,
+                                                colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
                                               ),
                                             ],
                                           ),
@@ -676,16 +588,14 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  // القسم العلوي المميز
                   SliverToBoxAdapter(
                     child: _buildFeaturedSection(),
                   ),
                   
-                  // عرض الفلاتر النشطة
                   if (_activeFilters.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 5),
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10), // Consistent padding
                         child: _buildActiveFilters(),
                       ),
                     ),
@@ -694,12 +604,10 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               body: TabBarView(
                 controller: _tabController,
                 children: [
-                  // قسم خدمات التخزين
                   _isLoading
                       ? _buildLoadingView()
                       : _buildServicesListView('تخزين'),
                   
-                  // قسم خدمات النقل
                   _isLoading
                       ? _buildLoadingView()
                       : _buildServicesListView('نقل'),
@@ -710,10 +618,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         ),
       ),
       
-      // زر التنقل العائم
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // التوجه إلى الخريطة حسب نوع الخدمة المحددة
           if (_selectedType == 'تخزين') {
             _navigateToStorageLocationsMap();
           } else {
@@ -722,55 +628,51 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         },
         backgroundColor: _secondaryColor,
         tooltip: 'عرض الخريطة',
-        child: const Icon(Icons.map),
+        child: const Icon(Icons.map_outlined, color: Colors.white), // Added color for FAB icon
+        elevation: 6.0, // Added elevation
+        highlightElevation: 12.0, // Elevation on press
       ),
     );
   }
   
-  // بناء قسم الميزات في أعلى الصفحة
   Widget _buildFeaturedSection() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 20, 20, 5),
+      margin: const EdgeInsets.fromLTRB(20, 25, 20, 10), // Adjusted margin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                'الخدمات الرئيسية',
-                style: GoogleFonts.cairo(
-                  textStyle: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: _primaryColor,
-                  ),
-                ),
+        children: [
+          Text(
+            'الخدمات الرئيسية',
+            style: GoogleFonts.cairo(
+              textStyle: TextStyle(
+                fontSize: 20, // Slightly smaller for balance
+                fontWeight: FontWeight.bold,
+                color: _primaryColor,
               ),
-              const Spacer(),
-            ],
+            ),
           ),
-          const SizedBox(height: 20),
-          // خدمتي النقل والتخزين كأيقونتين كبيرتين
+          const SizedBox(height: 18), // Adjusted space
           Row(
             children: [
-              // خدمة التخزين
               Expanded(
                 child: _buildLargeServiceCard(
                   title: 'خدمة التخزين',
                   icon: 'assets/images/warehouse.svg',
                   color: _accentColor,
                   onTap: () {
+                     _tabController.animateTo(0); // Switch to storage tab
                     _navigateToStorageLocationsMap();
                   },
                 ),
               ),
-              const SizedBox(width: 15),
-              // خدمة النقل
+              const SizedBox(width: 16), // Consistent spacing
               Expanded(
                 child: _buildLargeServiceCard(
                   title: 'خدمة النقل',
                   icon: 'assets/images/truck.svg',
-                  color: _secondaryColor,          onTap: () {
+                  color: _secondaryColor,
+                  onTap: () {
+                    _tabController.animateTo(1); // Switch to transport tab
                     _navigateToTransportServicesMap();
                   },
                 ),
@@ -779,7 +681,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           ),
           const SizedBox(height: 25),
           Divider(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withOpacity(0.25), // Softer divider
             thickness: 1,
           ),
         ],
@@ -787,7 +689,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء بطاقة خدمة كبيرة
   Widget _buildLargeServiceCard({
     required String title,
     required String icon,
@@ -798,25 +699,30 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22), // Slightly larger radius for a softer look
         child: Container(
-          height: 180,
-          padding: const EdgeInsets.all(20),
+          height: 170, // Slightly adjusted height
+          padding: const EdgeInsets.all(16), // Consistent padding
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
                 color,
-                color.withOpacity(0.8),
+                color.withOpacity(0.75), // Adjusted opacity
               ],
             ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [ // Refined shadow for consistency
               BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+                color: color.withOpacity(0.25),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: color.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -825,17 +731,17 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
             children: [
               SvgPicture.asset(
                 icon,
-                width: 60,
-                height: 60,
+                width: 55, // Adjusted size
+                height: 55,
                 colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 12), // Adjusted space
               Text(
                 title,
                 style: GoogleFonts.cairo(
                   textStyle: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17, // Adjusted size
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -848,54 +754,52 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء القائمة الجانبية
   Widget _buildSideDrawer() {
     return Drawer(
       child: Container(
         color: Colors.white,
         child: Column(
           children: [
-            // رأس القائمة الجانبية
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+              padding: const EdgeInsets.fromLTRB(20, 50, 20, 20), // Adjusted padding
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_primaryColor, _accentColor],
+                  colors: [_primaryColor, _accentColor.withOpacity(0.8)], // Adjusted gradient
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'جميع الخدمات',
                         style: GoogleFonts.cairo(
                           textStyle: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 22, // Adjusted size
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 26),
                         onPressed: () {
                           Navigator.pop(context);
                         },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     'تصفية وعرض جميع الخدمات المتاحة',
                     style: GoogleFonts.cairo(
                       textStyle: const TextStyle(
                         color: Colors.white70,
-                        fontSize: 14,
+                        fontSize: 13, // Adjusted size
                       ),
                     ),
                   ),
@@ -903,15 +807,13 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               ),
             ),
             
-            // قسم الفلاتر
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20), // Consistent padding
                 children: [
-                  // فلتر نوع الخدمة
                   _buildFilterSection(
                     title: 'نوع الخدمة',
-                    icon: Icons.category,
+                    icon: Icons.category_outlined, // Using outlined icons
                     child: Column(
                       children: [
                         _buildFilterOption(
@@ -958,39 +860,44 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  const Divider(),
+                  const Divider(height: 30, thickness: 0.8), // Adjusted divider
                   
-                  // فلتر المنطقة/الولاية
                   _buildFilterSection(
                     title: 'المنطقة',
-                    icon: Icons.location_on,
-                    child: Column(
-                      children: [
-                        _buildRegionDropdown(),
-                      ],
-                    ),
+                    icon: Icons.location_on_outlined,
+                    child: _buildRegionDropdown(),
                   ),
                   
-                  const Divider(),
+                  const Divider(height: 30, thickness: 0.8),
                   
-                  // فلتر السعر
                   _buildFilterSection(
-                    title: 'نطاق السعر',
-                    icon: Icons.attach_money,
+                    title: 'نطاق السعر (دج)',
+                    icon: Icons.attach_money_outlined,
                     child: Column(
-                      children: [                        const SizedBox(height: 8),                        Row(
+                      children: [
+                        const SizedBox(height: 12),
+                        Row(
                           children: [
                             Expanded(
                               child: TextField(
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
                                   labelText: 'الحد الأدنى',
-                                  labelStyle: TextStyle(color: _primaryColor),
+                                  labelStyle: TextStyle(color: _primaryColor.withOpacity(0.8), fontSize: 14),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(12), // Consistent rounding
+                                    borderSide: BorderSide(color: Colors.grey.shade300)
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  suffixText: 'دج',
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: Colors.grey.shade300)
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _primaryColor, width: 1.5)
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), // Adjusted padding
+                                  // suffixText: 'دج', // Removed suffix for cleaner look, title indicates currency
                                 ),
                                 controller: TextEditingController(text: _priceRange.start.round().toString()),
                                 onChanged: (value) {
@@ -998,16 +905,17 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                     _minPrice = double.tryParse(value) ?? 0;
                                   });
                                 },
-                                onSubmitted: (value) {
-                                  setState(() {
+                                onSubmitted: (value) { // Apply on submit for text fields
+                                   setState(() {
                                     _minPrice = double.tryParse(value) ?? 0;
-                                    _priceRange = RangeValues(_minPrice, _priceRange.end);
+                                    if (_minPrice > _maxPrice) _minPrice = _maxPrice; // Ensure min <= max
+                                    _priceRange = RangeValues(_minPrice, _maxPrice);
                                     _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
                                     _activeFilters.add(
                                       'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
                                     );
                                   });
-                                  _updateFilters();
+                                  // _updateFilters(); // Consider if auto-update is needed or only by button
                                 },
                               ),
                             ),
@@ -1017,37 +925,53 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
                                   labelText: 'الحد الأقصى',
-                                  labelStyle: TextStyle(color: _primaryColor),
+                                   labelStyle: TextStyle(color: _primaryColor.withOpacity(0.8), fontSize: 14),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(12),
+                                     borderSide: BorderSide(color: Colors.grey.shade300)
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  suffixText: 'دج',
+                                   enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: Colors.grey.shade300)
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _primaryColor, width: 1.5)
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  // suffixText: 'دج',
                                 ),
+                                controller: TextEditingController(text: _priceRange.end.round().toString()),
                                 onChanged: (value) {
-                                  setState(() {
+                                   setState(() {
                                     _maxPrice = double.tryParse(value) ?? 10000;
                                   });
                                 },
                                 onSubmitted: (value) {
                                   setState(() {
                                     _maxPrice = double.tryParse(value) ?? 10000;
-                                    _priceRange = RangeValues(_priceRange.start, _maxPrice);
-                                    _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
+                                    if (_maxPrice < _minPrice) _maxPrice = _minPrice; // Ensure max >= min
+                                    _priceRange = RangeValues(_minPrice, _maxPrice);
+                                     _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
                                     _activeFilters.add(
                                       'السعر: ${_priceRange.start.round()} - ${_priceRange.end.round()} دج',
                                     );
                                   });
-                                  _updateFilters();
+                                  // _updateFilters();
                                 },
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
                             setState(() {
+                              // Ensure minPrice isn't greater than maxPrice
+                              if (_minPrice > _maxPrice) {
+                                  // Optionally swap or show an error, here we cap minPrice
+                                  _minPrice = _maxPrice;
+                              }
                               _priceRange = RangeValues(_minPrice, _maxPrice);
                               _activeFilters.removeWhere((filter) => filter.startsWith('السعر'));
                               _activeFilters.add(
@@ -1055,20 +979,23 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                               );
                             });
                             _updateFilters();
+                            // Navigator.pop(context); // Keep drawer open or close based on UX preference
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _primaryColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            minimumSize: const Size(double.infinity, 40),
+                            minimumSize: const Size(double.infinity, 48), // Increased height
+                            elevation: 4,
                           ),
                           child: Text(
                             'تطبيق نطاق السعر',
                             style: GoogleFonts.cairo(
                               textStyle: const TextStyle(
                                 fontWeight: FontWeight.bold,
+                                fontSize: 15,
                               ),
                             ),
                           ),
@@ -1077,12 +1004,11 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  const Divider(),
+                  const Divider(height: 30, thickness: 0.8),
                   
-                  // فلتر المسافة
                   _buildFilterSection(
                     title: 'المسافة',
-                    icon: Icons.social_distance,
+                    icon: Icons.social_distance_outlined,
                     child: Column(
                       children: [
                         _buildFilterOption(
@@ -1136,9 +1062,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  const Divider(),
+                  const SizedBox(height: 24), // Space before final apply button
                   
-                  // زر تطبيق الفلاتر
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: ElevatedButton(
@@ -1149,13 +1074,14 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _secondaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 14), // Increased padding
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12), // Consistent rounding
                         ),
+                        elevation: 5, // Added elevation
                       ),
                       child: Text(
-                        'تطبيق الفلاتر',
+                        'تطبيق جميع الفلاتر',
                         style: GoogleFonts.cairo(
                           textStyle: const TextStyle(
                             fontSize: 16,
@@ -1174,7 +1100,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء قسم فلتر في القائمة الجانبية
   Widget _buildFilterSection({
     required String title,
     required IconData icon,
@@ -1185,13 +1110,13 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       children: [
         Row(
           children: [
-            Icon(icon, color: _primaryColor),
-            const SizedBox(width: 8),
+            Icon(icon, color: _primaryColor, size: 22), // Slightly larger icon
+            const SizedBox(width: 10), // Adjusted space
             Text(
               title,
               style: GoogleFonts.cairo(
                 textStyle: TextStyle(
-                  fontSize: 16,
+                  fontSize: 17, // Adjusted size
                   fontWeight: FontWeight.bold,
                   color: _primaryColor,
                 ),
@@ -1199,13 +1124,15 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        child,
+        const SizedBox(height: 12), // Adjusted space
+        Padding( // Add padding to child for better containment
+          padding: const EdgeInsets.only(right: 8.0), // Indent filter options slightly
+          child: child,
+        )
       ],
     );
   }
   
-  // بناء خيار فلتر في القائمة الجانبية
   Widget _buildFilterOption({
     required String title,
     required bool isSelected,
@@ -1213,24 +1140,26 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10), // Consistent rounding
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8), // Adjusted padding
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? _secondaryColor : Colors.grey,
-              size: 20,
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded, // Using rounded icons
+              color: isSelected ? _secondaryColor : Colors.grey.shade500, // Adjusted unchecked color
+              size: 22, // Adjusted size
             ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: GoogleFonts.cairo(
-                textStyle: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? _secondaryColor : Colors.black87,
+            const SizedBox(width: 10), // Adjusted space
+            Expanded( // Allow text to wrap if too long
+              child: Text(
+                title,
+                style: GoogleFonts.cairo(
+                  textStyle: TextStyle(
+                    fontSize: 15, // Adjusted size
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? _secondaryColor : Colors.black87,
+                  ),
                 ),
               ),
             ),
@@ -1240,7 +1169,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
 
-  // بناء بطاقة ميزة في الشريط العلوي (لم تعد مستخدمة)
+  // _buildFeatureCard is marked as not used, so I'll keep it as is.
   Widget _buildFeatureCard({
     required String title,
     required Color color,
@@ -1295,33 +1224,33 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء الفلاتر النشطة
   Widget _buildActiveFilters() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Adjusted padding
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(18), // Consistent rounding
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.grey.withOpacity(0.15), // Softer shadow
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade200, width: 0.8) // Subtle border
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.filter_list, size: 18, color: _primaryColor),
+              Icon(Icons.filter_alt_outlined, size: 20, color: _primaryColor), // Outlined icon
               const SizedBox(width: 8),
               Text(
                 'الفلاتر النشطة',
                 style: GoogleFonts.cairo(
                   textStyle: TextStyle(
-                    fontSize: 14,
+                    fontSize: 15, // Adjusted size
                     fontWeight: FontWeight.bold,
                     color: _primaryColor,
                   ),
@@ -1329,115 +1258,130 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
               ),
               const Spacer(),
               TextButton(
-                onPressed: () {                  setState(() {
+                onPressed: () {
+                  setState(() {
                     _activeFilters.clear();
                     _selectedRegion = 'الكل';
-                    _selectedType = 'الكل';
+                    _selectedType = 'الكل'; // Should default to current tab or 'الكل'
                     _sortBy = 'التقييم';
                     _priceRange = RangeValues(0, 10000);
                     _minPrice = 0;
                     _maxPrice = 10000;
+                    // Reset tab to 'الكل' type if needed, or based on current view
+                    // For now, keep current tab's type filter if "النوع" is not manually cleared.
                   });
                   _updateFilters();
                 },
                 style: TextButton.styleFrom(
                   minimumSize: const Size(0, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Adjusted padding
+                  foregroundColor: Colors.red[600], // Adjusted color
                 ),
                 child: Text(
                   'مسح الكل',
                   style: GoogleFonts.cairo(
-                    textStyle: TextStyle(color: Colors.red[700], fontSize: 12),
+                    textStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600), // Adjusted style
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _activeFilters.map((filter) {
-              return Chip(
-                label: Text(
-                  filter,
-                  style: GoogleFonts.cairo(
-                    textStyle: const TextStyle(fontSize: 12, color: Colors.white),
+          const SizedBox(height: 10), // Adjusted space
+          if (_activeFilters.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4.0),
+              child: Text(
+                'لا توجد فلاتر مفعلة حالياً.',
+                style: GoogleFonts.cairo(color: Colors.grey.shade600, fontSize: 13)
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _activeFilters.map((filter) {
+                return Chip(
+                  label: Text(
+                    filter,
+                    style: GoogleFonts.cairo(
+                      textStyle: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500), // Adjusted font
+                    ),
                   ),
-                ),
-                backgroundColor: _accentColor,
-                deleteIconColor: Colors.white,
-                padding: EdgeInsets.zero,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onDeleted: () {
-                  setState(() {
-                    _activeFilters.remove(filter);
-                    
-                    // تحديث الفلاتر المناسبة
-                    if (filter.startsWith('النوع')) {
-                      _selectedType = 'الكل';
-                    } else if (filter.startsWith('المنطقة')) {
-                      _selectedRegion = 'الكل';
-                    } else if (filter.startsWith('السعر')) {
-                      _priceRange = RangeValues(0, 10000);
-                    }
-                  });
-                  _updateFilters();
-                },
-              );
-            }).toList(),
-          ),
+                  backgroundColor: _accentColor.withOpacity(0.9), // Slightly adjusted opacity
+                  deleteIconColor: Colors.white.withOpacity(0.8),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Adjusted chip padding
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), // Softer chip corners
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onDeleted: () {
+                    setState(() {
+                      _activeFilters.remove(filter);
+                      if (filter.startsWith('النوع')) _selectedType = 'الكل';
+                      else if (filter.startsWith('المنطقة')) _selectedRegion = 'الكل';
+                      else if (filter.startsWith('السعر')) {
+                        _priceRange = RangeValues(0, 10000);
+                        _minPrice = 0; _maxPrice = 10000;
+                      } else if (filter.startsWith('ترتيب')) _sortBy = 'التقييم';
+                      // Add removal logic for other filters if any (e.g. distance)
+                    });
+                    _updateFilters();
+                  },
+                );
+              }).toList(),
+            ),
         ],
       ),
     );
   }
   
-  // بناء قائمة الخدمات
   Widget _buildServicesListView(String type) {
     final filteredServices = _servicesList.where((service) => service['type'] == type).toList();
     
     if (filteredServices.isEmpty) {
       return Center(
-        child: SingleChildScrollView(
+        child: SingleChildScrollView( // Ensure content is scrollable if it overflows on small screens
+          padding: EdgeInsets.all(20), // Add padding around the empty state message
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(
                 type == 'تخزين' ? 'assets/images/warehouse.svg' : 'assets/images/truck.svg',
-                width: 80,
-                height: 80,
-                colorFilter: ColorFilter.mode(Colors.grey[400]!, BlendMode.srcIn),
+                width: 70, // Slightly smaller
+                height: 70,
+                colorFilter: ColorFilter.mode(Colors.grey.shade300, BlendMode.srcIn), // Softer color
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20), // Adjusted space
               Text(
-                'لا توجد خدمات متاحة',
+                'لا توجد خدمات متاحة حالياً',
                 style: GoogleFonts.cairo(
                   textStyle: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17, // Adjusted size
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey[700],
+                    color: Colors.grey.shade700, // Darker grey
                   ),
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
-                'جرّب تغيير معايير البحث أو العودة لاحقاً',
+                'جرّب تغيير معايير البحث أو العودة لاحقاً.',
                 style: GoogleFonts.cairo(
-                  textStyle: TextStyle(color: Colors.grey[600]),
+                  textStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14), // Adjusted size
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               ElevatedButton.icon(
                 onPressed: _loadServices,
-                icon: const Icon(Icons.refresh),
-                label: const Text('تحديث'),
+                icon: const Icon(Icons.refresh_rounded, size: 20), // Rounded icon
+                label: Text('تحديث القائمة', style: GoogleFonts.cairo(fontWeight: FontWeight.w600)), // Adjusted text
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _accentColor,
+                  backgroundColor: _accentColor.withOpacity(0.85), // Slightly transparent
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12), // Adjusted padding
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12), // Consistent rounding
                   ),
+                  elevation: 3,
                 ),
               ),
             ],
@@ -1447,19 +1391,18 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     }
     
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 5, 20, 100), // إضافة مساحة أسفل القائمة للزر العائم
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 100), // Adjusted top padding
       itemCount: filteredServices.length,
       itemBuilder: (context, index) {
         final service = filteredServices[index];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.only(bottom: 22), // Slightly more space between cards
           child: _buildModernServiceCard(service),
         );
       },
     );
   }
   
-  // بناء بطاقة خدمة بتصميم عصري للخدمات اللوجستية
   Widget _buildModernServiceCard(Map<String, dynamic> service) {
     final String title = service['title'] ?? 'خدمة بدون عنوان';
     final String type = service['type'] ?? 'غير محدد';
@@ -1468,61 +1411,42 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     final double rating = (service['rating'] as num?)?.toDouble() ?? 0.0;
     final int reviewCount = (service['reviewCount'] as num?)?.toInt() ?? 0;
     
-    // معالجة الصور لجميع الخدمات
     List<dynamic> imageUrls = [];
-    
-    // جلب جميع الصور المتاحة للخدمة
     if (service['imageUrls'] != null && service['imageUrls'] is List) {
       imageUrls = List<dynamic>.from(service['imageUrls']);
     }
-    
-    // Debug print for service images
-    print('ClientInterface: Service ${service['id']} has ${imageUrls.length} images: $imageUrls');
-    
-    // إضافة صور المركبة لخدمات النقل إذا كانت متوفرة
+    // Debug print removed for cleaner code, assumed working as intended
     if (type == 'نقل' && service['vehicle'] != null && service['vehicle'] is Map) {
       if ((service['vehicle'] as Map).containsKey('imageUrls')) {
         final vehicleImgs = service['vehicle']['imageUrls'];
         if (vehicleImgs is List && vehicleImgs.isNotEmpty) {
-          // إضافة صور المركبة إلى قائمة الصور الحالية
           for (var img in vehicleImgs) {
-            if (!imageUrls.contains(img)) {
-              imageUrls.add(img);
-            }
+            if (!imageUrls.contains(img)) imageUrls.add(img);
           }
-          print('ClientInterface: Added vehicle images, total now: ${imageUrls.length} images');
         }
       }
     }
-    
-    // إضافة صور موقع التخزين لخدمات التخزين إذا كانت متوفرة
     if (type == 'تخزين' && service['storageLocationImageUrls'] != null) {
       final locationImgs = service['storageLocationImageUrls'];
       if (locationImgs is List && locationImgs.isNotEmpty) {
-        // إضافة صور موقع التخزين إلى قائمة الصور الحالية
         for (var img in locationImgs) {
-          if (!imageUrls.contains(img)) {
-            imageUrls.add(img);
-          }
+          if (!imageUrls.contains(img)) imageUrls.add(img);
         }
-        print('ClientInterface: Added storage location images, total now: ${imageUrls.length} images');
       }
     }
     
     final String description = service['description'] ?? '';
-    
-    // ألوان مخصصة لكل نوع خدمة
     final bool isStorage = type == 'تخزين';
     final Color typeColor = isStorage ? _accentColor : _deepOrange;
     final Color typeGradientStart = isStorage ? _accentColor : _secondaryColor;
-    final Color typeGradientEnd = isStorage ? _accentColor.withOpacity(0.7) : _deepOrange;
+    final Color typeGradientEnd = isStorage ? _accentColor.withOpacity(0.75) : _deepOrange.withOpacity(0.85); // Adjusted opacity
     final IconData typeIcon = isStorage ? Icons.warehouse_outlined : Icons.local_shipping_outlined;
     
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22), // Consistent with LargeServiceCard
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         onTap: () {
           Navigator.push(
             context,
@@ -1534,146 +1458,136 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [ // Refined shadow
               BoxShadow(
-                color: typeColor.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-                spreadRadius: 1,
+                color: typeColor.withOpacity(0.12), // Adjusted for subtlety
+                blurRadius: 22,
+                offset: const Offset(0, 12),
               ),
               BoxShadow(
-                color: Colors.grey.withOpacity(0.05),
-                blurRadius: 5,
-                offset: const Offset(0, 3),
+                color: Colors.grey.withOpacity(0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
             ],
             border: Border.all(
-              color: typeColor.withOpacity(0.08),
-              width: 1,
+              color: typeColor.withOpacity(0.1), // Slightly more visible border
+              width: 1.0,
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // صورة الخدمة
               Stack(
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
+                      topLeft: Radius.circular(22),
+                      topRight: Radius.circular(22),
                     ),
                     child: Container(
-                      height: 180,
+                      height: 190, // Slightly taller image area
                       width: double.infinity,
-                      decoration: const BoxDecoration(                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x1F000000), Color(0x42000000)],
-                        ),
-                      ),
+                      // decoration for placeholder or if no image is used
+                      // decoration: BoxDecoration(
+                      //   gradient: LinearGradient(
+                      //     begin: Alignment.centerLeft, end: Alignment.centerRight,
+                      //     colors: [Colors.grey.shade200, Colors.grey.shade300]
+                      //   )
+                      // ),
                       child: imageUrls.isNotEmpty
                           ? PageView.builder(
                               itemCount: imageUrls.length,
                               onPageChanged: (index) {
                                 setState(() {
-                                  _currentImageIndex = index;
+                                  _currentImageIndex = index; // This might need to be card-specific if many cards have PageViews
                                 });
                               },
                               itemBuilder: (context, index) {
                                 return CachedNetworkImage(
                                   imageUrl: imageUrls[index],
                                   fit: BoxFit.cover,
-                                  placeholder: (context, url) => SpinKitPulse(
+                                  placeholder: (context, url) => Center(child: SpinKitPulse(
                                     color: typeColor,
-                                    size: 30,
-                                  ),
-                                  errorWidget: (context, url, error) => Icon(
+                                    size: 35.0, // Adjusted size
+                                  )),
+                                  errorWidget: (context, url, error) => Center(child: Icon(
                                     typeIcon,
-                                    size: 60,
-                                    color: Colors.grey[400],
-                                  ),
+                                    size: 50, // Adjusted size
+                                    color: Colors.grey.shade300, // Softer error icon
+                                  )),
                                 );
                               },
                             )
-                          : Icon(
+                          : Center(child: Icon( // Placeholder when no images
                               typeIcon,
                               size: 60,
-                              color: Colors.grey[400],
-                            ),
+                              color: Colors.grey.shade300,
+                            )),
                     ),
                   ),
                   
-                  // شريط مزدوج شفاف تحت الصورة لإضافة عمق
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                  Positioned( // Gradient overlay for text readability on image
+                    bottom: 0, left: 0, right: 0,
                     child: Container(
-                      height: 40,
+                      height: 80, // Increased height for better text background
                       decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22)), // Match parent radius
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            const Color(0xB3000000), // استخدام لون ثابت مع قيمة ألفا تساوي 0.7 (حوالي 0xB3)
-                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [ Colors.black.withOpacity(0.65), Colors.transparent ], // Stronger gradient
+                          stops: [0.0, 0.9]
                         ),
                       ),
                     ),
                   ),
                   
-                  // مؤشرات الصفحات (Page Indicators)
                   if (imageUrls.length > 1)
                     Positioned(
-                      bottom: 10,
-                      left: 0,
-                      right: 0,
+                      bottom: 12, // Adjusted position
+                      left: 0, right: 0,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
                           imageUrls.length,
-                          (index) => Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                          (index) => AnimatedContainer( // Added animation for selected indicator
+                            duration: Duration(milliseconds: 300),
+                            width: index == _currentImageIndex ? 10 : 8, // Highlight current
+                            height:index == _currentImageIndex ? 10 : 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 3), // Adjusted margin
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(
-                                index == _currentImageIndex ? 0.9 : 0.4,
-                              ),
+                              color: Colors.white.withOpacity(index == _currentImageIndex ? 0.95 : 0.5), // Brighter current
+                              border: Border.all(color: Colors.black.withOpacity(0.1), width: 0.5) // Subtle border for indicators
                             ),
                           ),
                         ),
                       ),
                     ),
                   
-                  // شريط نوع الخدمة بتصميم عصري
                   Positioned(
-                    top: 15,
-                    left: 15,
+                    top: 16, left: 16, // Consistent padding
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), // Adjusted padding
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [typeGradientStart, typeGradientEnd],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: typeColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: typeColor.withOpacity(0.35), // Adjusted shadow
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
                       child: Row(
                         children: [
-                          Icon(typeIcon, color: Colors.white, size: 16),
+                          Icon(typeIcon, color: Colors.white, size: 15), // Adjusted size
                           const SizedBox(width: 6),
                           Text(
                             type,
@@ -1681,8 +1595,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                               textStyle: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                letterSpacing: 0.3,
+                                fontSize: 12.5, // Adjusted size
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),
@@ -1691,30 +1605,22 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     ),
                   ),
                   
-                  // شريط التقييم بتصميم عصري
                   if (reviewCount > 0)
                     Positioned(
-                      top: 15,
-                      right: 15,
+                      top: 16, right: 16,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Adjusted padding
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.white.withOpacity(0.95), // More opaque for readability
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
+                              color: Colors.black.withOpacity(0.15), // Adjusted shadow
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ],
-                          border: Border.all(
-                            color: _amber.withOpacity(0.3),
-                            width: 1,
-                          ),
+                          border: Border.all(color: _amber.withOpacity(0.4), width: 0.8), // Slightly stronger border
                         ),
                         child: Row(
                           children: [
@@ -1726,147 +1632,124 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                 textStyle: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
+                                  color: Colors.black87, // Better contrast
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 3),
                             Text(
                               '($reviewCount)',
                               style: GoogleFonts.cairo(
-                                textStyle: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 11,
-                                ),
+                                textStyle: TextStyle(color: Colors.grey.shade600, fontSize: 11.5), // Adjusted style
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    
-                  // إضافة اسم الخدمة على الصورة
-                  Positioned(
-                    bottom: 10,
-                    right: 15,
-                    left: 15,
+                  
+                  Positioned( // Title on image
+                    bottom: 12, right: 16, left: 16, // Consistent padding
                     child: Text(
                       title,
                       style: GoogleFonts.cairo(
                         textStyle: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 17, // Increased size for title
                           fontWeight: FontWeight.bold,
                           shadows: [
-                            Shadow(
-                              offset: Offset(0, 1),
-                              blurRadius: 3,
-                              color: Colors.black54,
-                            ),
+                            Shadow(offset: Offset(0, 1.5), blurRadius: 4, color: Colors.black87), // Stronger shadow
                           ],
                         ),
                       ),
-                      maxLines: 1,
+                      maxLines: 2, // Allow two lines for title
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
               
-              // معلومات الخدمة بتصميم عصري
               Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16), // Consistent padding, was 18
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // المنطقة والسعر
-                    Row(
+                    Row( // Region and Price row
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center, // Align items vertically
                       children: [
-                        _buildInfoChip(
-                          Icons.location_on_outlined,
-                          region,
-                          _accentColor,
-                        ),
+                        Flexible(child: _buildInfoChip(Icons.location_on_outlined, region, _accentColor)), // Wrapped with Flexible
+                        const SizedBox(width: 8), // Space between chips
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), // Adjusted padding
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                typeGradientStart.withOpacity(0.8),
-                                typeGradientEnd.withOpacity(0.9),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                              colors: [typeGradientStart.withOpacity(0.9), typeGradientEnd],
+                              begin: Alignment.topLeft, end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12), // Consistent rounding
                             boxShadow: [
                               BoxShadow(
-                                color: typeColor.withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: typeColor.withOpacity(0.25), // Adjusted shadow
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
                           child: Text(
-                            '$price ${service["currency"] ?? "دينار جزائري"}',
+                            '${price.toStringAsFixed(0)} ${service["currency"] ?? "دج"}', // Simplified price, currency added
                             style: GoogleFonts.cairo(
                               textStyle: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 14.5, // Adjusted size
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 15),                    // تفاصيل إضافية
-                    Row(
-                      children: [
-                        _buildInfoChip(Icons.attach_money, '$price', Colors.green[700]!),
-                        const SizedBox(width: 8),                        // إضافة معلومات الموقع إذا كانت متوفرة لخدمة النقل                        if (type == 'نقل' && service.containsKey('location') && service['location'] != null && service['location'] is Map)
-                          GestureDetector(
-                            onTap: () {
-                              final locationData = service['location'] as Map<String, dynamic>?;
-                              final serviceLocation = safeGetLatLng(locationData);
-                              
-                              if (serviceLocation != null) {
-                                _openTransportLocationOnMap(
-                                  serviceLocation,
-                                  safeGetAddress(locationData, 'موقع خدمة النقل'),
-                                  service
-                                );
-                              }
-                            },
-                            child: _buildInfoChip(
-                              Icons.location_on, 
-                              _formatLocationAddress(service['location'] as Map<String, dynamic>?),
-                              Colors.blue[700]!,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 12), // Adjusted space
                     
-                    // الوصف المختصر
+                    if (type == 'نقل' && service.containsKey('location') && service['location'] != null && service['location'] is Map)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0), // Add padding if location chip exists
+                        child: GestureDetector(
+                          onTap: () {
+                            final locationData = service['location'] as Map<String, dynamic>?;
+                            final serviceLocation = safeGetLatLng(locationData);
+                            if (serviceLocation != null) {
+                              _openTransportLocationOnMap(
+                                serviceLocation,
+                                safeGetAddress(locationData, 'موقع خدمة النقل'),
+                                service
+                              );
+                            }
+                          },
+                          child: _buildInfoChip(
+                            Icons.pin_drop_outlined, 
+                            _formatLocationAddress(service['location'] as Map<String, dynamic>?),
+                            Colors.blue.shade700,
+                          ),
+                        ),
+                      ),
+                    // Price chip was here, moved to the row above.
+
+                    const SizedBox(height: 4), // Adjusted spacing
                     Text(
-                      description,
+                      description.isNotEmpty ? description : "لا يوجد وصف متوفر لهذه الخدمة.", // Default text if description is empty
                       style: GoogleFonts.cairo(
                         textStyle: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                          height: 1.3,
+                          fontSize: 13.5, // Adjusted size
+                          color: Colors.grey.shade700, // Darker grey
+                          height: 1.4, // Adjusted line height
                         ),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16), // Adjusted space
                     
-                    // زر العرض بتصميم عصري
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -1878,25 +1761,22 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                             ),
                           );
                         },
-                        icon: Icon(
-                          type == 'تخزين' ? Icons.warehouse_outlined : Icons.local_shipping_outlined,
-                          size: 18,
-                        ),
-                        label: const Text(
+                        icon: Icon(Icons.read_more_rounded, size: 19), // Using a more generic icon
+                        label: Text(
                           'عرض التفاصيل',
-                          style: TextStyle(
+                          style: GoogleFonts.cairo( // Ensure GoogleFonts is used
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 14.5, // Adjusted size
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
                           foregroundColor: Colors.white,
-                          backgroundColor: typeColor,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 2,
-                          shadowColor: typeColor.withOpacity(0.4),
+                          backgroundColor: typeColor.withOpacity(0.9), // Slightly transparent
+                          padding: const EdgeInsets.symmetric(vertical: 13), // Adjusted padding
+                          elevation: 3, // Softer elevation
+                          shadowColor: typeColor.withOpacity(0.3),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12), // Consistent rounding
                           ),
                         ),
                       ),
@@ -1911,24 +1791,26 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // إنشاء رقاقات المعلومات
   Widget _buildInfoChip(IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), // Adjusted padding
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.08), // Slightly less opacity for background
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.8), // Slightly thicker border
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.cairo(
-              textStyle: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+          Icon(icon, size: 15, color: color), // Adjusted size
+          const SizedBox(width: 6), // Adjusted space
+          Flexible( // Allow label to wrap if needed
+            child: Text(
+              label,
+              style: GoogleFonts.cairo(
+                textStyle: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.w600), // Adjusted size
+              ),
+              overflow: TextOverflow.ellipsis, // Prevent overflow
             ),
           ),
         ],
@@ -1936,23 +1818,22 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // عرض الشاشة أثناء التحميل
   Widget _buildLoadingView() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SpinKitCircle(
+          SpinKitChasingDots( // Changed SpinKit type for variety
             color: _accentColor,
-            size: 50.0,
+            size: 45.0, // Adjusted size
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24), // Adjusted space
           Text(
             'جاري تحميل الخدمات...',
             style: GoogleFonts.cairo(
               textStyle: TextStyle(
-                fontSize: 16,
-                color: _primaryColor,
+                fontSize: 16.5, // Adjusted size
+                color: _primaryColor.withOpacity(0.85), // Softer color
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1962,39 +1843,40 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // عرض خيارات الترتيب
   void _showSortingOptions() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white, // Ensure background color
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(24), // Increased radius
+          topRight: Radius.circular(24),
         ),
       ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
+        return Padding( // Added padding around the content
+          padding: const EdgeInsets.fromLTRB(20,20,20,24), // Consistent padding, more bottom padding
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ترتيب الخدمات',
+                'ترتيب الخدمات حسب', // Slightly rephrased title
                 style: GoogleFonts.cairo(
                   textStyle: TextStyle(
-                    fontSize: 18,
+                    fontSize: 19, // Adjusted size
                     fontWeight: FontWeight.bold,
                     color: _primaryColor,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              const Divider(),
-              _buildSortOption('التقييم', Icons.star),
-              _buildSortOption('السعر (من الأقل)', Icons.arrow_upward),
-              _buildSortOption('السعر (من الأعلى)', Icons.arrow_downward),
-              _buildSortOption('الأحدث', Icons.timer),
+              const SizedBox(height: 8),
+              Divider(color: Colors.grey.shade300, thickness: 0.8), // Softer divider
+              const SizedBox(height: 8),
+              _buildSortOption('التقييم', Icons.star_rounded), // Rounded icon
+              _buildSortOption('السعر (من الأقل)', Icons.arrow_upward_rounded),
+              _buildSortOption('السعر (من الأعلى)', Icons.arrow_downward_rounded),
+              _buildSortOption('الأحدث', Icons.new_releases_rounded), // More descriptive icon
             ],
           ),
         );
@@ -2002,7 +1884,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // بناء خيار الترتيب
   Widget _buildSortOption(String title, IconData icon) {
     final bool isSelected = _sortBy == title;
     
@@ -2012,44 +1893,46 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         onTap: () {
           setState(() {
             _sortBy = title;
-            if (title != 'التقييم') {
-              _activeFilters.removeWhere((filter) => filter.startsWith('ترتيب'));
-              _activeFilters.add('ترتيب: $title');
+            _activeFilters.removeWhere((filter) => filter.startsWith('ترتيب')); // Keep this logic
+            if (title != 'التقييم') { // Default sort doesn't need an active filter chip
+                 _activeFilters.add('ترتيب: $title');
             }
           });
           _updateFilters();
           Navigator.pop(context);
         },
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12), // Consistent rounding
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 5),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12), // Adjusted padding
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: isSelected ? _accentColor.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            color: isSelected ? _accentColor.withOpacity(0.12) : Colors.transparent, // Adjusted opacity
           ),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: isSelected ? _accentColor : Colors.grey,
-                size: 20,
+                color: isSelected ? _accentColor : Colors.grey.shade600, // Adjusted unchecked color
+                size: 22, // Adjusted size
               ),
-              const SizedBox(width: 15),
-              Text(
-                title,
-                style: GoogleFonts.cairo(
-                  textStyle: TextStyle(
-                    color: isSelected ? _accentColor : Colors.black,
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              const SizedBox(width: 16), // Adjusted space
+              Expanded( // Allow text to wrap
+                child: Text(
+                  title,
+                  style: GoogleFonts.cairo(
+                    textStyle: TextStyle(
+                      color: isSelected ? _accentColor : Colors.black87, // Better contrast
+                      fontSize: 15.5, // Adjusted size
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
               if (isSelected)
                 Icon(
-                  Icons.check_circle,
+                  Icons.check_circle_outline_rounded, // Outlined check
                   color: _accentColor,
+                  size: 22, // Adjusted size
                 ),
             ],
           ),
@@ -2058,76 +1941,80 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
 
-  // عرض قائمة الحساب
   void _showAccountMenu(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
       ),
       builder: (context) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 20),
+          child: Padding( // Add overall padding
+            padding: const EdgeInsets.symmetric(vertical:16.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // معلومات المستخدم
-                ListTile(
-                  leading: CircleAvatar(
-                    radius: 25,
-                    backgroundColor: _primaryColor.withOpacity(0.1),
-                    backgroundImage: user?.profileImageUrl != null && user!.profileImageUrl.isNotEmpty
-                        ? NetworkImage(user.profileImageUrl)
-                        : null,
-                    child: user?.profileImageUrl == null || user!.profileImageUrl.isEmpty
-                        ? Icon(Icons.person, color: _primaryColor)
-                        : null,
+                Padding( // Padding for user info
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      radius: 28, // Slightly larger
+                      backgroundColor: _primaryColor.withOpacity(0.08),
+                      backgroundImage: user?.profileImageUrl != null && user!.profileImageUrl.isNotEmpty
+                          ? CachedNetworkImageProvider(user.profileImageUrl) // Use provider for CircleAvatar
+                          : null,
+                      child: user?.profileImageUrl == null || user!.profileImageUrl.isEmpty
+                          ? Icon(Icons.person_outline_rounded, color: _primaryColor, size: 30)
+                          : null,
+                    ),
+                    title: Text(
+                      user?.fullName ?? 'المستخدم',
+                      style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black87),
+                    ),
+                    subtitle: Text(
+                      user?.email ?? '',
+                      style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey.shade600),
+                    ),
                   ),
-                  title: Text(
-                    user?.fullName ?? 'المستخدم',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(user?.email ?? ''),
                 ),
-                Divider(),
-                // خيارات الحساب
+                Divider(indent: 20, endIndent: 20, color: Colors.grey.shade200),
                 ListTile(
-                  leading: Icon(Icons.person_outline, color: _primaryColor),
-                  title: Text('حسابي'),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 28, vertical: 4), // Adjusted padding
+                  leading: Icon(Icons.person_outline_rounded, color: _primaryColor, size: 24),
+                  title: Text('حسابي', style: GoogleFonts.cairo(fontSize: 16, color: Colors.black87)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AccountProfileScreen(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => AccountProfileScreen()));
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.settings_outlined, color: _primaryColor),
-                  title: Text('الإعدادات'),
+                   contentPadding: EdgeInsets.symmetric(horizontal: 28, vertical: 4),
+                  leading: Icon(Icons.settings_outlined, color: _primaryColor, size: 24),
+                  title: Text('الإعدادات', style: GoogleFonts.cairo(fontSize: 16, color: Colors.black87)),
                   onTap: () {
                     Navigator.pop(context);
-                    // يمكن إضافة توجيه لصفحة الإعدادات هنا
+                    // Navigate to settings page
                   },
                 ),
+                 SizedBox(height: 8), // Space before logout
                 ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red),
-                  title: Text('تسجيل الخروج'),
+                   contentPadding: EdgeInsets.symmetric(horizontal: 28, vertical: 4),
+                  leading: Icon(Icons.logout_rounded, color: Colors.red.shade600, size: 24),
+                  title: Text('تسجيل الخروج', style: GoogleFonts.cairo(fontSize: 16, color: Colors.red.shade700, fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(context);
                     _showLogoutConfirmDialog(context);
                   },
                 ),
+                 SizedBox(height: 16), // Bottom padding
               ],
             ),
           ),
@@ -2136,114 +2023,86 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
 
-  // عرض خيارات تسجيل الخروج
   void _showLogoutConfirmDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), // Increased radius
         clipBehavior: Clip.antiAlias,
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // جزء علوي
               Container(
-                padding: EdgeInsets.symmetric(vertical: 20),
+                padding: EdgeInsets.symmetric(vertical: 24), // Adjusted padding
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFE53935), Color(0xFFD32F2F)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFE53935), Color(0xFFC62828)], // Slightly darker red
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
                   ),
                 ),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                    SizedBox(height: 10),
+                    Icon(Icons.logout_rounded, size: 48, color: Colors.white), // Adjusted size
+                    SizedBox(height: 12),
                     Text(
                       'تسجيل الخروج',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ],
                 ),
               ),
-              // محتوى
               Padding(
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(24), // Adjusted padding
                 child: Column(
                   children: [
                     Text(
                       'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
+                      style: GoogleFonts.cairo(fontSize: 16.5, color: Colors.black87, height: 1.4), // Adjusted style
                     ),
-                    SizedBox(height: 25),
+                    SizedBox(height: 28), // Adjusted space
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: EdgeInsets.symmetric(vertical: 13), // Adjusted padding
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Consistent rounding
+                              side: BorderSide(color: Colors.grey.shade400, width: 1.2), // Slightly thicker border
                             ),
                             child: Text(
                               'إلغاء',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade700,
-                              ),
+                              style: GoogleFonts.cairo(fontSize: 16, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
-                        SizedBox(width: 10),
+                        SizedBox(width: 12), // Adjusted space
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
                               Navigator.of(context).pop();
-                              await Provider.of<AuthService>(
-                                context,
-                                listen: false,
-                              ).logout();
+                              await Provider.of<AuthService>(context, listen: false).logout();
                               if (mounted) {
                                 Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder: (_) => BiLinkHomePage(),
-                                  ),
+                                  MaterialPageRoute(builder: (_) => BiLinkHomePage()), // Ensure BiLinkHomePage is correct
                                   (route) => false,
                                 );
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade600,
+                              backgroundColor: Colors.red.shade700, // Darker red for confirm
                               foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                              padding: EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 4, // Added elevation
                             ),
                             child: Text(
                               'تسجيل الخروج',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
@@ -2259,23 +2118,23 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
 
-  // بناء قائمة منسدلة للمناطق
   Widget _buildRegionDropdown() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0), // Removed horizontal, handled by FilterSection
       child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12), // Internal padding for dropdown
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300, width: 1.2), // Slightly thicker border
+          borderRadius: BorderRadius.circular(12), // Consistent rounding
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
             value: _selectedRegion,
-            icon: Icon(Icons.arrow_drop_down, color: _primaryColor),
-            elevation: 16,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            borderRadius: BorderRadius.circular(10),
+            icon: Icon(Icons.keyboard_arrow_down_rounded, color: _primaryColor, size: 26), // Rounded icon
+            elevation: 16, // Default is fine
+            // padding: const EdgeInsets.symmetric(horizontal: 12), // Moved to Container
+            borderRadius: BorderRadius.circular(12), // Consistent rounding
             items: _regions.map<DropdownMenuItem<String>>((String value) {
               return DropdownMenuItem<String>(
                 value: value,
@@ -2285,6 +2144,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     textStyle: TextStyle(
                       color: _selectedRegion == value ? _secondaryColor : Colors.black87,
                       fontWeight: _selectedRegion == value ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 15, // Adjusted size
                     ),
                   ),
                 ),
@@ -2299,7 +2159,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     _activeFilters.add('المنطقة: $newValue');
                   }
                 });
-                _updateFilters();
+                _updateFilters(); 
+                // Consider if closing the drawer is desired here: Navigator.pop(context);
               }
             },
           ),
@@ -2308,39 +2169,36 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
     );
   }
   
-  // تنسيق عنوان الموقع بشكل آمن
   String _formatLocationAddress(Map<String, dynamic>? location) {
     if (location == null) return 'موقع غير محدد';
-    
-    // استخدام الدالة المساعدة safeGetAddress من utility
     return safeGetAddress(location, 'موقع غير محدد');
   }
 }
 
-// مكون مساعد للحفاظ على شريط التبويبات
+// _SliverAppBarDelegate is not actively used in the provided main build method for the header.
+// If it's used elsewhere or intended for a different header configuration, it can be kept.
+// For this refinement, I'll leave it as is since it doesn't affect the visible UI of ClientHomePage directly.
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate(this._tabBar, this._container);
 
   final TabBar _tabBar;
-  final Container _container;
+  final Container _container; // This container might be for background/styling
 
   @override
-  double get minExtent => 70;
+  double get minExtent => 70; // Adjust if TabBar height or surrounding elements change
   @override
-  double get maxExtent => 70;
+  double get maxExtent => 70; // Same as minExtent for a fixed height header part
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // The original implementation implies _container is a background and _tabBar is overlaid.
+    // Ensure good contrast and that it fits visually with the rest of the SliverAppBar.
     return Container(
-      color: Colors.white,
+      color: Colors.white, // Or a theme color from the main page
       child: Stack(
         children: [
-          _container,
-          Positioned.fill(
-            child: Center(
-              child: _tabBar,
-            ),
-          ),
+          Positioned.fill(child: _container), // Assuming _container is styled
+          Center(child: _tabBar), // Ensure TabBar is styled appropriately
         ],
       ),
     );
@@ -2348,6 +2206,6 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return true;
+    return _tabBar != oldDelegate._tabBar || _container != oldDelegate._container; // Rebuild if TabBar or container changes
   }
 }

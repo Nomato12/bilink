@@ -1,14 +1,19 @@
+// Complete fix for transport_service_map_updated.dart
+// This version fixes both the RenderFlex overflow and the structural/syntax issues
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Commented out unused imports
+// import 'package:url_launcher/url_launcher.dart';
+// import 'package:bilink/screens/service_details_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
+// import 'package:bilink/services/location_synchronizer.dart';
 import 'package:bilink/services/directions_helper.dart';
 import 'package:bilink/screens/directions_map_tracking.dart';
-import 'package:bilink/screens/service_details_screen.dart';
 
 // إضافة مفتاح لتخزين الإشارة إلى زر "بدء" التتبع في الوقت الفعلي في الزاوية السفلية
 GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -16,9 +21,9 @@ GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMesse
 class TransportServiceMapScreen extends StatefulWidget {
   final LatLng? destinationLocation;
   final String? destinationName;
-
+  
   const TransportServiceMapScreen({
-    super.key,
+    super.key, 
     this.destinationLocation,
     this.destinationName,
   });
@@ -56,9 +61,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
 
   // بيانات المسار والاتجاهات
   Set<Polyline> _polylines = {};
-  Map<String, dynamic> _directionsData = {}; // Not explicitly used after assignment, but part of directions logic
-  // final bool _showDirectionsPanel = false; // Not used, can be removed
-
+  // Used when calculating routes
+  Map<String, dynamic> _directionsData = {};
+  // For future use
+  final bool _showDirectionsPanel = false;
+  
   // زر بدء التتبع في الوقت الفعلي
   bool _isStartTrackingVisible = false;
 
@@ -115,11 +122,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('لم يتم السماح باستخدام خدمة الموقع')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('لم يتم السماح باستخدام خدمة الموقع')),
+          );
           setState(() {
             _isLoading = false;
           });
@@ -128,19 +133,17 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'تم حظر استخدام خدمة الموقع. يرجى تفعيلها من إعدادات الجهاز',
-              ),
-              action: SnackBarAction(
-                label: 'الإعدادات',
-                onPressed: () => Geolocator.openAppSettings(),
-              ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'تم حظر استخدام خدمة الموقع. يرجى تفعيلها من إعدادات الجهاز',
             ),
-          );
-        }
+            action: SnackBarAction(
+              label: 'الإعدادات',
+              onPressed: () => Geolocator.openAppSettings(),
+            ),
+          ),
+        );
         setState(() {
           _isLoading = false;
         });
@@ -181,17 +184,13 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       }
     } catch (e) {
       print('Error getting location: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ أثناء تحديد الموقع: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء تحديد الموقع: $e')),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -222,391 +221,79 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     }
     return '';
   }
-  // الحصول على خدمات النقل الحقيقية من قاعدة البيانات
-  Future<void> _simulateNearbyVehicles(LatLng position) async {
-    setState(() {
-      _isLoading = true;
-    });
 
-    try {
-      // تحميل خدمات النقل من قاعدة البيانات
-      final allVehicles = await map_fix.loadTransportServices();
-      
-      if (allVehicles.isEmpty) {
-        print("DEBUG: No transport services found in database");
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('لا توجد خدمات نقل متاحة في هذه المنطقة')),
-          );
-        }
-        
-        setState(() {
-          _isLoading = false;
-        });
-        
-        return;
-      }
-      
-      print("DEBUG: Found ${allVehicles.length} transport services in database");
-      
-      // البحث عن المركبات في نطاق 15 كم من الموقع المحدد
-      final searchRadius = 15.0;
-      final nearbyVehicles = await map_fix.findNearbyVehicles(
-        allVehicles, 
-        position, 
-        searchRadius
-      );
-      
-      // تحويل بيانات الخدمات إلى التنسيق المطلوب للعرض
-      final formattedVehicles = _formatVehiclesForDisplay(nearbyVehicles);
-      
-      if (mounted) {
-        setState(() {
-          _availableVehicles = formattedVehicles;
-          _isLoading = false;
-        });
-        
-        // إضافة علامات المركبات على الخريطة
-        _addVehiclesMarkersToMap(formattedVehicles);
-      }
-    } catch (e) {
-      print('Error loading transport services: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ أثناء تحميل خدمات النقل: $e')),
-        );
-        
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-  
-  // تحويل بيانات المركبات من Firestore إلى التنسيق المطلوب للعرض
-  List<Map<String, dynamic>> _formatVehiclesForDisplay(List<Map<String, dynamic>> vehicles) {
-    return vehicles.map((vehicle) {
-      // استخراج موقع المركبة
-      final LatLng vehiclePosition = vehicle['calculatedPosition'] ?? 
-          map_fix.extractLocation(vehicle['location']) ?? 
-          _defaultLocation;
-      
-      // استخراج المعلومات المطلوبة للعرض
-      final Map<String, dynamic> formattedVehicle = {
-        'id': vehicle['id'] ?? 'unknown',
-        'type': _extractVehicleType(vehicle),
-        'company': vehicle['title'] ?? 'غير محدد',
-        'rating': (vehicle['rating'] != null) ? (vehicle['rating'] as num).toStringAsFixed(1) : '0.0',
-        'price': (vehicle['price'] != null) ? (vehicle['price'] as num).toString() : '0',
-        'arrivalTime': '${_calculateArrivalTime(vehicle)} دقيقة',
-        'image': _getVehicleImageUrl(vehicle),
-        'position': vehiclePosition,
-        'distance': vehicle['distance'] ?? '0.0',
-        'description': vehicle['description'] ?? '',
-      };
-      
-      return formattedVehicle;
-    }).toList();
-  }
-  
-  // استخراج نوع المركبة من بيانات الخدمة
-  String _extractVehicleType(Map<String, dynamic> vehicle) {
-    if (vehicle.containsKey('vehicle') && vehicle['vehicle'] is Map) {
-      final vehicleData = vehicle['vehicle'] as Map;
-      return vehicleData['type'] ?? 'مركبة نقل';
-    }
-    return 'مركبة نقل';
-  }
-  
-  // تقدير وقت الوصول بناءً على المسافة
-  int _calculateArrivalTime(Map<String, dynamic> vehicle) {
-    final distanceStr = vehicle['distance'] ?? '5.0';
-    final distance = double.tryParse(distanceStr) ?? 5.0;
-    // افتراض معدل سرعة 40 كم/ساعة
-    final travelTimeHours = distance / 40.0;
-    final travelTimeMinutes = (travelTimeHours * 60).round();
-    return travelTimeMinutes < 5 ? 5 : travelTimeMinutes;
-  }
-  
-  // إضافة علامات المركبات على الخريطة
-  void _addVehiclesMarkersToMap(List<Map<String, dynamic>> vehicles) {
-    for (final vehicle in vehicles) {
-      final LatLng position = vehicle['position'];
-      _addVehicleMarker(position, vehicle);
-    }
-  }
-  // إضافة علامة مركبة على الخريطة
-  void _addVehicleMarker(LatLng position, Map<String, dynamic> vehicle) {
+  // محاكاة وجود مركبات قريبة من موقع محدد
+  void _simulateNearbyVehicles(LatLng position) {
+    // قائمة بأنواع المركبات المتاحة للتوضيح
+    final vehicleTypes = [
+      'شاحنة كبيرة',
+      'شاحنة صغيرة',
+      'سيارة توصيل',
+      'دراجة نارية',
+    ];
+
+    // قائمة بالشركات المزودة لخدمات النقل
+    final companies = [
+      'شركة النقل السريع',
+      'توصيل اكسبرس',
+      'نقل البضائع الموثوق',
+      'سبيد ديليفري',
+      'نقل آمن',
+    ];
+
+    // إنشاء قائمة عشوائية من المركبات المتاحة
+    final random = map_fix.Random();
+    final vehicleCount = 3 + random.nextInt(5); // 3-7 مركبات
+
     setState(() {
-      final markerId = 'vehicle_${vehicle['id']}';
-      
-      // إزالة أي علامة موجودة للمركبة
-      _markers.removeWhere((marker) => marker.markerId.value == markerId);
-      
-      // إضافة علامة جديدة
-      _markers.add(
-        Marker(
-          markerId: MarkerId(markerId),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
-          infoWindow: InfoWindow(
-            title: vehicle['company'] ?? 'مركبة متاحة',
-            snippet: '${vehicle['type']} - ${vehicle['distance']} كم',
-          ),
-          onTap: () {
-            _showVehicleDetailsBottomSheet(vehicle);
-          },
-        ),
-      );
+      _availableVehicles = List.generate(vehicleCount, (index) {
+        // موقع عشوائي قريب من الوجهة
+        final latOffset = (random.nextDouble() - 0.5) * 0.02;
+        final lngOffset = (random.nextDouble() - 0.5) * 0.02;
+        final vehiclePosition = LatLng(
+          position.latitude + latOffset,
+          position.longitude + lngOffset,
+        );
+
+        // إضافة علامة للمركبة على الخريطة
+        _addVehicleMarker(vehiclePosition, 'vehicle_$index');
+
+        // بيانات المركبة
+        return {
+          'id': 'v$index',
+          'type': vehicleTypes[random.nextInt(vehicleTypes.length)],
+          'company': companies[random.nextInt(companies.length)],
+          'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
+          'price': (50 + random.nextInt(150)).toString(),
+          'arrivalTime': '${5 + random.nextInt(20)} دقيقة',
+          'image': _getVehicleImageUrl(random.nextInt(4)),
+          'position': vehiclePosition,
+        };
+      });
     });
   }
-  // الحصول على رابط صورة المركبة
-  String _getVehicleImageUrl(Map<String, dynamic> vehicle) {
-    // محاولة استخراج صور الخدمة من بيانات قاعدة البيانات
-    if (vehicle.containsKey('imageUrls') && vehicle['imageUrls'] is List && (vehicle['imageUrls'] as List).isNotEmpty) {
-      return (vehicle['imageUrls'] as List).first.toString();
-    }
-    
-    // إذا كانت هناك صور للمركبة
-    if (vehicle.containsKey('vehicle') && 
-        vehicle['vehicle'] is Map && 
-        vehicle['vehicle'].containsKey('imageUrls') && 
-        vehicle['vehicle']['imageUrls'] is List && 
-        (vehicle['vehicle']['imageUrls'] as List).isNotEmpty) {
-      return (vehicle['vehicle']['imageUrls'] as List).first.toString();
-    }
-    
-    // استخدام صور افتراضية بناءً على نوع المركبة
-    final vehicleType = _extractVehicleType(vehicle).toLowerCase();
-    
-    if (vehicleType.contains('كبير') || vehicleType.contains('شاحنة')) {
-      return 'https://i.imgur.com/3vOS33m.png'; // شاحنة كبيرة
-    } else if (vehicleType.contains('صغير')) {
-      return 'https://i.imgur.com/9NIAJIw.png'; // شاحنة صغيرة
-    } else if (vehicleType.contains('سيارة') || vehicleType.contains('توصيل')) {
-      return 'https://i.imgur.com/YJfO4Mq.png'; // سيارة توصيل
-    } else if (vehicleType.contains('دراجة') || vehicleType.contains('نارية')) {
-      return 'https://i.imgur.com/oiRQRUP.png'; // دراجة نارية
-    }
-    
-    // الصورة الافتراضية
-    return 'https://i.imgur.com/YJfO4Mq.png';
-  }
-  
-  // عرض تفاصيل المركبة في نافذة منبثقة
-  void _showVehicleDetailsBottomSheet(Map<String, dynamic> vehicle) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // رأس النافذة المنبثقة
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'تفاصيل خدمة النقل',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade800,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // محتوى التفاصيل
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // صورة المركبة
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: vehicle['image'],
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            height: 180,
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            height: 180,
-                            child: Icon(
-                              Icons.local_shipping,
-                              size: 60,
-                              color: Colors.grey[400],
-                            ),
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // معلومات المركبة
-                      _buildInfoRow(
-                        title: 'الاسم:',
-                        value: vehicle['company'],
-                        icon: Icons.business,
-                      ),
-                      
-                      _buildInfoRow(
-                        title: 'نوع المركبة:',
-                        value: vehicle['type'],
-                        icon: Icons.local_shipping,
-                      ),
-                      
-                      _buildInfoRow(
-                        title: 'التقييم:',
-                        value: '${vehicle['rating']} ★',
-                        icon: Icons.star,
-                        valueColor: Colors.amber,
-                      ),
-                      
-                      _buildInfoRow(
-                        title: 'السعر التقديري:',
-                        value: '${vehicle['price']} دج',
-                        icon: Icons.attach_money,
-                        valueColor: Colors.green.shade700,
-                      ),
-                      
-                      _buildInfoRow(
-                        title: 'المسافة:',
-                        value: '${vehicle['distance']} كم',
-                        icon: Icons.place,
-                        valueColor: Colors.red.shade700,
-                      ),
-                      
-                      _buildInfoRow(
-                        title: 'وقت الوصول المتوقع:',
-                        value: vehicle['arrivalTime'],
-                        icon: Icons.access_time,
-                      ),
-                      
-                      if (vehicle['description'] != null && vehicle['description'].toString().isNotEmpty)
-                        _buildInfoRow(
-                          title: 'وصف الخدمة:',
-                          value: vehicle['description'],
-                          icon: Icons.description,
-                          isMultiLine: true,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              // أزرار الإجراءات
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ServiceDetailsScreen(serviceId: vehicle['id']),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('عرض تفاصيل الخدمة الكاملة'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        minimumSize: const Size(double.infinity, 0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  
-  // بناء صف معلومات
-  Widget _buildInfoRow({
-    required String title,
-    required String value,
-    required IconData icon,
-    Color? valueColor,
-    bool isMultiLine = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: Colors.blue.shade700),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: valueColor,
-                fontSize: isMultiLine ? 13 : 14,
-                fontWeight: valueColor != null ? FontWeight.bold : FontWeight.normal,
-              ),
-              textAlign: TextAlign.start,
-              maxLines: isMultiLine ? 3 : 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+
+  // إضافة علامة مركبة على الخريطة
+  void _addVehicleMarker(LatLng position, String markerId) {
+    _markers.add(
+      Marker(
+        markerId: MarkerId(markerId),
+        position: position,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        infoWindow: InfoWindow(title: 'مركبة متاحة'),
       ),
     );
+  }
+
+  // الحصول على رابط صورة المركبة
+  String _getVehicleImageUrl(int index) {
+    final vehicleImages = [
+      'https://i.imgur.com/3vOS33m.png', // شاحنة كبيرة
+      'https://i.imgur.com/9NIAJIw.png', // شاحنة صغيرة
+      'https://i.imgur.com/YJfO4Mq.png', // سيارة توصيل
+      'https://i.imgur.com/oiRQRUP.png', // دراجة نارية
+    ];
+    return vehicleImages[index % vehicleImages.length];
   }
 
   // إضافة علامة على الخريطة
@@ -629,7 +316,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           infoWindow: InfoWindow(title: title),
         ),
       );
-    });
+    });  
   }
 
   // حساب وعرض المسار بين نقطتين
@@ -669,17 +356,13 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
 
     } catch (e) {
       print('Error calculating route: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حدث خطأ أثناء حساب المسار')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء حساب المسار')),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -720,7 +403,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       );
       return;
     }
-
+    
     // فتح شاشة التتبع المباشر وإرسال نقطة البداية والوجهة
     Navigator.push(
       context,
@@ -787,12 +470,12 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                 setState(() {
                   _originPosition = position;
                 });
-
+                
                 _getAddressFromLatLng(position).then((address) {
                   setState(() {
                     _originAddress = address;
                   });
-
+                  
                   _addMarker(
                     position,
                     'origin',
@@ -801,7 +484,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                     ),
                     address.isEmpty ? 'موقعك الحالي' : address,
                   );
-
+                  
                   if (_destinationPosition != null) {
                     _calculateAndDisplayRoute();
                   }
@@ -812,12 +495,12 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                 setState(() {
                   _destinationPosition = position;
                 });
-
+                
                 _getAddressFromLatLng(position).then((address) {
                   setState(() {
                     _destinationAddress = address;
                   });
-
+                  
                   _addMarker(
                     position,
                     'destination',
@@ -826,7 +509,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                     ),
                     address.isEmpty ? 'الوجهة' : address,
                   );
-
+                  
                   _calculateAndDisplayRoute();
                   _simulateNearbyVehicles(position);
                 });
@@ -844,7 +527,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                 height: 190, // Reduced from 200
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.only(
+                  borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
@@ -860,11 +543,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   mainAxisSize: MainAxisSize.min, // Added to minimize column height
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'المركبات المتاحة',
                             style: TextStyle(
                               fontSize: 16,
@@ -872,7 +555,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: Icon(Icons.close),
                             onPressed: () {
                               setState(() {
                                 _showVehiclesList = false;
@@ -881,27 +564,24 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                           ),
                         ],
                       ),
-                    ), // <<< COMMA ADDED HERE as it was the most likely cause of the described error
+                    ),
                     Expanded(
                       child: Container(
                         height: 140, // Reduced from 150
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _availableVehicles.length,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding: EdgeInsets.symmetric(horizontal: 10),
                           itemBuilder: (context, index) {
                             final vehicle = _availableVehicles[index];
-                            return                            GestureDetector(
+                            return GestureDetector(
                               onTap: () {
                                 _animateToPosition(vehicle['position']);
-                                
-                                // عرض تفاصيل المركبة عند النقر عليها
-                                _showVehicleDetailsBottomSheet(vehicle);
                               },
                               child: Container(
                                 width: 180,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: 8, 
                                   vertical: 5,
                                 ),
                                 decoration: BoxDecoration(
@@ -915,7 +595,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                     ),
                                   ],
                                 ),
-                                constraints: const BoxConstraints(maxHeight: 185),
+                                constraints: BoxConstraints(maxHeight: 185),
                                 child: SingleChildScrollView(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,7 +603,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                     children: [
                                       // صورة المركبة
                                       ClipRRect(
-                                        borderRadius: const BorderRadius.only(
+                                        borderRadius: BorderRadius.only(
                                           topLeft: Radius.circular(10),
                                           topRight: Radius.circular(10),
                                         ),
@@ -941,27 +621,27 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                               color: Colors.grey[400],
                                             ),
                                           ),
-                                          errorWidget: (context, url, error) =>
-                                              const Icon(Icons.error),
+                                          errorWidget: (context, url, error) => 
+                                              Icon(Icons.error),
                                         ),
                                       ),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         child: Column(
-                                          crossAxisAlignment:
+                                          crossAxisAlignment: 
                                               CrossAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
                                               vehicle['type'],
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13,
                                               ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 2),
+                                            SizedBox(height: 2),
                                             Text(
                                               vehicle['company'],
                                               style: TextStyle(
@@ -971,43 +651,26 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 2),
+                                            SizedBox(height: 2),
                                             Row(
                                               children: [
-                                                const Icon(
+                                                Icon(
                                                   Icons.star,
                                                   size: 14,
                                                   color: Colors.amber,
                                                 ),
-                                                const SizedBox(width: 2),
+                                                SizedBox(width: 2),
                                                 Text(
                                                   vehicle['rating'],
-                                                  style: const TextStyle(fontSize: 12),
+                                                  style: TextStyle(fontSize: 12),
                                                 ),
-                                                const Spacer(),
+                                                Spacer(),
                                                 Text(
                                                   '${vehicle['price']} دج',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     color: Colors.green[700],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.location_on,
-                                                  size: 14,
-                                                  color: Colors.redAccent,
-                                                ),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  '${vehicle['distance']} كم',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.redAccent,
+                                                    fontSize: 10,
                                                   ),
                                                 ),
                                               ],
@@ -1041,17 +704,17 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                     _showVehiclesList = true;
                   });
                 },
-                icon: const Icon(Icons.local_shipping),
+                icon: Icon(Icons.local_shipping),
                 label: Text('عرض المركبات المتاحة (${_availableVehicles.length})'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
             ),
-
+            
           // مؤشر التحميل
           if (_isLoading)
             Container(
@@ -1065,6 +728,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         padding: const EdgeInsets.only(bottom: 16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min, // Added for better sizing
           children: [
             // زر بدء التتبع - إضافة في الأعلى من عمود أزرار FAB بمساحة كافية
             if (_isStartTrackingVisible)
@@ -1080,7 +744,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   heroTag: 'start_tracking',
                 ),
               ),
-
+              
             // أزرار التحكم في الخريطة
             FloatingActionButton.small(
               onPressed: () async {
@@ -1118,10 +782,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   }
 }
 
-// Import dart:math (This class is defined locally, not importing dart:math)
-// If you intended to use dart:math, you should import it: import 'dart:math' as math_library;
-// and then use math_library.min and math_library.max.
-// For now, this custom 'math' class will be used as per the original code.
+// Import dart:math
 class math {
   static double min(double a, double b) => a < b ? a : b;
   static double max(double a, double b) => a > b ? a : b;

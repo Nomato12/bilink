@@ -57,8 +57,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   // متغيرات البحث
   final TextEditingController _originSearchController = TextEditingController();
   final TextEditingController _destinationSearchController = TextEditingController();
-  bool _isSearchingOrigin = false;
-  bool _isSearchingDestination = false;
+  final bool _isSearchingOrigin = false;
+  final bool _isSearchingDestination = false;
 
   // اقتراحات العناوين
   List<String> _originSuggestions = [];
@@ -67,7 +67,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   bool _showDestinationSuggestions = false;
 
   // نطاق البحث عن المركبات (بالكيلومتر)
-  double _searchRadius = 15.0;
+  final double _searchRadius = 15.0;
 
   // قائمة العناوين الأخيرة
   final List<String> _recentAddresses = [

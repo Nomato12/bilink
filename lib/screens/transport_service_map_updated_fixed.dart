@@ -58,9 +58,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   MapType _currentMapType = MapType.normal;
 
   // بيانات المسار والاتجاهات
-  Set<Polyline> _polylines = {};
-  Map<String, dynamic> _directionsData = {};
-  bool _showDirectionsPanel = false;
+  final Set<Polyline> _polylines = {};
+  final Map<String, dynamic> _directionsData = {};
+  final bool _showDirectionsPanel = false;
   
   // زر بدء التتبع في الوقت الفعلي
   bool _isStartTrackingVisible = false;
@@ -570,7 +570,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                               child: Row(
                                 children: [
                                   // صورة المركبة
-                                  Container(
+                                  SizedBox(
                                     width: 80,
                                     height: 80,
                                     child: CachedNetworkImage(

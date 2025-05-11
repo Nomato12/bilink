@@ -1,0 +1,54 @@
+// This file contains the focused changes needed to fix the overflow issue
+// in transport_service_map_updated.dart
+
+/*
+Key changes to fix the RenderFlex overflow:
+
+1. Reduce parent container height from 200 to 190px
+2. Add maxHeight constraint to the vehicle container (already added, just keeping it)
+3. Make the Column use mainAxisSize.min (already added to inner Column)
+4. Reduce image height from 90 to 80px
+5. Reduce text sizes
+6. Reduce paddings and spacing
+7. Add TextOverflow.ellipsis and maxLines to Text widgets (already added)
+*/
+
+// Height reduction for main container
+// Change from:
+// height: 200,
+// To:
+// height: 190,
+
+// Height reduction for the ListView container 
+// Change from:
+// height: 150,
+// To:
+// height: 140,
+
+// Image height reduction
+// Change from:
+// height: 90,
+// To:
+// height: 80,
+
+// Fix for the main Column
+// Change from:
+// child: Column(
+//   children: [
+// To:
+// child: Column(
+//   mainAxisSize: MainAxisSize.min,
+//   children: [
+
+// Font size fix for price text
+// Change from:
+// style: TextStyle(
+//   fontWeight: FontWeight.bold,
+//   color: Colors.green[700],
+// ),
+// To:
+// style: TextStyle(
+//   fontWeight: FontWeight.bold,
+//   color: Colors.green[700],
+//   fontSize: 10,
+// ),

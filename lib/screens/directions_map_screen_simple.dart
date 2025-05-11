@@ -44,12 +44,12 @@ class _DirectionsMapScreenState extends State<DirectionsMapScreen> {
   bool _isLoading = false;
   
   // حالة التتبع والملاحة المباشرة
-  bool _isTracking = false;
+  final bool _isTracking = false;
   StreamSubscription<Position>? _positionStreamSubscription;
   Timer? _navigationUpdateTimer;
-  int _remainingTimeInSeconds = 0;
-  double _progressPercentage = 0.0;
-  int _currentStepIndex = 0;
+  final int _remainingTimeInSeconds = 0;
+  final double _progressPercentage = 0.0;
+  final int _currentStepIndex = 0;
 
   // نوع الخريطة
   MapType _currentMapType = MapType.normal;
