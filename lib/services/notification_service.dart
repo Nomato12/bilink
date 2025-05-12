@@ -60,11 +60,11 @@ class NotificationService {
       throw Exception('Failed to send service request');
     }
   }
-
   // Update the status of a service request (accept or reject)
   Future<void> updateRequestStatus({
     required String requestId,
     required String status, // 'accepted' or 'rejected'
+    String? additionalMessage, // رسالة إضافية من مزود الخدمة
   }) async {
     try {
       // Get the request document
@@ -76,6 +76,12 @@ class NotificationService {
       final requestData = requestDoc.data() as Map<String, dynamic>;
       final clientId = requestData['clientId'];
       final serviceName = requestData['serviceName'];
+      final serviceId = requestData['serviceId'];
+      final providerId = requestData['providerId'];
+      final providerData = await _firestore.collection('users').doc(providerId).get();
+      final providerName = providerData.exists 
+          ? (providerData.data() as Map<String, dynamic>)['displayName'] ?? 'مزود الخدمة'
+          : 'مزود الخدمة';
 
       // Update request status with response date
       Map<String, dynamic> updateData = {
@@ -84,19 +90,43 @@ class NotificationService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
       
+      // إضافة الرسالة الإضافية إذا كانت موجودة
+      if (additionalMessage != null && additionalMessage.isNotEmpty) {
+        updateData['providerMessage'] = additionalMessage;
+      }
+      
       await _requestsCollection.doc(requestId).update(updateData);
+
+      // تخصيص عنوان ومحتوى الإشعار بناءً على الحالة
+      String notificationTitle;
+      String notificationBody;
+      
+      if (status == 'accepted') {
+        notificationTitle = '🎉 تمت الموافقة على طلبك';
+        notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
+            ? 'تم قبول طلبك للخدمة: $serviceName\nرسالة من مزود الخدمة: $additionalMessage'
+            : 'تم قبول طلبك للخدمة: $serviceName\nيمكنك التواصل مع مزود الخدمة الآن';
+      } else {
+        notificationTitle = 'تم رفض طلبك';
+        notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
+            ? 'تم رفض طلبك للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
+            : 'تم رفض طلبك للخدمة: $serviceName';
+      }
 
       // Create a notification for the client
       await _notificationsCollection.add({
         'userId': clientId,
-        'title': status == 'accepted' ? 'تم قبول طلبك' : 'تم رفض طلبك',
-        'body': status == 'accepted' 
-          ? 'تم قبول طلبك للخدمة: $serviceName' 
-          : 'تم رفض طلبك للخدمة: $serviceName',
+        'title': notificationTitle,
+        'body': notificationBody,
         'type': 'request_update',
         'data': {
           'requestId': requestId,
+          'serviceId': serviceId,
+          'providerId': providerId,
+          'providerName': providerName,
           'status': status,
+          'message': additionalMessage,
+          'importance': status == 'accepted' ? 'high' : 'normal',
         },
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),

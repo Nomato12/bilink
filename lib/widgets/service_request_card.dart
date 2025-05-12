@@ -210,7 +210,7 @@ class ServiceRequestCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _updateRequestStatus(
+                      onPressed: () => _showStatusUpdateDialog(
                         context,
                         requestData['id'],
                         'accepted',
@@ -230,7 +230,7 @@ class ServiceRequestCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _updateRequestStatus(
+                      onPressed: () => _showStatusUpdateDialog(
                         context,
                         requestData['id'],
                         'rejected',
@@ -280,12 +280,11 @@ class ServiceRequestCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _updateRequestStatus(
+  }  Future<void> _updateRequestStatus(
     BuildContext context,
     String requestId,
     String status,
+    String? additionalMessage,
   ) async {
     try {
       // Show loading indicator
@@ -304,6 +303,7 @@ class ServiceRequestCard extends StatelessWidget {
       await notificationService.updateRequestStatus(
         requestId: requestId,
         status: status,
+        additionalMessage: additionalMessage,
       );
 
       // Close loading dialog
@@ -359,6 +359,81 @@ class ServiceRequestCard extends StatelessWidget {
       MaterialPageRoute(
         builder: (context) => ClientDetailsScreen(clientId: clientId),
       ),
+    );
+  }
+
+  // دالة لعرض مربع حوار لإضافة رسالة عند قبول أو رفض الطلب
+  void _showStatusUpdateDialog(
+    BuildContext context,
+    String requestId,
+    String status,
+  ) {
+    final TextEditingController messageController = TextEditingController();
+    final String dialogTitle = status == 'accepted' ? 'قبول الطلب' : 'رفض الطلب';
+    final String buttonLabel = status == 'accepted' ? 'قبول' : 'رفض';
+    final Color buttonColor = status == 'accepted' ? Colors.green : Colors.red;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                status == 'accepted' ? Icons.check_circle : Icons.cancel,
+                color: buttonColor,
+              ),
+              const SizedBox(width: 8),
+              Text(dialogTitle),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                status == 'accepted'
+                    ? 'يمكنك إضافة رسالة للعميل عند قبول الطلب:'
+                    : 'يرجى توضيح سبب رفض الطلب:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: status == 'accepted'
+                      ? 'مثال: سنتواصل معك قريباً لتحديد موعد التسليم'
+                      : 'مثال: نعتذر عن عدم إمكانية تلبية الطلب حالياً',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.all(12),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();                _updateRequestStatus(
+                  context,
+                  requestId,
+                  status,
+                  messageController.text.trim(),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(buttonLabel),
+            ),
+          ],
+        );
+      },
     );
   }
 }
