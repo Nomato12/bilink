@@ -627,10 +627,10 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           }
         },
         backgroundColor: _secondaryColor,
-        tooltip: 'عرض الخريطة',
-        child: const Icon(Icons.map_outlined, color: Colors.white), // Added color for FAB icon
+        tooltip: 'عرض الخريطة', // Added color for FAB icon
         elevation: 6.0, // Added elevation
-        highlightElevation: 12.0, // Elevation on press
+        highlightElevation: 12.0,
+        child: const Icon(Icons.map_outlined, color: Colors.white), // Elevation on press
       ),
     );
   }
@@ -1315,8 +1315,9 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                   onDeleted: () {
                     setState(() {
                       _activeFilters.remove(filter);
-                      if (filter.startsWith('النوع')) _selectedType = 'الكل';
-                      else if (filter.startsWith('المنطقة')) _selectedRegion = 'الكل';
+                      if (filter.startsWith('النوع')) {
+                        _selectedType = 'الكل';
+                      } else if (filter.startsWith('المنطقة')) _selectedRegion = 'الكل';
                       else if (filter.startsWith('السعر')) {
                         _priceRange = RangeValues(0, 10000);
                         _minPrice = 0; _maxPrice = 10000;
@@ -1486,7 +1487,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       topLeft: Radius.circular(22),
                       topRight: Radius.circular(22),
                     ),
-                    child: Container(
+                    child: SizedBox(
                       height: 190, // Slightly taller image area
                       width: double.infinity,
                       // decoration for placeholder or if no image is used

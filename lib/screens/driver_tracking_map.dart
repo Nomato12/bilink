@@ -12,11 +12,13 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 class DriverTrackingMapPage extends StatefulWidget {
   final String serviceId;
   final bool autoStartTracking;
+  final Function(double, double, String)? onLocationSelected;
 
   const DriverTrackingMapPage({
     super.key,
     required this.serviceId,
     this.autoStartTracking = true, // تغيير القيمة الافتراضية إلى true
+    this.onLocationSelected,
   });
 
   @override
@@ -694,13 +696,20 @@ class _DriverTrackingMapPageState extends State<DriverTrackingMapPage> {
 
       // إعداد البيانات التي سيتم إرجاعها
       final Map<String, dynamic> result = {
-        'origin': {
-          'latitude': _originLocation!.latitude,
-          'longitude': _originLocation!.longitude,
-          'address': _originAddress,
-        },
+        'latitude': _originLocation!.latitude,
+        'longitude': _originLocation!.longitude,
+        'address': _originAddress,
         'isLiveTracking': true,
       };
+      
+      // استدعاء دالة رد النداء (callback) إذا كانت متوفرة
+      if (widget.onLocationSelected != null) {
+        widget.onLocationSelected!(
+          _originLocation!.latitude,
+          _originLocation!.longitude,
+          _originAddress,
+        );
+      }
 
       Navigator.of(context).pop(result);
     } catch (e) {

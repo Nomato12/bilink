@@ -4,14 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:bilink/screens/service_details_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
-import 'package:bilink/services/location_synchronizer.dart';
-import 'package:bilink/services/directions_helper.dart';
 import 'package:bilink/screens/directions_map_tracking.dart';
-import 'package:bilink/screens/transport_map_fix.dart';
 
 // إضافة مفتاح لتخزين الإشارة إلى زر "بدء" التتبع في الوقت الفعلي في الزاوية السفلية
 GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();

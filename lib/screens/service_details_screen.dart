@@ -383,13 +383,73 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
           await FirebaseFirestore.instance
               .collection('services')
               .doc(widget.serviceId)
-              .get();
-
-      if (docSnapshot.exists) {
+              .get();      if (docSnapshot.exists) {
         final data = docSnapshot.data() as Map<String, dynamic>;
-        data['id'] = docSnapshot.id;        // استخدام الدالة المساعدة لاستخراج بيانات الموقع بشكل آمن
-        final serviceLocation = safeGetLatLng(data['location'] as Map<String, dynamic>?);
+        data['id'] = docSnapshot.id;
+        
+        // طباعة بيانات الموقع للتصحيح
+        if (data.containsKey('location')) {
+          print('DEBUG: Location data in Firestore: ${data['location']}');
+        } else {
+          print('DEBUG: No location data found in Firestore document');
+        }
+        
+        // تطبيق طريقة جديدة أكثر قوة لاستخراج بيانات الموقع
+        LatLng? serviceLocation;
+        
+        // محاولة استخراج البيانات بشكل مباشر
+        if (data.containsKey('location') && 
+            data['location'] is Map<String, dynamic>) {
+          
+          final locationData = data['location'] as Map<String, dynamic>;
+          
+          try {
+            if (locationData.containsKey('latitude') && 
+                locationData.containsKey('longitude')) {
+                
+              // استخراج الإحداثيات
+              double lat;
+              double lng;
+              
+              if (locationData['latitude'] is double) {
+                lat = locationData['latitude'];
+              } else {
+                lat = double.parse(locationData['latitude'].toString());
+              }
+              
+              if (locationData['longitude'] is double) {
+                lng = locationData['longitude'];
+              } else {
+                lng = double.parse(locationData['longitude'].toString());
+              }
+              
+              // تحقق من صحة الإحداثيات
+              if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                serviceLocation = LatLng(lat, lng);
+                print('DEBUG: Direct LatLng extraction successful: $lat, $lng');
+              } else {
+                print('DEBUG: Invalid coordinates found: Lat $lat, Lng $lng');
+              }
+            } else if (locationData.containsKey('geopoint') && 
+                       locationData['geopoint'] is GeoPoint) {
+              // استخراج من GeoPoint
+              final GeoPoint geoPoint = locationData['geopoint'];
+              serviceLocation = LatLng(geoPoint.latitude, geoPoint.longitude);
+              print('DEBUG: Extracted LatLng from geopoint: ${geoPoint.latitude}, ${geoPoint.longitude}');
+            }
+          } catch (e) {
+            print('DEBUG: Error extracting location data: $e');
+          }
+        }
+        
+        // استخدام دالة safeGetLatLng كاحتياط إذا فشلت الطريقة المباشرة
+        if (serviceLocation == null) {
+          print('DEBUG: Trying fallback method with safeGetLatLng');
+          serviceLocation = safeGetLatLng(data['location'] as Map<String, dynamic>?);
+        }
+        
         if (serviceLocation != null) {
+          print('DEBUG: Final LatLng: ${serviceLocation.latitude}, ${serviceLocation.longitude}');
           final locationAddress = safeGetAddress(data['location'] as Map<String, dynamic>?, '');
           
           _markers = {

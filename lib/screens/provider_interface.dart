@@ -678,9 +678,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       try {
         final DocumentReference docRef = await FirebaseFirestore.instance
             .collection('services')
-            .add(newService);
-
-        // حفظ بيانات الموقع في مجموعة منفصلة للتسهيل في البحث والتصفية
+            .add(newService);        // حفظ بيانات الموقع في مجموعة منفصلة للتسهيل في البحث والتصفية مع استخدام الهيكل الصحيح
         if (_locationLatitude != null && _locationLongitude != null) {
           await FirebaseFirestore.instance
               .collection('service_locations')
@@ -689,8 +687,11 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                 'serviceId': docRef.id,
                 'providerId': userId,
                 'type': _selectedServiceType,
-                'latitude': _locationLatitude,
-                'longitude': _locationLongitude,
+                'position': {
+                  'latitude': _locationLatitude,
+                  'longitude': _locationLongitude,
+                  'geopoint': GeoPoint(_locationLatitude ?? 0.0, _locationLongitude ?? 0.0),
+                },
                 'address': _locationAddress,
                 'createdAt': FieldValue.serverTimestamp(),
                 'lastUpdate': FieldValue.serverTimestamp(),
@@ -1525,23 +1526,25 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       return;
     }
 
-    try {
-      setState(() {
-        _isLoading = true;
-      });
+    // Ensure _isLoading is correctly scoped and set within setState
+    if (!mounted) return; // Check mounted before async operations
+    setState(() {
+      _isLoading = true;
+    });
 
+    try {
       // التحقق من صحة السعر
       double price;
       try {
         price = double.parse(_priceController.text.trim());
         if (price < 0) throw FormatException('السعر يجب أن يكون أكبر من صفر');
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('الرجاء إدخال سعر صحيح')));
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) { // Check mounted before UI operations
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('الرجاء إدخال سعر صحيح')));
+          setState(() {
+            _isLoading = false;
+          });
+        }
         return;
       }
 
@@ -1565,9 +1568,6 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         };
       }
 
-      // هنا يمكن إضافة معلومات المركبة إذا كانت خدمة نقل
-      // ...
-
       // تحديث الخدمة في Firestore
       await FirebaseFirestore.instance
           .collection('services')
@@ -1576,19 +1576,20 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
       // تحديث بيانات الموقع في مجموعة منفصلة إذا كانت متوفرة
       if (_locationLatitude != null && _locationLongitude != null) {
+        final double lat = _locationLatitude!;
+        final double lng = _locationLongitude!;
         await FirebaseFirestore.instance
             .collection('service_locations')
             .doc(serviceId)
             .set({
               'serviceId': serviceId,
-              'providerId':
-                  Provider.of<AuthService>(
-                    context,
-                    listen: false,
-                  ).currentUser!.uid,
+              'providerId': Provider.of<AuthService>(context, listen: false).currentUser!.uid,
               'type': _selectedServiceType,
-              'latitude': _locationLatitude,
-              'longitude': _locationLongitude,
+              'position': {
+                'latitude': lat,
+                'longitude': lng,
+                'geopoint': GeoPoint(lat, lng),
+              },
               'address': _locationAddress,
               'updatedAt': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
@@ -1597,28 +1598,25 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       // إعادة تحميل الخدمات
       await _loadProviderServices();
 
-      // إغلاق نافذة التعديل
-      Navigator.of(context).pop();
-
-      // عرض رسالة نجاح
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم تحديث الخدمة بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) { // Check mounted before UI operations
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تم تحديث الخدمة بنجاح'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
       print('Error updating service: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء تحديث الخدمة'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) { // Check mounted before UI operations
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('حدث خطأ أثناء تحديث الخدمة'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) { // Check mounted before UI operations
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -1692,9 +1690,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
   // شريط تنقل سفلي بتصميم لوجستي عصري
   Widget _buildBottomNavigationBar() {
     // Define our logistics theme colors
-    final deepBlue = const Color(0xFF0A2463);
     final vibrantOrange = const Color(0xFFFF7F11);
-    final teal = const Color(0xFF2EC4B6);
     
     return Container(
       height: 75,
@@ -1706,7 +1702,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: deepBlue.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, -3),
             spreadRadius: 1,
@@ -2522,17 +2518,14 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Define our logistics theme colors
-    final deepBlue = const Color(0xFF0A2463);
     final vibrantOrange = const Color(0xFFFF7F11);
-    final teal = const Color(0xFF2EC4B6);
     
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [deepBlue, deepBlue.withOpacity(0.85)],
+          colors: [Colors.black, Colors.black.withOpacity(0.85)],
         ),
       ),
       child: Scaffold(
@@ -2649,7 +2642,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                 left: -30,
                 child: CustomPaint(
                   size: const Size(100, 100),
-                  painter: LogisticsCirclesPainter(color: teal.withOpacity(0.1)),
+                  painter: LogisticsCirclesPainter(color: Colors.teal.withOpacity(0.1)),
                 ),
               ),
               
@@ -2671,7 +2664,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [teal.withOpacity(0.2), deepBlue.withOpacity(0.3)],
+                              colors: [Colors.teal.withOpacity(0.2), Colors.black.withOpacity(0.3)],
                             ),
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -2724,7 +2717,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                     title: 'خدماتي',
                                     value: '$_totalServices',
                                     icon: Icons.list_alt,
-                                    color: teal,
+                                    color: Colors.teal,
                                   ),
                                   _buildStatCard(
                                     title: 'الطلبات',
@@ -2785,7 +2778,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.bar_chart, size: 80, color: teal.withOpacity(0.5)),
+                        Icon(Icons.bar_chart, size: 80, color: Colors.teal.withOpacity(0.5)),
                         const SizedBox(height: 16),
                         Text(
                           'صفحة الإحصائيات',
@@ -2823,10 +2816,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
   // قائمة الخدمات الحديثة
   Widget _buildServicesList() {
-    // Define our logistics theme colors
-    final deepBlue = const Color(0xFF0A2463);
     final vibrantOrange = const Color(0xFFFF7F11);
-    final teal = const Color(0xFF2EC4B6);
     
     if (_servicesList.isEmpty) {
       return Center(
@@ -2903,10 +2893,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
 
   // بطاقة خدمة حديثة بتصميم لوجستي عصري
   Widget _buildModernServiceCard(Map<String, dynamic> service) {
-    // Define our logistics theme colors
-    final deepBlue = const Color(0xFF0A2463);
     final vibrantOrange = const Color(0xFFFF7F11);
-    final teal = const Color(0xFF2EC4B6);
     
     final String title = service['title'] ?? 'خدمة بدون عنوان';
     final String type = service['type'] ?? 'غير محدد';
@@ -2945,7 +2932,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     // ألوان تدل على الخدمات اللوجستية
     final Color typeColor =
         type == 'تخزين'
-            ? teal // تيل للتخزين
+            ? Colors.teal // تيل للتخزين
             : vibrantOrange; // برتقالي للنقل
 
     final IconData typeIcon =
@@ -2971,14 +2958,14 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
               colors: [
                 Colors.white,
                 type == 'تخزين'
-                    ? teal.withOpacity(0.05) // خلفية بلون تيل فاتح جدا للتخزين
+                    ? Colors.teal.withOpacity(0.05) // خلفية بلون تيل فاتح جدا للتخزين
                     : vibrantOrange.withOpacity(0.05), // خلفية بلون برتقالي فاتح جدا للنقل
               ],
             ),
             borderRadius: BorderRadius.circular(24), // زوايا أكثر استدارة
             boxShadow: [
               BoxShadow(
-                color: deepBlue.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 15,
                 offset: const Offset(0, 6),
                 spreadRadius: 2,

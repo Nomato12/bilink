@@ -35,16 +35,22 @@ class LocationSynchronizer {
             await _firestore.collection('services').doc(serviceId).update({
               'location': locationData,
               'lastLocationUpdate': FieldValue.serverTimestamp(),
-            });
+            });              // Asegurar que existe un registro en la colección service_locations
+            // Extract as variables to ensure non-null values
+            final double lat = locationData['latitude'];
+            final double lng = locationData['longitude'];
+            final String address = locationData['address'] ?? 'العنوان غير متوفر';
             
-            // Asegurar que existe un registro en la colección service_locations
             await _firestore.collection('service_locations').doc(serviceId).set({
               'serviceId': serviceId,
               'providerId': serviceData['providerId'],
               'type': serviceData['type'],
-              'latitude': locationData['latitude'],
-              'longitude': locationData['longitude'],
-              'address': locationData['address'] ?? 'العنوان غير متوفر',
+              'position': {
+                'latitude': lat,
+                'longitude': lng,
+                'geopoint': GeoPoint(lat, lng),
+              },
+              'address': address,
               'lastUpdate': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
             

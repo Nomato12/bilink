@@ -371,18 +371,17 @@ class _AddServiceScreenState extends State<AddServiceScreen>
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => StorageLocationMapPage(
-                serviceId: tempServiceId,
-                onLocationSelected: (lat, lng, address) {
-                  // إضافة دالة callback للتعامل مع بيانات الموقع المحددة
-                  setState(() {
-                    _locationLatitude = lat;
-                    _locationLongitude = lng;
-                    _locationAddress = address;
-                  });
-                },
-              ),
+          builder: (context) => StorageLocationMapPage(
+            serviceId: tempServiceId,
+            onLocationSelected: (lat, lng, address) {
+              // إضافة دالة callback للتعامل مع بيانات الموقع المحددة
+              setState(() {
+                _locationLatitude = lat;
+                _locationLongitude = lng;
+                _locationAddress = address;
+              });
+            },
+          ),
         ),
       );
       // التحقق من النتيجة المُعادة مباشرة من صفحة الخريطة
@@ -391,26 +390,38 @@ class _AddServiceScreenState extends State<AddServiceScreen>
           _locationLatitude = result['latitude'];
           _locationLongitude = result['longitude'];
           // تحقق من أن العنوان ليس بقيمة null
-          _locationAddress =
-              result['address'] ??
-              'موقع محدد'; // استخدام قيمة افتراضية إذا كانت null
+          _locationAddress = result['address'] ?? 'موقع محدد';
         });
       }
     } else {
+      // خدمة النقل - استخدام نفس منطق خدمة التخزين لتحديد الموقع الفعلي
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => DriverTrackingMapPage(serviceId: tempServiceId),
+          builder: (context) => DriverTrackingMapPage(
+            serviceId: tempServiceId,
+            // إضافة دالة callback للتعامل مع بيانات الموقع المحددة
+            onLocationSelected: (lat, lng, address) {
+              setState(() {
+                _locationLatitude = lat;
+                _locationLongitude = lng;
+                _locationAddress = address;
+              });
+            },
+          ),
         ),
       );
       if (result != null && result is Map<String, dynamic>) {
         setState(() {
           _locationLatitude = result['latitude'];
           _locationLongitude = result['longitude'];
-          // تحقق من أن العنوان ليس بقيمة null
-          _locationAddress =
-              result['address'] ??
-              'موقع تتبع مباشر'; // استخدام قيمة افتراضية إذا كانت null
+          // تحقق من أن العنوان ليس بقيمة null وليس فارغاً
+          if (result['address'] != null && result['address'].toString().isNotEmpty) {
+            _locationAddress = result['address'];
+          } else {
+            // إذا كان العنوان غير محدد، استخدم تنسيق الإحداثيات
+            _locationAddress = 'موقع مُحدّد: ${_locationLatitude!.toStringAsFixed(4)}, ${_locationLongitude!.toStringAsFixed(4)}';
+          }
         });
       }
     }
@@ -473,14 +484,13 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
       // إعداد البيانات الأساسية
       final serviceData = {
-        'providerId':
-            user.uid, // تغيير من userId إلى providerId لتوحيد المعرفات
+        'providerId': user.uid,
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
         'price': double.parse(_priceController.text),
         'currency': _currency,
         'region': _selectedRegion,
-        'type': _selectedServiceType, // تعديل من serviceType إلى type للتوافق
+        'type': _selectedServiceType,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'isActive': true,
@@ -491,16 +501,22 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         'reviewCount': 0,
       };
 
-      // إضافة بيانات الموقع إذا كانت متوفرة
+      // إضافة بيانات الموقع إذا كانت متوفرة - تم تحسين التعامل مع الموقع
       if (_locationLatitude != null && _locationLongitude != null) {
+        // التأكد من استخدام قيم غير فارغة لمنشئ GeoPoint
+        final double lat = _locationLatitude!;
+        final double lng = _locationLongitude!;
+        
+        // التأكد من أن عنوان الموقع غير فارغ
+        final String locationAddr = _locationAddress.isEmpty ? 
+            'موقع مُحدّد: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}' : 
+            _locationAddress;
+            
         serviceData['location'] = {
-          'latitude': _locationLatitude,
-          'longitude': _locationLongitude,
-          'address': _locationAddress,
-          'geopoint': GeoPoint(
-            _locationLatitude!,
-            _locationLongitude!,
-          ), // إضافة نقطة جغرافية لتسهيل البحث المكاني
+          'latitude': lat,
+          'longitude': lng,
+          'address': locationAddr,
+          'geopoint': GeoPoint(lat, lng),
         };
       }
 
@@ -662,6 +678,30 @@ class _AddServiceScreenState extends State<AddServiceScreen>
           .collection('services')
           .doc(serviceId)
           .set(userServiceData);
+
+      // Create entry in service_locations collection if location data is available
+      if (_locationLatitude != null && _locationLongitude != null) {
+        // Make sure we use non-null values for GeoPoint constructor
+        final double lat = _locationLatitude!;
+        final double lng = _locationLongitude!;
+        
+        await FirebaseFirestore.instance
+          .collection('service_locations')
+          .doc(serviceId)
+          .set({
+            'serviceId': serviceId,
+            'providerId': user.uid,
+            'type': _selectedServiceType,
+            'position': {
+              'latitude': lat,
+              'longitude': lng,
+              'geopoint': GeoPoint(lat, lng),
+            },
+            'address': _locationAddress,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      }
 
       // إظهار رسالة نجاح وإغلاق الصفحة
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1283,7 +1323,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
               : 'إرشادات التتبع المباشر',
           _selectedServiceType == 'تخزين'
               ? 'يرجى تحديد موقع مكان التخزين بدقة على الخريطة للسماح للعملاء بالوصول إليه بسهولة.'
-              : 'سيتم تتبع موقعك بشكل مباشر وإرساله للعملاء للسماح لهم بمتابعة الشحنة في الوقت الحقيقي.',
+              : 'حدد موقع البداية الخاص بك للسماح للعملاء بتتبع مسار الشحنة بداية من هذا الموقع.',
           serviceColor,
           Icons.info_outline,
         ),

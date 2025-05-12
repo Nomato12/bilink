@@ -883,7 +883,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                       ),
                     ), // <<< COMMA ADDED HERE as it was the most likely cause of the described error
                     Expanded(
-                      child: Container(
+                      child: SizedBox(
                         height: 140, // Reduced from 150
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,

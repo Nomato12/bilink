@@ -4,18 +4,6 @@
 // The fix needs to be applied to the ListView.builder inside the vehicle list section
 // by wrapping the Column with a SingleChildScrollView and setting mainAxisSize: MainAxisSize.min
 
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:bilink/screens/service_details_screen.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
-import 'package:bilink/services/location_synchronizer.dart';
-import 'package:bilink/services/directions_helper.dart';
-import 'package:bilink/screens/directions_map_tracking.dart';
 
 // To fix the overflow error in the ListView.builder of availableVehicles,
 // the Container containing the vehicle card should be wrapped with SingleChildScrollView 

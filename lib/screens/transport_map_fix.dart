@@ -4,52 +4,123 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Helper function to parse and validate coordinates
+LatLng? _parseAndValidateLatLng(dynamic latRaw, dynamic lngRaw, String source) {
+  if (latRaw == null || lngRaw == null) {
+    print('DEBUG: Null latitude or longitude value from $source before parsing. Raw lat: $latRaw, Raw lng: $lngRaw');
+    return null;
+  }
+
+  double? lat;
+  double? lng;
+
+  if (latRaw is num) {
+    lat = latRaw.toDouble();
+  } else if (latRaw is String) {
+    lat = double.tryParse(latRaw);
+  } else {
+    print('DEBUG: Latitude from $source is not num or String: ${latRaw.runtimeType}');
+  }
+
+  if (lngRaw is num) {
+    lng = lngRaw.toDouble();
+  } else if (lngRaw is String) {
+    lng = double.tryParse(lngRaw);
+  } else {
+    print('DEBUG: Longitude from $source is not num or String: ${lngRaw.runtimeType}');
+  }
+
+  if (lat != null && lng != null) {
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      print('DEBUG: Using $source: Lat $lat, Lng $lng');
+      return LatLng(lat, lng);
+    } else {
+      print('DEBUG: Invalid coordinates from $source after parsing: Lat $lat, Lng $lng. Out of range.');
+      return null;
+    }
+  } else {
+    print('DEBUG: Failed to parse latitude/longitude from $source. Parsed lat: $lat, Parsed lng: $lng. Raw values: Lat $latRaw, Lng $lngRaw.');
+    return null;
+  }
+}
+
 /// Safely extracts a LatLng from a location map
-/// Returns null if any required field is missing
+/// Returns null if any required field is missing or invalid
 LatLng? safeGetLatLng(Map<String, dynamic>? location) {
   if (location == null) {
     print('DEBUG: safeGetLatLng called with null location');
     return null;
   }
-  
-  // Try getting location from GeoPoint first
-  if (location.containsKey('geopoint') && location['geopoint'] != null) {
-    try {
-      final geopoint = location['geopoint'];
-      if (geopoint is GeoPoint) {
-        print('DEBUG: Using GeoPoint for location: ${geopoint.latitude}, ${geopoint.longitude}');
-        return LatLng(geopoint.latitude, geopoint.longitude);
+
+  // Try getting location from 'position' map
+  if (location.containsKey('position')) {
+    final positionData = location['position'];
+    if (positionData is Map<String, dynamic>) {
+      // 1. Check for GeoPoint within 'position'
+      if (positionData.containsKey('geopoint')) {
+        final geopointData = positionData['geopoint'];
+        if (geopointData is GeoPoint) {
+          // Validate GeoPoint coordinates
+          if (geopointData.latitude >= -90 && geopointData.latitude <= 90 &&
+              geopointData.longitude >= -180 && geopointData.longitude <= 180) {
+            print('DEBUG: Using GeoPoint from position: ${geopointData.latitude}, ${geopointData.longitude}');
+            return LatLng(geopointData.latitude, geopointData.longitude);
+          } else {
+            print('DEBUG: Invalid GeoPoint coordinates from position: Lat ${geopointData.latitude}, Lng ${geopointData.longitude}');
+            // Do not return here, continue to check other formats within 'position'
+          }
+        } else if (geopointData != null) {
+          print('DEBUG: \'geopoint\' in position is not a GeoPoint type: ${geopointData.runtimeType}, value: $geopointData');
+        }
       }
-    } catch (e) {
-      print('DEBUG: Error extracting GeoPoint: $e');
+
+      // 2. Check for 'latitude'/'longitude' within 'position'
+      // This check should be performed even if 'geopoint' was present but invalid
+      if (positionData.containsKey('latitude') && positionData.containsKey('longitude')) {
+        LatLng? parsedLatLng = _parseAndValidateLatLng(
+          positionData['latitude'],
+          positionData['longitude'],
+          'latitude/longitude from position'
+        );
+        if (parsedLatLng != null) return parsedLatLng;
+      }
+    } else if (positionData != null) {
+      print('DEBUG: \'position\' field is not a Map: ${positionData.runtimeType}, value: $positionData');
     }
   }
-  
-  // Fall back to latitude/longitude fields if GeoPoint doesn't work
-  // Check if location has the required fields
-  if (!location.containsKey('latitude') || 
-      !location.containsKey('longitude') ||
-      location['latitude'] == null ||
-      location['longitude'] == null) {
-    print('DEBUG: Missing latitude or longitude in location data: $location');
-    return null;
+
+  // Try getting location from root of the map
+  // 3. Check for GeoPoint at root
+  if (location.containsKey('geopoint')) {
+    final geopointData = location['geopoint'];
+    if (geopointData is GeoPoint) {
+      // Validate GeoPoint coordinates
+      if (geopointData.latitude >= -90 && geopointData.latitude <= 90 &&
+          geopointData.longitude >= -180 && geopointData.longitude <= 180) {
+        print('DEBUG: Using GeoPoint from root: ${geopointData.latitude}, ${geopointData.longitude}');
+        return LatLng(geopointData.latitude, geopointData.longitude);
+      } else {
+        print('DEBUG: Invalid GeoPoint coordinates from root: Lat ${geopointData.latitude}, Lng ${geopointData.longitude}');
+        // Do not return here, continue to check root lat/lng
+      }
+    } else if (geopointData != null) {
+      print('DEBUG: \'geopoint\' at root is not a GeoPoint type: ${geopointData.runtimeType}, value: $geopointData');
+    }
+  }
+
+  // 4. Check for 'latitude'/'longitude' at root
+  // This check should be performed even if root 'geopoint' was present but invalid
+  if (location.containsKey('latitude') && location.containsKey('longitude')) {
+    LatLng? parsedLatLng = _parseAndValidateLatLng(
+      location['latitude'],
+      location['longitude'],
+      'root latitude/longitude'
+    );
+    if (parsedLatLng != null) return parsedLatLng;
   }
   
-  try {
-    final double lat = location['latitude'] is double 
-        ? location['latitude'] 
-        : double.parse(location['latitude'].toString());
-    
-    final double lng = location['longitude'] is double 
-        ? location['longitude'] 
-        : double.parse(location['longitude'].toString());
-    
-    print('DEBUG: Successfully extracted location: $lat, $lng');
-    return LatLng(lat, lng);
-  } catch (e) {
-    print('Error extracting LatLng from location data: $e');
-    return null;
-  }
+  print('DEBUG: Could not find valid location data in any expected format after all checks for location: $location');
+  return null;
 }
 
 /// Safely gets the address from a location map
