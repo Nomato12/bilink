@@ -1,6 +1,3 @@
-// Custom TransportServiceMapWrapper to ensure compatibility between old and new map implementations
-// This wrapper ensures that vehicle locations from service data are properly displayed
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/transport_service_map_updated.dart';
@@ -23,29 +20,40 @@ class TransportServiceMapWrapper extends StatefulWidget {
 }
 
 class _TransportServiceMapWrapperState extends State<TransportServiceMapWrapper> {
-  
-  @override
+    @override
   Widget build(BuildContext context) {
+    // If service data has valid location, use it
+    LatLng? serviceLocation;
+    String locationName = widget.destinationName ?? 'الوجهة';
+    
+    if (widget.serviceData != null && widget.serviceData!['location'] != null) {
+      final locationData = widget.serviceData!['location'] as Map<String, dynamic>?;
+      serviceLocation = safeGetLatLng(locationData);
+      
+      if (locationData != null && locationData['address'] != null) {
+        locationName = locationData['address'].toString();
+      }
+    }
+    
     return TransportServiceMapScreen(
-      destinationLocation: widget.destinationLocation,
-      destinationName: widget.destinationName,
+      destinationLocation: serviceLocation ?? widget.destinationLocation,
+      destinationName: locationName,
     );
   }
-  
-  @override
+    @override
   void initState() {
     super.initState();
-    // If we have service data, we can use it later when needed
+    // Debug logging
     if (widget.serviceData != null) {
-      print("TransportServiceMapWrapper: Service data provided: ${widget.serviceData!['id']}");
+      print("TransportServiceMapWrapper: Service data received with ID: ${widget.serviceData!['id']}");
       
-      // We could store this data or pass it to another component that needs it
-      // For now, we're logging its presence for debugging
-      final locationData = widget.serviceData!['location'] as Map<String, dynamic>?;
-      final serviceLocation = safeGetLatLng(locationData);
-      
-      if (serviceLocation != null) {
-        print("TransportServiceMapWrapper: Valid location found at: ${serviceLocation.latitude}, ${serviceLocation.longitude}");
+      // Check if location exists and is valid
+      if (widget.serviceData!.containsKey('location') && 
+          widget.serviceData!['location'] != null &&
+          widget.serviceData!['location'] is Map) {
+        
+        final locationData = widget.serviceData!['location'] as Map<String, dynamic>;
+        print("TransportServiceMapWrapper: Location data available: $locationData");
       } else {
         print("TransportServiceMapWrapper: No valid location in service data");
       }

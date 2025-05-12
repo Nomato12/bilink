@@ -2,17 +2,36 @@
 // To ensure proper null safety when accessing location data
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Safely extracts a LatLng from a location map
 /// Returns null if any required field is missing
 LatLng? safeGetLatLng(Map<String, dynamic>? location) {
-  if (location == null) return null;
+  if (location == null) {
+    print('DEBUG: safeGetLatLng called with null location');
+    return null;
+  }
   
+  // Try getting location from GeoPoint first
+  if (location.containsKey('geopoint') && location['geopoint'] != null) {
+    try {
+      final geopoint = location['geopoint'];
+      if (geopoint is GeoPoint) {
+        print('DEBUG: Using GeoPoint for location: ${geopoint.latitude}, ${geopoint.longitude}');
+        return LatLng(geopoint.latitude, geopoint.longitude);
+      }
+    } catch (e) {
+      print('DEBUG: Error extracting GeoPoint: $e');
+    }
+  }
+  
+  // Fall back to latitude/longitude fields if GeoPoint doesn't work
   // Check if location has the required fields
   if (!location.containsKey('latitude') || 
       !location.containsKey('longitude') ||
       location['latitude'] == null ||
       location['longitude'] == null) {
+    print('DEBUG: Missing latitude or longitude in location data: $location');
     return null;
   }
   
@@ -25,6 +44,7 @@ LatLng? safeGetLatLng(Map<String, dynamic>? location) {
         ? location['longitude'] 
         : double.parse(location['longitude'].toString());
     
+    print('DEBUG: Successfully extracted location: $lat, $lng');
     return LatLng(lat, lng);
   } catch (e) {
     print('Error extracting LatLng from location data: $e');

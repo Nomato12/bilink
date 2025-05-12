@@ -19,7 +19,7 @@ import 'package:bilink/widgets/notification_badge.dart';
 import 'package:bilink/models/home_page.dart';
 import 'package:bilink/screens/chat_list_screen.dart';
 import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
-import 'package:bilink/screens/transport_map_fix.dart'; // Import utility functions for location handling
+import 'package:bilink/screens/transport_map_fix.dart' as map_fix; // Import utility functions for location handling
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -1715,18 +1715,16 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12.0), // Add padding if location chip exists
                         child: GestureDetector(
-                          onTap: () {
-                            final locationData = service['location'] as Map<String, dynamic>?;
-                            final serviceLocation = safeGetLatLng(locationData);
+                          onTap: () {                            final locationData = service['location'] as Map<String, dynamic>?;
+                            final serviceLocation = map_fix.safeGetLatLng(locationData);
                             if (serviceLocation != null) {
                               _openTransportLocationOnMap(
                                 serviceLocation,
-                                safeGetAddress(locationData, 'موقع خدمة النقل'),
+                                map_fix.safeGetAddress(locationData, 'موقع خدمة النقل'),
                                 service
                               );
                             }
-                          },
-                          child: _buildInfoChip(
+                          },                          child: _buildInfoChip(
                             Icons.pin_drop_outlined, 
                             _formatLocationAddress(service['location'] as Map<String, dynamic>?),
                             Colors.blue.shade700,
@@ -2168,44 +2166,8 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       ),
     );
   }
-  
   String _formatLocationAddress(Map<String, dynamic>? location) {
     if (location == null) return 'موقع غير محدد';
-    return safeGetAddress(location, 'موقع غير محدد');
-  }
-}
-
-// _SliverAppBarDelegate is not actively used in the provided main build method for the header.
-// If it's used elsewhere or intended for a different header configuration, it can be kept.
-// For this refinement, I'll leave it as is since it doesn't affect the visible UI of ClientHomePage directly.
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(this._tabBar, this._container);
-
-  final TabBar _tabBar;
-  final Container _container; // This container might be for background/styling
-
-  @override
-  double get minExtent => 70; // Adjust if TabBar height or surrounding elements change
-  @override
-  double get maxExtent => 70; // Same as minExtent for a fixed height header part
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    // The original implementation implies _container is a background and _tabBar is overlaid.
-    // Ensure good contrast and that it fits visually with the rest of the SliverAppBar.
-    return Container(
-      color: Colors.white, // Or a theme color from the main page
-      child: Stack(
-        children: [
-          Positioned.fill(child: _container), // Assuming _container is styled
-          Center(child: _tabBar), // Ensure TabBar is styled appropriately
-        ],
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return _tabBar != oldDelegate._tabBar || _container != oldDelegate._container; // Rebuild if TabBar or container changes
+    return map_fix.safeGetAddress(location, 'موقع غير محدد');
   }
 }
