@@ -169,7 +169,8 @@ class FcmService {
       debugPrint('??? ?? ????? ???????: $e'); 
     } 
   } 
-   /// Show a local notification 
+ 
+  /// Show a local notification 
   Future<void> _showLocalNotification({ 
     required String title, 
     required String body, 
@@ -185,8 +186,7 @@ class FcmService {
         priority: Priority.high, 
         showWhen: true, 
         enableVibration: true, 
-        playSound: true,
-        // Don't use bigLargeIcon to avoid the ambiguous method reference issue
+        playSound: true, 
       ); 
  
       const DarwinNotificationDetails iOSPlatformChannelSpecifics = 
@@ -198,7 +198,7 @@ class FcmService {
  
       final NotificationDetails platformChannelSpecifics = NotificationDetails( 
         android: androidPlatformChannelSpecifics, 
-        iOS: iOSPlatformChannelSpecifics,
+        iOS: iOSPlatformChannelSpecifics, 
       ); 
  
       await _flutterLocalNotificationsPlugin.show( 

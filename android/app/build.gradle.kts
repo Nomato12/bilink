@@ -70,11 +70,15 @@ dependencies {
     // Add the Firebase BoM (Bill of Materials)
     implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
     
-    // إضافة مكتبة desugar لدعم ميزات Java 8 على الإصدارات القديمة من Android
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:1.1.5")
+    // تحديث مكتبة desugar_jdk_libs للإصدار المطلوب من flutter_local_notifications
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     
     // Add other dependencies your app might need
     implementation("com.google.firebase:firebase-analytics-ktx")
+    
+    // Fix for flutter_local_notifications ambiguous method reference
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.core:core:1.12.0")
 }
 
 flutter {

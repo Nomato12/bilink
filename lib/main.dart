@@ -10,6 +10,7 @@ import 'dart:developer' as developer;
 import 'package:bilink/firebase_options.dart'; // Importar opciones de Firebase
 import 'package:bilink/models/home_page.dart';
 import 'package:bilink/services/auth_service.dart';
+import 'package:bilink/services/fcm_service.dart'; // استيراد خدمة الإشعارات
 
 void main() async {
   // Iniciar la aplicación en una zona de error controlada
@@ -34,12 +35,14 @@ void main() async {
       };
 
       // Aumentar el tamaño del buffer para los canales de mensajes
-      const int bufferSize = 1024 * 1024; // 1MB
-
-      // Inicializar Firebase con las opciones configuradas
+      const int bufferSize = 1024 * 1024; // 1MB      // Inicializar Firebase con las opciones configuradas
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+
+      // تهيئة خدمة الإشعارات
+      final fcmService = FcmService();
+      await fcmService.initialize();
 
       runApp(const MyApp());
     },

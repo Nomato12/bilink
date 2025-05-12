@@ -296,15 +296,20 @@ class ServiceRequestCard extends StatelessWidget {
             child: CircularProgressIndicator(),
           );
         },
-      );
-
-      // Update request status
+      );      // Update request status
       final NotificationService notificationService = NotificationService();
-      await notificationService.updateRequestStatus(
-        requestId: requestId,
-        status: status,
-        additionalMessage: additionalMessage,
-      );
+      try {
+        await notificationService.updateRequestStatus(
+          requestId: requestId,
+          status: status,
+          additionalMessage: additionalMessage,
+        );
+        
+        print('تم تحديث حالة الطلب بنجاح: $status');
+      } catch (notificationError) {
+        print('خطأ في تحديث حالة الطلب: $notificationError');
+        // مواصلة التنفيذ حتى مع وجود خطأ
+      }
 
       // Close loading dialog
       if (context.mounted) Navigator.pop(context);

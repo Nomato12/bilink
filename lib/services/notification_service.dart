@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bilink/services/fcm_service.dart';
+import 'package:flutter/foundation.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FcmService _fcmService = FcmService();
 
   // Collection references
   final CollectionReference _requestsCollection = 
@@ -111,9 +114,7 @@ class NotificationService {
         notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
             ? 'تم رفض طلبك للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
             : 'تم رفض طلبك للخدمة: $serviceName';
-      }
-
-      // Create a notification for the client
+      }      // Create a notification for the client
       await _notificationsCollection.add({
         'userId': clientId,
         'title': notificationTitle,
@@ -131,6 +132,26 @@ class NotificationService {
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      
+      // إرسال إشعار FCM للعميل
+      try {
+        await _fcmService.sendNotificationToUser(
+          userId: clientId,
+          title: notificationTitle,
+          body: notificationBody,
+          data: {
+            'type': 'request_update',
+            'requestId': requestId,
+            'status': status,
+            'serviceId': serviceId,
+            'providerId': providerId,
+          },
+        );
+        debugPrint('تم إرسال إشعار FCM للعميل: $clientId');
+      } catch (fcmError) {
+        debugPrint('خطأ في إرسال إشعار FCM: $fcmError');
+        // استمرار التنفيذ حتى لو فشل إرسال الإشعار عبر FCM
+      }
     } catch (e) {
       print('Error updating request status: $e');
       throw Exception('Failed to update request status');
