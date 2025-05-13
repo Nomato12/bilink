@@ -19,6 +19,7 @@ class TransportServiceMapScreen extends StatefulWidget {
   final String? originName;
   final LatLng? destinationLocation;
   final String? destinationName;
+  final String? selectedVehicleType;
 
   const TransportServiceMapScreen({
     super.key,
@@ -26,6 +27,7 @@ class TransportServiceMapScreen extends StatefulWidget {
     this.originName,
     this.destinationLocation,
     this.destinationName,
+    this.selectedVehicleType,
   });
 
   @override
@@ -391,8 +393,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       print('Error getting address: $e');
     }
     return '';
-  }
-  // الحصول على خدمات النقل الحقيقية من قاعدة البيانات
+  }  // الحصول على خدمات النقل الحقيقية من قاعدة البيانات
   Future<void> _simulateNearbyVehicles(LatLng position) async {
     setState(() {
       _isLoading = true;
@@ -431,14 +432,30 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       // تحويل بيانات الخدمات إلى التنسيق المطلوب للعرض
       final formattedVehicles = _formatVehiclesForDisplay(nearbyVehicles);
       
+      // تصفية المركبات حسب النوع المحدد إذا كان متوفرًا
+      List<Map<String, dynamic>> filteredVehicles = formattedVehicles;
+      if (widget.selectedVehicleType != null && widget.selectedVehicleType!.isNotEmpty) {
+        filteredVehicles = formattedVehicles.where((vehicle) => 
+          vehicle['type'] == widget.selectedVehicleType).toList();
+        
+        print("DEBUG: Filtered vehicles by type '${widget.selectedVehicleType}', found ${filteredVehicles.length} matches");
+        
+        // إذا لم نجد أي مركبات من النوع المطلوب، يمكن عرض رسالة للمستخدم
+        if (filteredVehicles.isEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('لا توجد مركبات من نوع ${widget.selectedVehicleType} متاحة حاليًا')),
+          );
+        }
+      }
+      
       if (mounted) {
         setState(() {
-          _availableVehicles = formattedVehicles;
+          _availableVehicles = filteredVehicles;
           _isLoading = false;
         });
         
         // إضافة علامات المركبات على الخريطة
-        _addVehiclesMarkersToMap(formattedVehicles);
+        _addVehiclesMarkersToMap(filteredVehicles);
       }
     } catch (e) {
       print('Error loading transport services: $e');

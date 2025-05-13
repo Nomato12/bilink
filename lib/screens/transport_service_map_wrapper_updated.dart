@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:bilink/screens/transport_service_map_updated.dart';
+import 'package:bilink/screens/transport_service_map_updated_fixed.dart';
 import 'package:bilink/screens/location_selection_screen_updated.dart';
+import 'package:bilink/screens/vehicle_type_selection_screen.dart';
 
 class TransportServiceMapWrapper extends StatefulWidget {
   final LatLng? originLocation;
@@ -217,13 +218,12 @@ class _TransportServiceMapWrapperState extends State<TransportServiceMapWrapper>
         ),
       );
     }
-    
-    // Show the map with both origin and destination
-    return TransportServiceMapScreen(
-      destinationLocation: _destinationPosition,
-      destinationName: _destinationAddress,
-      originLocation: _originPosition,
+      // Show the map with both origin and destination
+    return VehicleTypeSelectionScreen(
+      originLocation: _originPosition!,
       originName: _originAddress,
+      destinationLocation: _destinationPosition!,
+      destinationName: _destinationAddress,
     );
   }
 }

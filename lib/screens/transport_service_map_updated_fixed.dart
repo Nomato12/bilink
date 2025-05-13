@@ -14,11 +14,17 @@ GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMesse
 class TransportServiceMapScreen extends StatefulWidget {
   final LatLng? destinationLocation;
   final String? destinationName;
+  final LatLng? originLocation;
+  final String? originName;
+  final String? selectedVehicleType;
   
   const TransportServiceMapScreen({
     super.key, 
     this.destinationLocation,
     this.destinationName,
+    this.originLocation,
+    this.originName,
+    this.selectedVehicleType,
   });
 
   @override
@@ -249,15 +255,14 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         ),
       );
     });
-  }
-
-  // قائمة بأنواع المركبات المتاحة للتوضيح
+  }  // قائمة بأنواع المركبات المتاحة للتوضيح
   void _simulateNearbyVehicles(LatLng position) {
     // قائمة بأنواع المركبات المتاحة للتوضيح
     final vehicleTypes = [
       'شاحنة كبيرة',
       'شاحنة صغيرة',
-      'سيارة توصيل',
+      'شاحنة متوسطة',
+      'مركبة خفيفة',
       'دراجة نارية',
     ];
 
@@ -274,31 +279,53 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     final random = map_fix.Random();
     final vehicleCount = 3 + random.nextInt(5); // 3-7 مركبات
 
-    setState(() {
-      _availableVehicles = List.generate(vehicleCount, (index) {
-        // موقع عشوائي قريب من الوجهة
-        final latOffset = (random.nextDouble() - 0.5) * 0.02;
-        final lngOffset = (random.nextDouble() - 0.5) * 0.02;
-        final vehiclePosition = LatLng(
-          position.latitude + latOffset,
-          position.longitude + lngOffset,
+    // إنشاء قائمة مؤقتة لجميع المركبات
+    final allVehicles = List.generate(vehicleCount, (index) {
+      // موقع عشوائي قريب من الوجهة
+      final latOffset = (random.nextDouble() - 0.5) * 0.02;
+      final lngOffset = (random.nextDouble() - 0.5) * 0.02;
+      final vehiclePosition = LatLng(
+        position.latitude + latOffset,
+        position.longitude + lngOffset,
+      );
+
+      // نوع المركبة
+      final vehicleType = vehicleTypes[random.nextInt(vehicleTypes.length)];
+
+      // بيانات المركبة
+      return {
+        'id': 'v$index',
+        'type': vehicleType,
+        'company': companies[random.nextInt(companies.length)],
+        'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
+        'price': (50 + random.nextInt(150)).toString(),
+        'arrivalTime': '${5 + random.nextInt(20)} دقيقة',
+        'image': _getVehicleImageUrl(random.nextInt(4)),
+        'position': vehiclePosition,
+      };
+    });
+
+    // تصفية المركبات حسب النوع المحدد إذا كان متوفرًا
+    List<Map<String, dynamic>> filteredVehicles = allVehicles;
+    if (widget.selectedVehicleType != null && widget.selectedVehicleType!.isNotEmpty) {
+      filteredVehicles = allVehicles.where((vehicle) => 
+        vehicle['type'] == widget.selectedVehicleType).toList();
+      
+      // إذا لم نجد أي مركبات من النوع المطلوب، نعرض رسالة للمستخدم
+      if (filteredVehicles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('لا توجد مركبات من نوع ${widget.selectedVehicleType} متاحة حاليًا')),
         );
-
-        // إضافة علامة للمركبة على الخريطة
-        _addVehicleMarker(vehiclePosition, 'vehicle_$index');
-
-        // بيانات المركبة
-        return {
-          'id': 'v$index',
-          'type': vehicleTypes[random.nextInt(vehicleTypes.length)],
-          'company': companies[random.nextInt(companies.length)],
-          'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
-          'price': (50 + random.nextInt(150)).toString(),
-          'arrivalTime': '${5 + random.nextInt(20)} دقيقة',
-          'image': _getVehicleImageUrl(random.nextInt(4)),
-          'position': vehiclePosition,
-        };
-      });
+      }
+    }
+    
+    setState(() {
+      _availableVehicles = filteredVehicles;
+      
+      // إضافة علامات للمركبات المصفاة على الخريطة
+      for (var vehicle in filteredVehicles) {
+        _addVehicleMarker(vehicle['position'], 'vehicle_${vehicle['id']}');
+      }
     });
   }
 
