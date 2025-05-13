@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:bilink/screens/transport_service_map_updated_fixed.dart';
+import 'package:bilink/screens/nearby_vehicles_map.dart';  // استيراد صفحة المركبات القريبة
 import 'package:geolocator/geolocator.dart';
 
 class VehicleTypeSelectionScreen extends StatefulWidget {
@@ -374,19 +374,22 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
             const SizedBox(height: 16),
             
             // زر بحث عن المركبات
-            ElevatedButton(
-              onPressed: _selectedVehicleType == null
+            ElevatedButton(              onPressed: _selectedVehicleType == null
                   ? null
                   : () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => TransportServiceMapScreen(
+                          builder: (context) => NearbyVehiclesMap(
                             originLocation: widget.originLocation,
                             originName: widget.originName,
                             destinationLocation: widget.destinationLocation,
                             destinationName: widget.destinationName,
-                            selectedVehicleType: _selectedVehicleType,
+                            selectedVehicleType: _selectedVehicleType!,
+                            routeDistance: widget.routeDistance,
+                            routeDuration: widget.routeDuration,
+                            distanceText: widget.distanceText,
+                            durationText: widget.durationText,
                           ),
                         ),
                       );

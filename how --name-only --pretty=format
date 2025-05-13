@@ -1,180 +1,0 @@
-[33mcommit 5294d6a45646747fcb5e024e1a637f134f9a43fb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 11 21:14:21 2025 +0100
-
-    feat: تبسيط واجهة ClientHomePage وحذف التدرج والرأس العلوي
-
-[33mcommit 256dea5134ba45b223a8afee9e197b6ea4f7434f[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 11 16:43:30 2025 +0100
-
-    feat: تبسيط واجهة ClientHomePage وحذف التدرج والرأس العلوي
-
-[33mcommit 61be273e1d5861a04278e01362cccc36026bc345[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 11 15:05:55 2025 +0100
-
-    feat: تبسيط واجهة ClientHomePage وحذف التدرج والرأس العلوي
-
-[33mcommit c8257db55700e20e6a1c57097149bd67720d599c[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 11 14:25:33 2025 +0100
-
-    feat: تبسيط واجهة ClientHomePage وحذف التدرج والرأس العلوي
-
-[33mcommit ac86d6bae02cc5622754b0a54cddc109205f3fc1[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 11 12:21:07 2025 +0100
-
-    feat: تبسيط واجهة lientomeage وحذف التدرج والرأس العلوي
-
-[33mcommit a8034565e9342af7bcecc4eac646cf3e41be1422[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 10 23:39:53 2025 +0100
-
-    feat: إعداد الاستعلامات وإنشاء الـ Firestore Indexes المطلوبة
-
-[33mcommit 16b8d2f325a55b9d8876e8d8c51b0a9b882d0cde[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 10 22:58:11 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit 85f1374a52189e7315ba4d4ea5f17ec260a81277[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 10 17:14:50 2025 +0100
-
-    feat: إعداد الاستعلامات وإنشاء الـ Firestore Indexes المطلوبة
-
-[33mcommit 0c6b0b1720b947edf3a3aecc8321a20e694d6169[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 10 15:49:17 2025 +0100
-
-    feat: إعداد الاستعلامات وإنشاء الـ Firestore Indexes المطلوبة
-
-[33mcommit 0ab6ebb2acf2ff7c9b71c1dbdee24d94380b8c79[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 10 11:13:53 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit b9ecd056256c8e26fe25c6ab8c71c39aac1bc26e[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 19:18:15 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit 9406f7298c50c63c0d4f3e0c027667ab517bd7d5[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 15:36:26 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit 38ac0f2d9434dff66ec0fbcb90a087513543894d[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 12:05:23 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit 231b4445062365a86e3e80d146b7a62a9f000a6a[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 11:06:48 2025 +0100
-
-    feat: إصلاح عمل الرسائل وتفعيل التواصل بين المستخدمين بشكل طبيعي
-
-[33mcommit 27db70616d344fb8143de65218207fbd13b58b44[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 07:40:35 2025 +0100
-
-    feat: تحسين التواصل بين المستخدمين ورفع تحديثات عامة
-
-[33mcommit 571fb38370153e64e91fc791ea4b21d7026eca16[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Fri May 9 06:21:01 2025 +0100
-
-    feat: new update and general improvements, added communication feature
-
-[33mcommit e408d2d09fdd2b3f51ea88765da45ee8bbcb99a4[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Thu May 8 14:24:22 2025 +0100
-
-    feat: تحديث واجهة مزودي الخدمة وتحسين التصميم الواجخة
-
-[33mcommit af1ecc012aba7e6cdf1bf69c905200d675a285f2[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Thu May 8 12:42:19 2025 +0100
-
-    feat: تحديث واجهة مزودي الخدمة وتحسين التصميم
-
-[33mcommit 7bef0f1d91382ba67e4cb5cbc0fb82c62d70ee24[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Thu May 8 10:51:20 2025 +0100
-
-    fix: إصلاح قواعد البيانات وتحسين الأداء
-
-[33mcommit 51d7c70ba37f1a7d62690b4e62855d8a79556a1f[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Thu May 8 06:08:57 2025 +0100
-
-    fix: معالجة قواعد البيانات
-
-[33mcommit 9d8c97cde0612422015f02d1bc1f3c0cf5a43be8[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Wed May 7 12:45:31 2025 +0100
-
-    رسالة الكوميت
-
-[33mcommit a5e265b291db020c17a0cce26d013a783ee52022[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Wed May 7 12:39:34 2025 +0100
-
-    chore: تحسين جودة التطبيق
-
-[33mcommit 453ccb9c219b15267df926c9204bcc2fba38b884[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Wed May 7 12:06:45 2025 +0100
-
-    fix: إصلاحات إضافية في main.dart
-
-[33mcommit b95ab654cb452dde1268816545113065ce8b8ae7[m
-Merge: e045be8 cfa4dbe
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Wed May 7 12:02:55 2025 +0100
-
-    Merge branch 'master' of github.com:Nomato12/bilink
-
-[33mcommit e045be821f3ecfc5446567bb56d02ce98f1a5afe[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Wed May 7 11:54:49 2025 +0100
-
-    feat: تحديث الواجهة وإصلاح الأخطاء
-
-[33mcommit cfa4dbe6d2158a4a677c9dc9147a8bcce65beed2[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Tue May 6 10:36:12 2025 +0100
-
-    feat: إضافة عرض الخريطة داخل التطبيق
-
-[33mcommit 632abe75d9816752ba29ae0930d86dfeea7894cf[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 4 21:52:03 2025 +0100
-
-     تحسين الواجهة الرسومية للتطبيق
-
-[33mcommit 2a842c3bda301e1b32b04bb4e4473f59a2cd2a1a[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 4 13:41:58 2025 +0100
-
-    feat: تعديل الكود مع إصلاح قواعد firebase ورفع الصور
-
-[33mcommit beb489e0af029f8ca009b4a603b6407e45ccbebc[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sun May 4 08:40:05 2025 +0100
-
-    feat: تحسين الواجهات + إضافة شاشة جديدة + إصلاح التحقق
-
-[33mcommit 1b242dcbc39d7e4accbdde1c40822f2979d02f30[m
-Author: SAAD ABDERRAHMANE <bilelsiagh32@gmail.com>
-Date:   Sat May 3 15:32:42 2025 +0100
-
-    First commit

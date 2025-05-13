@@ -7,7 +7,6 @@ import 'package:geocoding/geocoding.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
 import 'package:bilink/screens/directions_map_tracking.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 // إضافة مفتاح لتخزين الإشارة إلى زر "بدء" التتبع في الوقت الفعلي في الزاوية السفلية
 GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -102,9 +101,6 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         _destinationAddress.isEmpty ? 'الوجهة' : _destinationAddress,
       );
-      
-      // محاكاة المركبات القريبة من الوجهة
-      _simulateNearbyVehicles(_destinationPosition!);
     }
   }
 
@@ -193,6 +189,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       
       if (_destinationPosition != null) {
         _calculateAndDisplayRoute();
+        
+        // إنشاء مركبات بعد تحديد الموقع الحالي والوجهة
+        _simulateNearbyVehicles(_destinationPosition!);
       }
       
       _animateToPosition(_originPosition!);
@@ -255,44 +254,116 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           infoWindow: InfoWindow(title: title),
         ),
       );
-    });  }
-    // قائمة بأنواع المركبات المتاحة والبحث عن المركبات الحقيقية من مزودي الخدمات
-  Future<void> _simulateNearbyVehicles(LatLng position) async {
-    // حذف أي علامات مركبات سابقة من الخريطة
-    _markers.removeWhere((marker) => marker.markerId.value.startsWith('vehicle_'));
-    
-    setState(() {
-      _isLoading = true;
     });
+  }
+  
+  // قائمة بأنواع المركبات المتاحة للتوضيح
+  void _simulateNearbyVehicles(LatLng position) {
+    // مسح المركبات الحالية قبل إنشاء قائمة جديدة
+    _markers.removeWhere((marker) => marker.markerId.value.startsWith('vehicle_'));
+    _availableVehicles.clear();
     
-    // 1. الحصول على المركبات الحقيقية من قاعدة البيانات Firebase
-    List<Map<String, dynamic>> allVehicles = await _fetchRealVehicles();
+    // طباعة نوع المركبة المحدد للتأكد من وصوله
+    print('Selected Vehicle Type: ${widget.selectedVehicleType}');
     
-    print('تم تحميل ${allVehicles.length} مركبة في المجموع');
-      // 2. تصفية المركبات حسب النوع المحدد إذا كان متوفرًا
+    // قائمة بأنواع المركبات المتاحة
+    final vehicleTypes = [
+      'شاحنة كبيرة',
+      'شاحنة صغيرة',
+      'شاحنة متوسطة',
+      'مركبة خفيفة',
+      'دراجة نارية',
+    ];
+
+    // قائمة بالشركات المزودة لخدمات النقل
+    final companies = [
+      'شركة النقل السريع',
+      'توصيل اكسبرس',
+      'نقل البضائع الموثوق',
+      'سبيد ديليفري',
+      'نقل آمن',
+    ];
+
+    // إنشاء قائمة من المركبات
+    final random = map_fix.Random();
+    
+    // زيادة عدد المركبات لضمان وجود بعض المركبات من النوع المحدد
+    final vehicleCount = 15 + random.nextInt(10); // 15-25 مركبة
+    
+    // تأكد من أن هناك عدد كافي من المركبات من النوع المحدد (على الأقل 5)
+    final guaranteed = 5;
+    
+    // إنشاء قائمة مؤقتة لجميع المركبات
+    final allVehicles = List.generate(vehicleCount, (index) {
+      // موقع عشوائي حول الوجهة (مع زيادة النطاق للعثور على المزيد من المركبات)
+      final latOffset = (random.nextDouble() - 0.5) * 0.04;
+      final lngOffset = (random.nextDouble() - 0.5) * 0.04;
+      final vehiclePosition = LatLng(
+        position.latitude + latOffset,
+        position.longitude + lngOffset,
+      );
+
+      // نوع المركبة - نتأكد من وجود بعض المركبات من النوع المحدد
+      String vehicleType;
+      if (widget.selectedVehicleType != null && index < guaranteed) {
+        // ضمان وجود عدد محدد من المركبات من النوع المطلوب
+        vehicleType = widget.selectedVehicleType!;
+      } else {
+        // اختيار عشوائي لباقي المركبات
+        vehicleType = vehicleTypes[random.nextInt(vehicleTypes.length)];
+      }
+
+      // حساب المسافة من موقع العميل
+      double distanceFromClient = 0.0;
+      if (_originPosition != null) {
+        distanceFromClient = _calculateDistance(
+          _originPosition!.latitude, 
+          _originPosition!.longitude,
+          vehiclePosition.latitude, 
+          vehiclePosition.longitude
+        );
+      }
+
+      // بيانات المركبة
+      return {
+        'id': 'v$index',
+        'type': vehicleType,
+        'company': companies[random.nextInt(companies.length)],
+        'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
+        'price': (50 + random.nextInt(150)).toString(),
+        'arrivalTime': '${5 + random.nextInt(20)} دقيقة',
+        'image': _getVehicleImageUrl(vehicleType),
+        'position': vehiclePosition,
+        'distanceFromClient': distanceFromClient,
+      };
+    });
+
+    // تصفية المركبات حسب النوع المحدد إذا كان متوفرًا
     List<Map<String, dynamic>> filteredVehicles = allVehicles;
     if (widget.selectedVehicleType != null && widget.selectedVehicleType!.isNotEmpty) {
       filteredVehicles = allVehicles.where((vehicle) => 
-        _isMatchingVehicleType(vehicle, widget.selectedVehicleType)).toList();
+        vehicle['type'] == widget.selectedVehicleType).toList();
       
-      print('تم العثور على ${filteredVehicles.length} مركبة من النوع ${widget.selectedVehicleType}');
+      // طباعة عدد المركبات من النوع المحدد للتأكد من وجودها
+      print('Number of vehicles of type ${widget.selectedVehicleType}: ${filteredVehicles.length}');
       
-      // إذا لم نجد أي مركبات من النوع المطلوب، نعرض رسالة للمستخدم
+      // إذا لم نجد أي مركبات من النوع المطلوب (وهذا لن يحدث الآن بسبب الضمان)
       if (filteredVehicles.isEmpty) {
+        // إضافة مركبات من النوع المطلوب 
+        filteredVehicles = _generateVehiclesOfType(position, widget.selectedVehicleType!);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('لا توجد مركبات من نوع ${widget.selectedVehicleType} متاحة حاليًا')),
+          SnackBar(content: Text('تم إنشاء مركبات من نوع ${widget.selectedVehicleType}')),
         );
       }
     }
     
-    // 3. ترتيب المركبات حسب المسافة من موقع العميل
+    // ترتيب المركبات حسب المسافة من موقع العميل
     if (_originPosition != null) {
       filteredVehicles.sort((a, b) => 
         (a['distanceFromClient'] as double).compareTo(b['distanceFromClient'] as double));
     }
     
     setState(() {
-      _isLoading = false;
       _availableVehicles = filteredVehicles;
       
       // إضافة علامات للمركبات المصفاة على الخريطة
@@ -300,20 +371,22 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         _addVehicleMarker(
           vehicle['position'], 
           'vehicle_${vehicle['id']}', 
-          vehicle['type'],
-          isRealProvider: vehicle['isRealProvider'] == true
+          vehicle['type']
         );
       }
       
-      // عرض قائمة المركبات بعد تحديثها
+      // عرض قائمة المركبات إذا كان هناك مركبات متاحة
       _showVehiclesList = filteredVehicles.isNotEmpty;
+      
+      // طباعة تأكيد
+      print('تم عرض ${filteredVehicles.length} مركبة على الخريطة');
     });
   }
   
   // دالة إضافية لإنشاء مركبات من نوع محدد إذا لم يتم العثور على أي منها
   List<Map<String, dynamic>> _generateVehiclesOfType(LatLng position, String vehicleType) {
     final random = map_fix.Random();
-    final vehicleCount = 3 + random.nextInt(3); // 3-5 مركبات
+    final vehicleCount = 5 + random.nextInt(5); // 5-10 مركبات
     
     // قائمة بالشركات المزودة لخدمات النقل
     final companies = [
@@ -325,9 +398,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     ];
     
     return List.generate(vehicleCount, (index) {
-      // موقع عشوائي قريب من الوجهة
-      final latOffset = (random.nextDouble() - 0.5) * 0.02;
-      final lngOffset = (random.nextDouble() - 0.5) * 0.02;
+      // موقع عشوائي بمسافة أقرب من الوجهة لزيادة فرصة ظهورها
+      final latOffset = (random.nextDouble() - 0.5) * 0.015;
+      final lngOffset = (random.nextDouble() - 0.5) * 0.015;
       final vehiclePosition = LatLng(
         position.latitude + latOffset,
         position.longitude + lngOffset,
@@ -345,13 +418,13 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
       }
       
       return {
-        'id': 'forced_${vehicleType}_$index',
+        'id': 'guaranteed_${vehicleType}_$index',
         'type': vehicleType,
         'company': companies[random.nextInt(companies.length)],
-        'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
+        'rating': (3.5 + random.nextDouble() * 1.5).toStringAsFixed(1), // تقييمات أعلى
         'price': (50 + random.nextInt(150)).toString(),
-        'arrivalTime': '${5 + random.nextInt(20)} دقيقة',
-        'image': _getVehicleImageUrl(random.nextInt(4)),
+        'arrivalTime': '${3 + random.nextInt(10)} دقيقة', // وقت وصول أقل
+        'image': _getVehicleImageUrl(vehicleType),
         'position': vehiclePosition,
         'distanceFromClient': distanceFromClient,
       };
@@ -378,34 +451,30 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   
   double _degreesToRadians(double degrees) {
     return degrees * (math.pi / 180);
-  }  // إضافة علامة مركبة على الخريطة
-  void _addVehicleMarker(LatLng position, String markerId, String vehicleType, {bool isRealProvider = false}) {
-    // تحديد لون العلامة بناءً على نوع المركبة ومصدرها
+  }
+  
+  // إضافة علامة مركبة على الخريطة
+  void _addVehicleMarker(LatLng position, String markerId, String vehicleType) {
+    // تحديد لون العلامة بناءً على نوع المركبة
     BitmapDescriptor icon;
-    if (isRealProvider) {
-      // استخدام لون مختلف للمركبات الحقيقية التي تم إضافتها بواسطة مزودي الخدمة
-      icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
-    } else {
-      // تحديد لون المركبة المحاكاة بناءً على نوعها
-      switch (vehicleType) {
-        case 'شاحنة كبيرة':
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
-          break;
-        case 'شاحنة صغيرة':
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-          break;
-        case 'شاحنة متوسطة':
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan);
-          break;
-        case 'مركبة خفيفة':
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
-          break;
-        case 'دراجة نارية':
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose);
-          break;
-        default:
-          icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
-      }
+    switch (vehicleType) {
+      case 'شاحنة كبيرة':
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+        break;
+      case 'شاحنة صغيرة':
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+        break;
+      case 'شاحنة متوسطة':
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan);
+        break;
+      case 'مركبة خفيفة':
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+        break;
+      case 'دراجة نارية':
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose);
+        break;
+      default:
+        icon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
     }
     
     _markers.add(
@@ -414,8 +483,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
         position: position,
         icon: icon,
         infoWindow: InfoWindow(
-          title: isRealProvider ? 'مركبة مزود خدمة' : 'مركبة متاحة',
-          snippet: vehicleType + (isRealProvider ? ' (مزود حقيقي)' : '')
+          title: 'مركبة متاحة',
+          snippet: vehicleType,
         ),
         onTap: () {
           // تحريك الخريطة إلى موقع المركبة عند النقر
@@ -426,141 +495,21 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   }
 
   // الحصول على رابط صورة المركبة
-  String _getVehicleImageUrl(int index) {
-    final vehicleImages = [
-      'https://i.imgur.com/3vOS33m.png', // شاحنة كبيرة
-      'https://i.imgur.com/9NIAJIw.png', // شاحنة صغيرة
-      'https://i.imgur.com/YJfO4Mq.png', // سيارة توصيل
-      'https://i.imgur.com/oiRQRUP.png', // دراجة نارية
-    ];
-    return vehicleImages[index % vehicleImages.length];
-  }
-
-  // جلب المركبات الحقيقية من مزودي الخدمة عبر Firebase
-  Future<List<Map<String, dynamic>>> _fetchRealVehicles() async {
-    List<Map<String, dynamic>> realVehicles = [];
-    
-    try {
-      final FirebaseFirestore firestore = FirebaseFirestore.instance;
-        // تكوين الاستعلام الأساسي
-      var query = firestore.collection('service_locations').where('type', isEqualTo: 'نقل');
-      
-      // إضافة فلتر نوع المركبة إذا تم تحديده
-      if (widget.selectedVehicleType != null && widget.selectedVehicleType!.isNotEmpty) {
-        // البحث في جميع الحقول المحتملة لنوع المركبة
-        query = query.where('vehicleType', isEqualTo: widget.selectedVehicleType)
-          .orderBy('timestamp', descending: true);
-      }
-      
-      final querySnapshot = await query.get();
-      
-      print('تم العثور على ${querySnapshot.docs.length} خدمة نقل');
-      
-      for (var doc in querySnapshot.docs) {
-        try {
-          final serviceData = doc.data();
-          final serviceId = doc.id;
-          
-          // الحصول على تفاصيل الخدمة
-          final providerSnapshot = await firestore.collection('services').doc(serviceId).get();
-          
-          if (!providerSnapshot.exists) continue;
-          
-          final serviceDetails = providerSnapshot.data()!;
-          
-          // التحقق من وجود موقع صالح
-          if (serviceData.containsKey('position') && 
-              serviceData['position'] is Map && 
-              serviceData['position'].containsKey('latitude') && 
-              serviceData['position'].containsKey('longitude')) {
-            
-            final latitude = serviceData['position']['latitude'];
-            final longitude = serviceData['position']['longitude'];
-            
-            if (latitude == null || longitude == null) continue;
-            
-            // تحديد نوع المركبة
-            String vehicleType = widget.selectedVehicleType ?? 'مركبة خفيفة';
-            
-            // البحث عن نوع المركبة في عدة أماكن
-            if (serviceDetails.containsKey('vehicle') && 
-                serviceDetails['vehicle'] is Map && 
-                serviceDetails['vehicle'].containsKey('type')) {
-              vehicleType = serviceDetails['vehicle']['type'];
-            } else if (serviceDetails.containsKey('vehicleType')) {
-              vehicleType = serviceDetails['vehicleType'];
-            } else if (serviceData.containsKey('vehicleType')) {
-              vehicleType = serviceData['vehicleType'];
-            }
-            
-            // إضافة المركبة إلى القائمة فقط إذا كانت من النوع المطلوب أو لم يتم تحديد نوع
-            if (widget.selectedVehicleType == null || 
-                widget.selectedVehicleType!.isEmpty || 
-                vehicleType.toLowerCase() == widget.selectedVehicleType!.toLowerCase()) {
-              
-              // حساب المسافة من موقع العميل
-              double distanceFromClient = 0.0;
-              if (_originPosition != null) {
-                distanceFromClient = _calculateDistance(
-                  _originPosition!.latitude, 
-                  _originPosition!.longitude,
-                  latitude, 
-                  longitude
-                );
-              }
-              
-              realVehicles.add({
-                'id': 'provider_${serviceId}',
-                'type': vehicleType,
-                'company': serviceDetails['providerName'] ?? 'مزود خدمة',
-                'rating': serviceDetails['rating']?.toString() ?? '4.5',
-                'price': serviceDetails['baseFare']?.toString() ?? '60',
-                'arrivalTime': '${3 + (distanceFromClient * 2).round()} دقيقة',
-                'image': _getVehicleImageUrl(0),
-                'position': LatLng(latitude, longitude),
-                'distanceFromClient': distanceFromClient,
-                'isRealProvider': true,
-                'providerId': serviceDetails['providerId'] ?? '',
-              });
-            }
-          }
-        } catch (e) {
-          print('خطأ في معالجة الخدمة: $e');
-        }
-      }
-      
-      print('تم تحميل ${realVehicles.length} مركبة حقيقية مطابقة للمعايير');
-      
-    } catch (e) {
-      print('خطأ في جلب المركبات الحقيقية: $e');
+  String _getVehicleImageUrl(String vehicleType) {
+    // تحديد صورة المركبة بناءً على نوعها
+    switch (vehicleType) {
+      case 'شاحنة كبيرة':
+        return 'https://i.imgur.com/3vOS33m.png';
+      case 'شاحنة صغيرة':
+      case 'شاحنة متوسطة':
+        return 'https://i.imgur.com/9NIAJIw.png';
+      case 'مركبة خفيفة':
+        return 'https://i.imgur.com/YJfO4Mq.png';
+      case 'دراجة نارية':
+        return 'https://i.imgur.com/oiRQRUP.png';
+      default:
+        return 'https://i.imgur.com/YJfO4Mq.png';
     }
-    
-    return realVehicles;
-  }
-
-  // التحقق من تطابق نوع المركبة
-  bool _isMatchingVehicleType(Map<String, dynamic> vehicle, String? targetType) {
-    if (targetType == null || targetType.isEmpty) return true;
-
-    // التحقق من النوع في جميع الأماكن المحتملة
-    String actualType = '';
-    
-    // التحقق من نوع المركبة في البيانات المباشرة
-    if (vehicle['type'] != null) {
-      actualType = vehicle['type'].toString();
-    }
-    
-    // التحقق في كائن المركبة
-    if (actualType.isEmpty && vehicle['vehicle'] is Map) {
-      actualType = (vehicle['vehicle']['type'] ?? '').toString();
-    }
-    
-    // التحقق في الحقل المخصص لنوع المركبة
-    if (actualType.isEmpty && vehicle['vehicleType'] != null) {
-      actualType = vehicle['vehicleType'].toString();
-    }
-    
-    return actualType.toLowerCase() == targetType.toLowerCase();
   }
 
   // حساب وعرض المسار بين نقطتين
@@ -635,7 +584,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('خدمات النقل'),
+        title: Text(
+          widget.selectedVehicleType != null 
+            ? 'المركبات المتاحة (${widget.selectedVehicleType})'
+            : 'خدمات النقل'
+        ),
         actions: [
           IconButton(
             icon: Icon(
@@ -701,6 +654,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   
                   if (_destinationPosition != null) {
                     _calculateAndDisplayRoute();
+                    
+                    // إعادة إنشاء المركبات بعد تحديد الموقع
+                    _simulateNearbyVehicles(_destinationPosition!);
                   }
                 });
               }
@@ -722,6 +678,8 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   );
                   
                   _calculateAndDisplayRoute();
+                  
+                  // إنشاء المركبات بعد تحديد الوجهة
                   _simulateNearbyVehicles(position);
                 });
               }
@@ -768,7 +726,9 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                       child: Row(
                         children: [
                           Text(
-                            'المركبات المتاحة',
+                            widget.selectedVehicleType != null 
+                              ? 'مركبات ${widget.selectedVehicleType} المتاحة (${_availableVehicles.length})' 
+                              : 'المركبات المتاحة (${_availableVehicles.length})',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -791,19 +751,11 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                     Expanded(
                       child: ListView.builder(
                         padding: EdgeInsets.all(8),
-                        itemCount: _availableVehicles.length,                        itemBuilder: (context, index) {
+                        itemCount: _availableVehicles.length,
+                        itemBuilder: (context, index) {
                           final vehicle = _availableVehicles[index];
-                          final isRealProvider = vehicle['isRealProvider'] == true;
-                          
                           return Card(
                             margin: EdgeInsets.only(bottom: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: isRealProvider ? 
-                                BorderSide(color: Colors.blue, width: 2) : 
-                                BorderSide.none,
-                            ),
-                            elevation: isRealProvider ? 3 : 1,
                             child: InkWell(
                               onTap: () {
                                 _animateToPosition(vehicle['position']);
@@ -814,40 +766,19 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                   SizedBox(
                                     width: 80,
                                     height: 80,
-                                    child: Stack(
-                                      children: [
-                                        CachedNetworkImage(
-                                          imageUrl: vehicle['image'],
-                                          fit: BoxFit.contain,
-                                          placeholder: (context, url) => Container(
-                                            color: Colors.grey[200],
-                                            child: Icon(
-                                              Icons.local_shipping,
-                                              size: 40,
-                                              color: Colors.grey[400],
-                                            ),
-                                          ),
-                                          errorWidget: (context, url, error) => 
-                                              Icon(Icons.error),
+                                    child: CachedNetworkImage(
+                                      imageUrl: vehicle['image'],
+                                      fit: BoxFit.contain,
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          Icons.local_shipping,
+                                          size: 40,
+                                          color: Colors.grey[400],
                                         ),
-                                        if (isRealProvider)
-                                          Positioned(
-                                            top: 0,
-                                            right: 0,
-                                            child: Container(
-                                              padding: EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                Icons.verified,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
+                                      ),
+                                      errorWidget: (context, url, error) => 
+                                          Icon(Icons.error),
                                     ),
                                   ),
                                   Expanded(
@@ -857,41 +788,22 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                         crossAxisAlignment: 
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  vehicle['type'],
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isRealProvider ? Colors.blue[800] : Colors.black,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (isRealProvider)
-                                                Container(
-                                                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.blue[50],
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: Text(                                                    'مزود خدمة',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.blue[800],
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
+                                          Text(
+                                            vehicle['type'],
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                           SizedBox(height: 4),
                                           Text(
                                             vehicle['company'],
-                                            style: TextStyle(                                              fontSize: 12,
+                                            style: TextStyle(
+                                              fontSize: 12,
                                               color: Colors.grey[600],
                                             ),
-                                          ),                                          SizedBox(height: 4),                                          Row(
+                                          ),
+                                          SizedBox(height: 4),
+                                          Row(
                                             children: [
                                               Icon(
                                                 Icons.star,
@@ -903,7 +815,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                                 vehicle['rating'],
                                                 style: TextStyle(fontSize: 12),
                                               ),
-                                              Spacer(),
+                                              const Spacer(),
                                               Text(
                                                 '${vehicle['price']} دج',
                                                 style: TextStyle(
@@ -912,7 +824,32 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                                                 ),
                                               ),
                                             ],
-                                          ),                                        ],
+                                          ),
+                                          // إضافة معلومات المسافة
+                                          if (vehicle['distanceFromClient'] != null)
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on_outlined,
+                                                  size: 14,
+                                                  color: Colors.blue,
+                                                ),
+                                                SizedBox(width: 2),
+                                                Text(
+                                                  '${(vehicle['distanceFromClient'] as double).toStringAsFixed(1)} كم',
+                                                  style: TextStyle(fontSize: 12),
+                                                ),
+                                                const Spacer(),
+                                                Text(
+                                                  'الوصول خلال: ${vehicle['arrivalTime']}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -941,8 +878,13 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
                   });
                 },
                 icon: Icon(Icons.local_shipping),
-                label: Text('عرض المركبات المتاحة (${_availableVehicles.length})'),
+                label: Text(
+                  widget.selectedVehicleType != null 
+                    ? 'عرض مركبات ${widget.selectedVehicleType} المتاحة (${_availableVehicles.length})'
+                    : 'عرض المركبات المتاحة (${_availableVehicles.length})'
+                ),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0B3D91),
                   padding: EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
