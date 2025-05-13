@@ -8,6 +8,10 @@ class VehicleTypeSelectionScreen extends StatefulWidget {
   final String originName;
   final LatLng destinationLocation;
   final String destinationName;
+  final double? routeDistance;  // المسافة الحقيقية على الطريق بالكيلومتر
+  final double? routeDuration;  // الوقت المتوقع بالدقائق
+  final String? distanceText;  // نص المسافة
+  final String? durationText;  // نص الوقت المتوقع
   
   const VehicleTypeSelectionScreen({
     Key? key,
@@ -15,6 +19,10 @@ class VehicleTypeSelectionScreen extends StatefulWidget {
     required this.originName,
     required this.destinationLocation,
     required this.destinationName,
+    this.routeDistance,
+    this.routeDuration,
+    this.distanceText,
+    this.durationText,
   }) : super(key: key);
 
   @override
@@ -30,13 +38,24 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
     super.initState();
     _calculateDistance();
   }
-
   // حساب المسافة بين نقطتي الانطلاق والوصول
   void _calculateDistance() async {
     setState(() {
       _isCalculatingDistance = true;
     });
     
+    // استخدام المسافة الحقيقية على الطريق إذا كانت متوفرة
+    if (widget.routeDistance != null && widget.routeDistance! > 0) {
+      _distanceInKm = widget.routeDistance!;
+      // تقريب المسافة إلى رقمين عشريين
+      _distanceInKm = double.parse(_distanceInKm.toStringAsFixed(2));
+      setState(() {
+        _isCalculatingDistance = false;
+      });
+      return;
+    }
+    
+    // فالباك إلى المسافة المباشرة إذا لم تكن المسافة الحقيقية متوفرة
     _distanceInKm = Geolocator.distanceBetween(
       widget.originLocation.latitude,
       widget.originLocation.longitude,
@@ -50,7 +69,7 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
     setState(() {
       _isCalculatingDistance = false;
     });
-  }  // حساب السعر بناء على المسافة ونوع المركبة
+  }// حساب السعر بناء على المسافة ونوع المركبة
   String _calculatePriceEstimate(VehicleTypeOption vehicleType) {
     if (_isCalculatingDistance) {
       return 'جاري الحساب...';
@@ -168,32 +187,64 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
                       fontSize: 16,
                       color: Colors.grey[600],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B3D91).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.route,
-                          color: Color(0xFF0B3D91),
-                          size: 20,
+                  ),                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0B3D91).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'المسافة: ${_isCalculatingDistance ? 'جاري الحساب...' : '$_distanceInKm كم'}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0B3D91),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.route,
+                              color: Color(0xFF0B3D91),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'المسافة: ${_isCalculatingDistance ? 'جاري الحساب...' : widget.distanceText ?? '$_distanceInKm كم'}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0B3D91),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (widget.durationText != null) ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00A651).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                color: Color(0xFF00A651),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'الوقت: ${widget.durationText}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00A651),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ],
               ),

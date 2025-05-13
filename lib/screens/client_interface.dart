@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/service_details_screen.dart';
 import 'package:bilink/screens/transport_service_map_wrapper_updated.dart'; // استيراد الملف الجديد للخريطة
+import 'package:bilink/screens/transport_service_map_wrapper_unified.dart'; // استيراد الملف الموحد للخريطة
 import 'package:bilink/services/location_synchronizer.dart'; // Importar el sincronizador
 import 'package:bilink/screens/storage_locations_map_screen.dart';
 import 'package:bilink/screens/account_profile_screen.dart';
@@ -20,7 +21,6 @@ import 'package:bilink/models/home_page.dart';
 import 'package:bilink/screens/chat_list_screen.dart';
 import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
 import 'package:bilink/screens/transport_map_fix.dart' as map_fix; // Import utility functions for location handling
-import 'package:bilink/screens/location_selection_screen_updated.dart'; // استيراد شاشة اختيار الموقع المحدثة
 // Import custom triangle painter for dropdown
 
 class ClientHomePage extends StatefulWidget {
@@ -191,8 +191,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       context,
       MaterialPageRoute(builder: (context) => StorageLocationsMapScreen()),
     );
-  }
-    Future<void> _navigateToTransportServicesMap() async {
+  }  Future<void> _navigateToTransportServicesMap() async {
     try {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -218,53 +217,19 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           ),
         );
       }
-        // أولا، اختيار موقع الانطلاق (الموقع الحالي)
-      final originResult = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const LocationSelectionScreen(
-            isOriginSelection: true,
-          ),
-        ),
-      );
       
-      // إذا تم اختيار موقع الانطلاق، الانتقال لاختيار الوجهة
-      if (originResult != null && mounted) {
-        final LatLng originPosition = originResult['position'];
-        final String originAddress = originResult['address'];
-        
-        // ثانيا، اختيار الوجهة
-        final destinationResult = await Navigator.push(
+      // مزامنة مواقع خدمات النقل قبل عرض الخريطة
+      final synchronizer = LocationSynchronizer();
+      await synchronizer.synchronizeTransportLocations();
+      
+      // الانتقال مباشرة إلى واجهة الخريطة الموحدة لاختيار الموقع والوجهة
+      if (mounted) {
+        Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const LocationSelectionScreen(
-              isOriginSelection: false,
-            ),
+            builder: (context) => TransportServiceMapUnified(),
           ),
         );
-        
-        // إذا تم اختيار الوجهة، الانتقال لعرض الخريطة والمركبات القريبة
-        if (destinationResult != null && mounted) {
-          final LatLng destinationPosition = destinationResult['position'];
-          final String destinationAddress = destinationResult['address'];
-          
-          // مزامنة مواقع خدمات النقل قبل عرض الخريطة
-          final synchronizer = LocationSynchronizer();
-          await synchronizer.synchronizeTransportLocations();
-            if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TransportServiceMapWrapper(
-                  originLocation: originPosition,
-                  originName: originAddress,
-                  destinationLocation: destinationPosition,
-                  destinationName: destinationAddress,
-                ),
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -279,12 +244,11 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         );
       }
     }
-  }
-    void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
+  }void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => TransportServiceMapWrapper(
+        builder: (context) => TransportServiceMapUnified(
           destinationLocation: location,
           destinationName: locationName,
           serviceData: service,
@@ -2157,21 +2121,28 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   }
 
   Widget _buildRegionDropdown() {
+    // حماية: إذا كانت القائمة فارغة، لا تعرض DropdownButton
+    if (_regions.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // حماية: إذا كانت القيمة المختارة غير موجودة، اختر أول عنصر
+    final safeSelectedRegion = _regions.contains(_selectedRegion) ? _selectedRegion : _regions.first;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0), // Removed horizontal, handled by FilterSection
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12), // Internal padding for dropdown
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 1.2), // Slightly thicker border
-          borderRadius: BorderRadius.circular(12), // Consistent rounding
-        ),        child: DropdownButtonHideUnderline(          child: DropdownButton<String>(
+          border: Border.all(color: Colors.grey.shade300, width: 1.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
             isExpanded: true,
-            value: _selectedRegion,
-            icon: null, // عدم استخدام أي أيقونة
-            iconSize: 0, // جعل حجم الأيقونة صفر
-            elevation: 16, // Default is fine
-            // padding: const EdgeInsets.symmetric(horizontal: 12), // Moved to Container
-            borderRadius: BorderRadius.circular(12), // Consistent rounding
+            value: safeSelectedRegion,
+            icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+            elevation: 16,
+            borderRadius: BorderRadius.circular(12),
             items: _regions.map<DropdownMenuItem<String>>((String value) {
               return DropdownMenuItem<String>(
                 value: value,
@@ -2181,7 +2152,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     textStyle: TextStyle(
                       color: _selectedRegion == value ? _secondaryColor : Colors.black87,
                       fontWeight: _selectedRegion == value ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 15, // Adjusted size
+                      fontSize: 15,
                     ),
                   ),
                 ),
@@ -2196,8 +2167,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                     _activeFilters.add('المنطقة: $newValue');
                   }
                 });
-                _updateFilters(); 
-                // Consider if closing the drawer is desired here: Navigator.pop(context);
+                _updateFilters();
               }
             },
           ),
