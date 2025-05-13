@@ -15,12 +15,12 @@ class ServiceRequestCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Extract data from the request
+  Widget build(BuildContext context) {    // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة';
     final String clientName = requestData['clientName'] ?? 'عميل';
     final String details = requestData['details'] ?? '';
+    final String serviceType = requestData['serviceType'] ?? 'تخزين'; // Get service type
     final Timestamp? createdAt = requestData['createdAt'] as Timestamp?;
     final Timestamp? requestDate = requestData['requestDate'] as Timestamp?;
     
@@ -66,16 +66,43 @@ class ServiceRequestCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    serviceName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                Expanded(                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      serviceName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    // Show service type indicator
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: serviceType == 'نقل' 
+                            ? Colors.blue.withOpacity(0.1) 
+                            : Colors.teal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        serviceType == 'نقل' ? 'خدمة نقل' : 'خدمة تخزين',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(

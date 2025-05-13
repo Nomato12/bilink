@@ -13,11 +13,9 @@ class NotificationsScreen extends StatefulWidget {
   _NotificationsScreenState createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> with SingleTickerProviderStateMixin {
-  late NotificationService _notificationService;
+class _NotificationsScreenState extends State<NotificationsScreen> with SingleTickerProviderStateMixin {  late NotificationService _notificationService;
   late String _userId;
   late TabController _tabController;
-  final bool _isLoading = true;
   int _activeTabIndex = 0;
 
   @override
@@ -143,8 +141,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
             
             final timestamp = createdAt != null 
                 ? DateFormat('yyyy/MM/dd hh:mm a').format(createdAt.toDate())
-                : '';
-                
+                : '';            // Determine service type if available in notification data
+            String? serviceType;
+            if (data['data'] != null) {
+              serviceType = data['data']['serviceType'] as String?;
+            }
+            
             // Determine icon based on notification type
             IconData notificationIcon;
             Color iconColor;
@@ -152,6 +154,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
             if (type == 'service_request') {
               notificationIcon = Icons.assignment;
               iconColor = Colors.orange;
+              // Set icon based on service type
+              if (serviceType == 'نقل') {
+                notificationIcon = Icons.local_shipping;
+                iconColor = Colors.blue;
+              } else if (serviceType == 'تخزين') {
+                notificationIcon = Icons.inventory_2;
+                iconColor = Colors.teal;
+              }
             } else if (type == 'request_update' && data['data']['status'] == 'accepted') {
               notificationIcon = Icons.check_circle;
               iconColor = Colors.green;
@@ -176,8 +186,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                   color: isRead ? Colors.grey[300]! : const Color(0xFF0B3D91).withOpacity(0.3),
                   width: isRead ? 1 : 2,
                 ),
-              ),
-              child: ListTile(
+              ),              child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
@@ -189,11 +198,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                     color: iconColor,
                   ),
                 ),
-                title: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                  ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // Display service type badge if available
+                    if (serviceType != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: serviceType == 'نقل' ? Colors.blue.withOpacity(0.2) : Colors.teal.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          serviceType == 'نقل' ? 'نقل' : 'تخزين',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

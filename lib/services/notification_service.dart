@@ -28,6 +28,19 @@ class NotificationService {
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
+      
+      // Retrieve service type from the service document
+      String serviceType = 'تخزين'; // Default to storage service
+      try {
+        final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+        if (serviceDoc.exists) {
+          final serviceData = serviceDoc.data() as Map<String, dynamic>;
+          serviceType = serviceData['type'] ?? serviceData['serviceType'] ?? 'تخزين';
+        }
+      } catch (e) {
+        print('Error retrieving service type: $e');
+        // Continue with default service type
+      }
 
       // Create the request document
       final requestDoc = await _requestsCollection.add({
@@ -39,6 +52,7 @@ class NotificationService {
         'details': details,
         'requestDate': requestDate,
         'status': 'pending', // pending, accepted, rejected
+        'serviceType': serviceType, // Add service type to the request
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -46,12 +60,13 @@ class NotificationService {
       await _notificationsCollection.add({
         'userId': providerId,
         'title': 'طلب خدمة جديد',
-        'body': 'لديك طلب جديد للخدمة: $serviceName',
+        'body': 'لديك طلب ${serviceType == 'نقل' ? 'نقل' : 'تخزين'} جديد للخدمة: $serviceName',
         'type': 'service_request',
         'data': {
           'requestId': requestDoc.id,
           'serviceId': serviceId,
           'clientId': currentUser.uid,
+          'serviceType': serviceType, // Add service type to notification data
         },
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
@@ -74,13 +89,13 @@ class NotificationService {
       final requestDoc = await _requestsCollection.doc(requestId).get();
       if (!requestDoc.exists) {
         throw Exception('Request not found');
-      }
-      
-      final requestData = requestDoc.data() as Map<String, dynamic>;
+      }      final requestData = requestDoc.data() as Map<String, dynamic>;
       final clientId = requestData['clientId'];
       final serviceName = requestData['serviceName'];
       final serviceId = requestData['serviceId'];
       final providerId = requestData['providerId'];
+      // Get the service type from the request data
+      final serviceType = requestData['serviceType'] ?? 'تخزين'; // Default to storage if not specified
       final providerData = await _firestore.collection('users').doc(providerId).get();
       final providerName = providerData.exists 
           ? (providerData.data() as Map<String, dynamic>)['displayName'] ?? 'مزود الخدمة'
@@ -103,30 +118,32 @@ class NotificationService {
       // تخصيص عنوان ومحتوى الإشعار بناءً على الحالة
       String notificationTitle;
       String notificationBody;
+        // Create a service type text for notifications
+      final serviceTypeText = serviceType == 'نقل' ? 'نقل' : 'تخزين';
       
       if (status == 'accepted') {
         notificationTitle = '🎉 تمت الموافقة على طلبك';
         notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
-            ? 'تم قبول طلبك للخدمة: $serviceName\nرسالة من مزود الخدمة: $additionalMessage'
-            : 'تم قبول طلبك للخدمة: $serviceName\nيمكنك التواصل مع مزود الخدمة الآن';
+            ? 'تم قبول طلب $serviceTypeText للخدمة: $serviceName\nرسالة من مزود الخدمة: $additionalMessage'
+            : 'تم قبول طلب $serviceTypeText للخدمة: $serviceName\nيمكنك التواصل مع مزود الخدمة الآن';
       } else {
         notificationTitle = 'تم رفض طلبك';
         notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
-            ? 'تم رفض طلبك للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
-            : 'تم رفض طلبك للخدمة: $serviceName';
-      }      // Create a notification for the client
+            ? 'تم رفض طلب $serviceTypeText للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
+            : 'تم رفض طلب $serviceTypeText للخدمة: $serviceName';
+      }// Create a notification for the client
       await _notificationsCollection.add({
         'userId': clientId,
         'title': notificationTitle,
         'body': notificationBody,
-        'type': 'request_update',
-        'data': {
+        'type': 'request_update',        'data': {
           'requestId': requestId,
           'serviceId': serviceId,
           'providerId': providerId,
           'providerName': providerName,
           'status': status,
           'message': additionalMessage,
+          'serviceType': serviceType,  // Add service type to notification data
           'importance': status == 'accepted' ? 'high' : 'normal',
         },
         'read': false,
@@ -139,12 +156,12 @@ class NotificationService {
           userId: clientId,
           title: notificationTitle,
           body: notificationBody,
-          data: {
-            'type': 'request_update',
+          data: {            'type': 'request_update',
             'requestId': requestId,
             'status': status,
             'serviceId': serviceId,
             'providerId': providerId,
+            'serviceType': serviceType,  // Add service type to FCM data
           },
         );
         debugPrint('تم إرسال إشعار FCM للعميل: $clientId');
