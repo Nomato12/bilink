@@ -256,8 +256,8 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     final locationSettings = LocationSettings(
       accuracy: LocationAccuracy.best, 
       distanceFilter: 5, // تحديث كل 5 أمتار
-    );
-      _positionStreamSubscription = Geolocator.getPositionStream(locationSettings: locationSettings)
+    );      
+    _positionStreamSubscription = Geolocator.getPositionStream(locationSettings: locationSettings)
         .listen((Position position) async {
       // تأكد من أن الـ widget لا يزال متاحًا قبل تحديث الحالة
       if (!mounted) return;
@@ -270,52 +270,62 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       
       // تحديث علامة الموقع الحالي
       _updateCurrentLocationMarker(newPosition);
+      
+      try {
         // تحريك الخريطة لمتابعة الموقع الحالي بحركة سلسة
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: newPosition,
-            zoom: 17.0,
-            tilt: 45, // إضافة زاوية مائلة لتحسين عرض الملاحة
-            bearing: position.heading, // توجيه الخريطة حسب اتجاه الحركة
-          ),
-        ),
-      );
-        // حساب المسافة المتبقية للوجهة
-      final double distanceToDestination = Geolocator.distanceBetween(
-        newPosition.latitude,
-        newPosition.longitude,
-        _destinationPosition!.latitude,
-        _destinationPosition!.longitude,
-      );
-        // إذا وصلنا إلى مسافة قريبة من الوجهة (أقل من 30 متر)
-      if (distanceToDestination < 30 && _isTracking) {
-        _stopTracking();
-        
-        // تنبيه صوتي وشاشة عند الوصول للوجهة
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لقد وصلت إلى وجهتك!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 5),
-            ),
-          );
-          
-          // تحريك الكاميرا لإظهار الوجهة
           final GoogleMapController controller = await _controller.future;
           controller.animateCamera(
             CameraUpdate.newCameraPosition(
               CameraPosition(
-              target: _destinationPosition!,
-              zoom: 18.0,
-              tilt: 0,
-              bearing: 0,
+                target: newPosition,
+                zoom: 17.0,
+                tilt: 45, // إضافة زاوية مائلة لتحسين عرض الملاحة
+                bearing: position.heading, // توجيه الخريطة حسب اتجاه الحركة
+              ),
             ),
-          ),
-        );
+          );
         }
+          
+        // حساب المسافة المتبقية للوجهة
+        final double distanceToDestination = Geolocator.distanceBetween(
+          newPosition.latitude,
+          newPosition.longitude,
+          _destinationPosition!.latitude,
+          _destinationPosition!.longitude,
+        );
+          
+        // إذا وصلنا إلى مسافة قريبة من الوجهة (أقل من 30 متر)
+        if (distanceToDestination < 30 && _isTracking) {
+          _stopTracking();
+          
+          // تنبيه صوتي وشاشة عند الوصول للوجهة
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('لقد وصلت إلى وجهتك!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 5),
+              ),
+            );
+            
+            // تحريك الكاميرا لإظهار الوجهة
+            final GoogleMapController controller = await _controller.future;
+            controller.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                target: _destinationPosition!,
+                zoom: 18.0,
+                tilt: 0,
+                bearing: 0,
+              ),
+            ),
+          );
+          }
+        }
+      } catch (e) {
+        // التعامل مع الأخطاء التي قد تحدث أثناء تحديث الموقع
+        print('Error updating location: $e');
       }
     });
     
@@ -329,7 +339,8 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
   }
   
   // إيقاف التتبع وتنظيف الموارد
-  void _stopTracking() {    if (_navigationUpdateTimer != null) {
+  void _stopTracking() {    
+    if (_navigationUpdateTimer != null) {
       _navigationUpdateTimer!.cancel();
       _navigationUpdateTimer = null;
     }
@@ -349,10 +360,11 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       _isTracking = false;
     }
   }
-    // تحديث علامة الموقع الحالي مع السهم للإشارة إلى الاتجاه
-  void _updateCurrentLocationMarker(LatLng position) async {
+  // تحديث علامة الموقع الحالي مع السهم للإشارة إلى الاتجاه
+  void _updateCurrentLocationMarker(LatLng position) {
     if (!mounted) return;
     
+    // استخدام setState فقط إذا كان الـ widget لا يزال نشط
     setState(() {
       // إزالة علامة الموقع الحالي إذا كانت موجودة
       _markers.removeWhere((marker) => marker.markerId.value == 'current_location');

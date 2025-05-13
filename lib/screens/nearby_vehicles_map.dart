@@ -7,6 +7,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bilink/screens/service_details_screen.dart';
+import 'package:bilink/services/directions_helper.dart';
+import 'package:bilink/screens/chat_screen.dart';
+import 'package:bilink/services/chat_service.dart';
 
 class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
   final String originName;
@@ -42,19 +45,19 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
   final Set<Marker> _markers = {};
   // المسارات على الخريطة
   final Set<Polyline> _polylines = {};
-  
-  // حالة التحميل
+    // حالة التحميل
   bool _isLoading = true;
   // المركبات المتاحة القريبة
   List<Map<String, dynamic>> _availableVehicles = [];
   // عرض قائمة المركبات
   bool _showVehiclesList = true;
+  // المسافة الحقيقية للطريق بالكيلومتر
+  double _routeDistanceKm = 0;
   
   // ألوان التطبيق
   final Color _primaryColor = const Color(0xFF0B3D91);
   final Color _secondaryColor = const Color(0xFFFF5722);
   final Color _bgColor = Colors.white;
-
   @override
   void initState() {
     super.initState();
@@ -84,7 +87,7 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
     );
     
     // عرض المسار بين نقطة البداية والوجهة إذا كانت متوفرة
-    _drawRoute();
+    await _drawRoute();
 
     // تحميل المركبات القريبة
     await _loadNearbyVehicles();
@@ -105,31 +108,74 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
     
     setState(() {
       _markers.add(marker);
-    });
+    });  }  // رسم المسار بين نقطة البداية والوجهة
+  Future<void> _drawRoute() async {
+    try {
+      print('بدء رسم المسار والحصول على المسافة الحقيقية...');
+      
+      // الحصول على بيانات المسار لاستخراج المسافة الحقيقية
+      Map<String, dynamic> directionsData = await DirectionsHelper.getDirections(
+        widget.originLocation,
+        widget.destinationLocation,
+      );
+      
+      print('بيانات المسار: $directionsData');
+      
+      // الحصول على المسافة الحقيقية من بيانات المسار
+      double? routeDistanceKm;
+      if (directionsData.containsKey('distance') && directionsData['distance'] != null) {
+        routeDistanceKm = (directionsData['distance'] as num).toDouble();
+        
+        // تحديث المسافة الحقيقية للاستخدام في حساب السعر
+        setState(() {
+          // استخدام المسافة الحقيقية من DirectionsHelper
+          if (routeDistanceKm != null && routeDistanceKm > 0) {
+            // تخزين المسافة في متغير خاص بالـ State
+            _routeDistanceKm = routeDistanceKm;
+          }
+        });
+      }
+      
+      // الحصول على خطوط المسار مباشرة باستخدام DirectionsHelper
+      final polylines = await DirectionsHelper.createPolylines(
+        widget.originLocation,
+        widget.destinationLocation,
+        color: _primaryColor,
+        width: 5,
+      );
+      
+      // إضافة المسارات إلى الخريطة
+      setState(() {
+        _polylines.addAll(polylines);
+      });
+    } catch (e) {
+      print('خطأ في رسم المسار: $e');
+      
+      // استخدام مسار خطي بسيط كحل احتياطي في حالة حدوث خطأ
+      final polyline = Polyline(
+        polylineId: PolylineId('route'),
+        color: _primaryColor,
+        width: 5,
+        points: [widget.originLocation, widget.destinationLocation],
+      );
+      
+      setState(() {
+        _polylines.add(polyline);      });
+    }
   }
 
-  // رسم المسار بين نقطة البداية والوجهة
-  void _drawRoute() {
-    final polyline = Polyline(
-      polylineId: PolylineId('route'),
-      color: _primaryColor,
-      width: 5,
-      points: [widget.originLocation, widget.destinationLocation],
-    );
-    
-    setState(() {
-      _polylines.add(polyline);
-    });
-  }  // تحميل المركبات القريبة مع التعديلات الثلاثة:
+  // تحميل المركبات القريبة مع التعديلات الثلاثة:
   // 1. حساب السعر بناءً على المسافة بين نقاط الانطلاق والوصول
-  // 2. ترتيب المركبات من الأقرب للأبعد من موقع المستخدم
-  // 3. عرض أقرب 5 مركبات فقط
+  // 2. ترتيب المركبات من الأقرب للأبعد من موقع المستخدم  // 3. عرض أقرب 5 مركبات فقط
   Future<void> _loadNearbyVehicles() async {
     setState(() {
       _isLoading = true;
     });
     
     try {
+      // التأكد من وجود المسافة الحقيقية للطريق قبل استخدامها
+      print('المسافة الحقيقية للطريق: $_routeDistanceKm كم');
+      
       // جلب جميع المركبات
       List<Map<String, dynamic>> vehicles = await _fetchVehiclesByType(widget.selectedVehicleType);
       
@@ -157,14 +203,21 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
         _showVehiclesList = vehicles.isNotEmpty;
         _isLoading = false;
       });
-      
-      // عرض رسالة إذا لم يتم العثور على مركبات
+        // عرض رسالة إذا لم يتم العثور على مركبات
       if (vehicles.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('لا توجد مركبات من نوع ${widget.selectedVehicleType} متاحة حاليًا'),
+            content: Text('عذراً، لا توجد مركبات من نوع ${widget.selectedVehicleType} متاحة في المنطقة حالياً'),
             backgroundColor: Colors.red[400],
+            duration: Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'عودة',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
           ),
         );
       }
@@ -336,14 +389,11 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
               String vehicleImage = vehicleImages.isNotEmpty 
                   ? vehicleImages.first 
                   : _getDefaultVehicleImage(actualVehicleType);
-              
-              // إضافة المركبة إلى القائمة
-              vehicles.add({
-                'id': serviceId,
+                // إضافة المركبة إلى القائمة
+              vehicles.add({                'id': serviceId,
                 'type': actualVehicleType,
-                'company': companyName,
-                'rating': serviceDetails['rating']?.toString() ?? '4.0',
-                'price': _calculatePrice(distanceFromClient, actualVehicleType),
+                'company': companyName,                'rating': serviceDetails['rating']?.toString() ?? '4.0',
+                'price': _calculatePrice(_routeDistanceKm > 0 ? _routeDistanceKm : (widget.routeDistance ?? 0), actualVehicleType),
                 'arrivalTime': '${_calculateArrivalTime(distanceFromClient)} دقيقة',
                 'image': vehicleImage,
                 'providerImage': providerPhotoUrl,
@@ -360,15 +410,12 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
           }
         }
       }
-      
-      // ترتيب المركبات حسب المسافة من موقع العميل
-      vehicles.sort((a, b) => (a['distanceFromClient'] as double).compareTo(b['distanceFromClient'] as double));
-      
-      // إذا لم نجد مركبات حقيقية، نضيف مركبات افتراضية للتجربة
-      if (vehicles.isEmpty) {
-        vehicles = _generateDummyVehicles(widget.destinationLocation, vehicleType);
+        // ترتيب المركبات حسب المسافة من موقع العميل
+      if (vehicles.isNotEmpty) {
+        vehicles.sort((a, b) => (a['distanceFromClient'] as double).compareTo(b['distanceFromClient'] as double));
       }
       
+      // طباعة رسالة للتشخيص
       print('تم تحميل ${vehicles.length} مركبة مطابقة لنوع $vehicleType');
       
     } catch (error) {
@@ -377,68 +424,39 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
     
     return vehicles;
   }
-
   // التحقق من تطابق نوع المركبة
   bool _isMatchingVehicleType(String actualType, String targetType) {
     if (targetType.isEmpty) return true;
-    return actualType.trim().toLowerCase() == targetType.trim().toLowerCase();
-  }  // إنشاء مركبات افتراضية للتجربة
-  List<Map<String, dynamic>> _generateDummyVehicles(LatLng position, String vehicleType) {
-    final random = math.Random();
-    final int vehicleCount = 3 + random.nextInt(3); // 3-5 مركبات
     
-    // قائمة بالشركات المزودة لخدمات النقل
-    final companies = [
-      'شركة النقل السريع',
-      'توصيل اكسبرس',
-      'نقل البضائع الموثوق',
-      'سبيد ديليفري',
-      'نقل آمن',
-    ];
+    // تحسين المطابقة من خلال تجاهل الفراغات والأحرف الكبيرة/الصغيرة
+    // وأيضًا السماح بالمطابقة الجزئية للأسماء المشابهة
+    String normalizedActual = actualType.trim().toLowerCase();
+    String normalizedTarget = targetType.trim().toLowerCase();
     
-    List<Map<String, dynamic>> vehicles = List.generate(vehicleCount, (index) {
-      // موقع عشوائي قريب من الوجهة
-      final latOffset = (random.nextDouble() - 0.5) * 0.02;
-      final lngOffset = (random.nextDouble() - 0.5) * 0.02;
-      final vehiclePosition = LatLng(
-        position.latitude + latOffset,
-        position.longitude + lngOffset,
-      );
-      
-      // حساب المسافة من موقع العميل
-      double distanceFromClient = _calculateDistance(
-        widget.originLocation.latitude, 
-        widget.originLocation.longitude,
-        vehiclePosition.latitude, 
-        vehiclePosition.longitude
-      );
-      
-      return {
-        'id': 'dummy_${vehicleType}_$index',
-        'type': vehicleType,
-        'company': companies[random.nextInt(companies.length)],
-        'rating': (3.0 + random.nextDouble() * 2.0).toStringAsFixed(1),
-        'price': _calculatePrice(distanceFromClient, vehicleType),
-        'arrivalTime': '${_calculateArrivalTime(distanceFromClient)} دقيقة',
-        'image': _getDefaultVehicleImage(vehicleType),
-        'providerImage': '',
-        'position': vehiclePosition,
-        'distanceFromClient': distanceFromClient,
-        'isRealProvider': false,
-      };
-    });
+    // مطابقة مباشرة
+    if (normalizedActual == normalizedTarget) return true;
     
-    // ترتيب المركبات من الأقرب للأبعد
-    vehicles.sort((a, b) => 
-      (a['distanceFromClient'] as double).compareTo(b['distanceFromClient'] as double));
+    // مطابقة كلمات مفتاحية للسماح بأسماء بديلة
+    Map<String, List<String>> keywordMap = {
+      'شاحنة صغيرة': ['شاحنة', 'صغير', 'صغيرة', 'شاحنة صغير'],
+      'شاحنة متوسطة': ['شاحنة', 'متوسط', 'متوسطة', 'شاحنة متوسط'],
+      'شاحنة كبيرة': ['شاحنة', 'كبير', 'كبيرة', 'شاحنة كبير'],
+      'مركبة خفيفة': ['مركبة', 'خفيف', 'خفيفة', 'سيارة', 'صغير'],
+      'دراجة نارية': ['دراجة', 'نارية', 'موتوسيكل'],
+    };
     
-    // الاحتفاظ بأقرب 5 مركبات فقط
-    if (vehicles.length > 5) {
-      vehicles = vehicles.sublist(0, 5);
+    // التحقق إذا كان نوع المركبة المستهدف موجود في الخريطة
+    if (keywordMap.containsKey(normalizedTarget)) {
+      // التحقق إذا كان النوع الفعلي يحتوي على أي من الكلمات المفتاحية
+      for (String keyword in keywordMap[normalizedTarget]!) {
+        if (normalizedActual.contains(keyword)) {
+          return true;
+        }
+      }
     }
     
-    return vehicles;
-  }
+    // في حالة عدم وجود تطابق نعود إلى المقارنة العادية
+    return false;  }
 
   // حساب المسافة بين نقطتين
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -450,9 +468,8 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
     // افتراض سرعة متوسطة 40 كم/ساعة
     double timeInHours = distanceInKm / 40;
     return (timeInHours * 60).round() + 5; // إضافة 5 دقائق كوقت تجهيز
-  }
-  // حساب السعر التقريبي
-  String _calculatePrice(double distanceFromClient, String vehicleType) {
+  }  // حساب السعر التقريبي
+  String _calculatePrice(double routeDistanceKm, String vehicleType) {
     // أسعار أساسية لكل نوع مركبة (بالدينار الجزائري)
     Map<String, double> basePrices = {
       'شاحنة صغيرة': 80,
@@ -461,17 +478,24 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
       'مركبة خفيفة': 60,
       'دراجة نارية': 50,
     };
-    
-    // السعر الأساسي للنوع
+      // السعر الأساسي للنوع
     double basePrice = basePrices[vehicleType] ?? 70;
     
-    // حساب السعر حسب المسافة بين نقطتي الانطلاق والوصول (وليس المسافة من المستخدم للمركبة)
-    double routeDistanceKm = widget.routeDistance ?? _calculateDistance(
-      widget.originLocation.latitude,
-      widget.originLocation.longitude,
-      widget.destinationLocation.latitude,
-      widget.destinationLocation.longitude
-    );
+    // إذا كانت مسافة المسار صفر أو غير محددة، نستخدم المسافة المحسوبة مسبقًا أو نحسبها
+    if (routeDistanceKm <= 0) {
+      // استخدام المسافة الحقيقية المحسوبة في _drawRoute إذا كانت متوفرة
+      if (_routeDistanceKm > 0) {
+        routeDistanceKm = _routeDistanceKm;
+      } else {
+        // في حالة عدم توفر المسافة الحقيقية، نستخدم المسافة الخطية كاحتياطي
+        routeDistanceKm = _calculateDistance(
+          widget.originLocation.latitude,
+          widget.originLocation.longitude,
+          widget.destinationLocation.latitude,
+          widget.destinationLocation.longitude
+        );
+      }
+    }
     
     double price = basePrice + (routeDistanceKm * 20);
     
@@ -764,23 +788,7 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
                             ),
                           ],
                         ),
-                        
-                        // السعر
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: _secondaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${vehicle['price']} د.ج',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _secondaryColor,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                          // السعر تم إزالته
                       ],
                     ),
                   ],
@@ -941,36 +949,9 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
             ),
           ),
           SizedBox(height: 16),
+            // معلومات الدفع تم إزالتها
           
-          // معلومات الدفع
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _secondaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'التكلفة التقريبية',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  '${vehicle['price']} دينار جزائري',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: _secondaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 24),
+          SizedBox(height: 16),
           
           // زر حجز المركبة
           SizedBox(
@@ -1020,9 +1001,8 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
       ],
     );
   }
-
   // بدء محادثة مع مزود الخدمة
-  void _startChat(Map<String, dynamic> vehicle) {
+  void _startChat(Map<String, dynamic> vehicle) async {
     if (vehicle['providerId'] == null || vehicle['providerId'].isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('لا يمكن التواصل مع هذا المزود في الوقت الحالي')),
@@ -1038,16 +1018,47 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
       );
       return;
     }
-      // الانتقال إلى صفحة المحادثة
-    Navigator.pop(context); // إغلاق النافذة المنبثقة
     
-    // ملاحظة: هنا كان هناك انتقال لصفحة المحادثة، ولكن قمنا بتعطيله لأنه غير ضروري الآن
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('سيتم الانتقال إلى صفحة المحادثة مع المزود'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    try {
+      Navigator.pop(context); // إغلاق النافذة المنبثقة
+      
+      // إنشاء خدمة الدردشة
+      final chatService = ChatService(currentUser.uid);
+      
+      // استخدام معرف المزود واسمه من بيانات المركبة
+      final providerId = vehicle['providerId'];
+      final providerName = vehicle['company'] ?? 'مزود خدمة';
+      
+      // إنشاء أو استرجاع محادثة
+      final chatId = await chatService.createChat(
+        receiverId: providerId,
+        receiverName: providerName,
+        senderName: currentUser.displayName ?? 'مستخدم',
+        serviceId: vehicle['id'] ?? '',
+        serviceTitle: '${vehicle['type'] ?? ''} - خدمة نقل',
+      );
+      
+      // الانتقال إلى صفحة المحادثة
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              otherUserId: providerId,
+              otherUserName: providerName,
+              serviceId: vehicle['id'] ?? '',
+              serviceTitle: '${vehicle['type'] ?? ''} - خدمة نقل',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      print('خطأ في بدء المحادثة: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء محاولة بدء المحادثة')),
+      );
+    }
   }
 
   // حجز المركبة
