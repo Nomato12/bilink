@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
 import 'package:bilink/services/directions_helper.dart';
 import 'package:bilink/screens/directions_map_tracking.dart';
@@ -14,11 +15,15 @@ import 'package:bilink/screens/service_details_screen.dart';
 GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class TransportServiceMapScreen extends StatefulWidget {
+  final LatLng? originLocation;
+  final String? originName;
   final LatLng? destinationLocation;
   final String? destinationName;
 
   const TransportServiceMapScreen({
     super.key,
+    this.originLocation,
+    this.originName,
     this.destinationLocation,
     this.destinationName,
   });
@@ -67,11 +72,36 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
     super.initState();
     _initializeMap();
   }
-
   // تهيئة الخريطة
   Future<void> _initializeMap() async {
-    // الحصول على الموقع الحالي للمستخدم
-    _getCurrentLocation();
+    // إذا كان هناك نقطة بداية محددة
+    if (widget.originLocation != null) {
+      setState(() {
+        _originPosition = widget.originLocation;
+        _originAddress = widget.originName ?? '';
+      });
+      
+      // التحقق من وجود عنوان لنقطة البداية
+      if (_originAddress.isEmpty) {
+        final address = await _getAddressFromLatLng(_originPosition!);
+        if (address.isNotEmpty) {
+          setState(() {
+            _originAddress = address;
+          });
+        }
+      }
+      
+      // إضافة علامة لنقطة البداية
+      _addMarker(
+        _originPosition!,
+        'origin',
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
+      );
+    } else {
+      // الحصول على الموقع الحالي للمستخدم إذا لم يتم تحديده
+      await _getCurrentLocation();
+    }
 
     // إذا كان هناك وجهة محددة
     if (widget.destinationLocation != null) {
@@ -100,6 +130,146 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
 
       // محاكاة البحث عن مركبات قريبة من الوجهة
       _simulateNearbyVehicles(_destinationPosition!);
+    }
+    
+    // إذا كان لدينا نقطة بداية ووجهة، نقوم برسم المسار بينهما
+    if (_originPosition != null && _destinationPosition != null) {
+      _getDirectionsAndDrawRoute();
+    }
+  }
+
+  // الحصول على الاتجاهات ورسم المسار بين نقطة البداية والوجهة
+  Future<void> _getDirectionsAndDrawRoute() async {
+    if (_originPosition == null || _destinationPosition == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // استخدام مساعد الاتجاهات للحصول على بيانات المسار
+      final directionsData = await DirectionsHelper.getDirections(
+        _originPosition!,
+        _destinationPosition!,
+      );
+
+      if (directionsData.isNotEmpty) {
+        setState(() {
+          _directionsData = directionsData;
+          _drawPolylines();
+        });
+      }
+    } catch (e) {
+      print('Error getting directions: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حدث خطأ أثناء الحصول على معلومات المسار'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isStartTrackingVisible = true; // إظهار زر بدء التتبع بعد الحصول على المسار
+        });
+      }
+    }
+  }
+
+  // رسم المسارات على الخريطة
+  void _drawPolylines() {
+    try {
+      final polylines = <Polyline>{};
+      
+      // الخط الرئيسي للمسار
+      if (_directionsData.containsKey('polyline')) {
+        final String encodedPolyline = _directionsData['polyline'];
+        final polylinePoints = PolylinePoints().decodePolyline(encodedPolyline);
+        final polylineCoordinates = polylinePoints
+            .map((point) => LatLng(point.latitude, point.longitude))
+            .toList();
+
+        if (polylineCoordinates.isNotEmpty) {
+          final mainPolyline = Polyline(
+            polylineId: const PolylineId('main_route'),
+            color: const Color(0xFF0B3D91),
+            points: polylineCoordinates,
+            width: 5,
+            patterns: [PatternItem.dash(10), PatternItem.gap(5)],
+          );
+          polylines.add(mainPolyline);
+        }
+      }
+      
+      // المسارات البديلة إذا كانت متوفرة
+      if (_directionsData.containsKey('alternatives')) {
+        final alternatives = _directionsData['alternatives'] as List;
+        int index = 1;
+        
+        for (final alternative in alternatives) {
+          if (alternative.containsKey('polyline')) {
+            final String encodedPolyline = alternative['polyline'];
+            final polylinePoints = PolylinePoints().decodePolyline(encodedPolyline);
+            final polylineCoordinates = polylinePoints
+                .map((point) => LatLng(point.latitude, point.longitude))
+                .toList();
+
+            if (polylineCoordinates.isNotEmpty) {
+              final altPolyline = Polyline(
+                polylineId: PolylineId('alt_route_$index'),
+                color: const Color(0xFF757575), // رمادي للمسارات البديلة
+                points: polylineCoordinates,
+                width: 3,
+              );
+              polylines.add(altPolyline);
+              index++;
+            }
+          }
+        }
+      }
+      
+      setState(() {
+        _polylines = polylines;
+      });
+      
+      // ضبط حدود الخريطة لتظهر المسار بالكامل
+      _fitMapToShowRoute();
+    } catch (e) {
+      print('Error drawing polylines: $e');
+    }
+  }
+
+  // ضبط حدود الخريطة لتظهر المسار بالكامل
+  Future<void> _fitMapToShowRoute() async {
+    if (_controller.isCompleted && _originPosition != null && _destinationPosition != null) {
+      try {
+        final controller = await _controller.future;
+        
+        // إنشاء حدود تشمل نقطة البداية والوجهة
+        final bounds = LatLngBounds(
+          southwest: LatLng(
+            math.min(_originPosition!.latitude, _destinationPosition!.latitude),
+            math.min(_originPosition!.longitude, _destinationPosition!.longitude),
+          ),
+          northeast: LatLng(
+            math.max(_originPosition!.latitude, _destinationPosition!.latitude),
+            math.max(_originPosition!.longitude, _destinationPosition!.longitude),
+          ),
+        );
+        
+        // إضافة هامش 
+        const double padding = 80.0;
+        
+        controller.animateCamera(
+          CameraUpdate.newLatLngBounds(bounds, padding),
+        );
+      } catch (e) {
+        print('Error fitting map to route: $e');
+      }
     }
   }
 
@@ -1114,15 +1284,5 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// Import dart:math (This class is defined locally, not importing dart:math)
-// If you intended to use dart:math, you should import it: import 'dart:math' as math_library;
-// and then use math_library.min and math_library.max.
-// For now, this custom 'math' class will be used as per the original code.
-class math {
-  static double min(double a, double b) => a < b ? a : b;
-  static double max(double a, double b) => a > b ? a : b;
+    );  }
 }

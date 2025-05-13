@@ -86,7 +86,7 @@ class NotificationDebugHelper {
       }
 
       final deviceTokens = userData['deviceTokens'];
-      if (deviceTokens == null || !(deviceTokens is List) || deviceTokens.isEmpty) {
+      if (deviceTokens == null || deviceTokens is! List || deviceTokens.isEmpty) {
         debugPrint('No device tokens found for user');
         return false;
       }

@@ -9,7 +9,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/service_details_screen.dart';
-import 'package:bilink/screens/transport_service_map_wrapper.dart'; // استيراد الملف الجديد للخريطة
+import 'package:bilink/screens/transport_service_map_wrapper_updated.dart'; // استيراد الملف الجديد للخريطة
 import 'package:bilink/services/location_synchronizer.dart'; // Importar el sincronizador
 import 'package:bilink/screens/storage_locations_map_screen.dart';
 import 'package:bilink/screens/account_profile_screen.dart';
@@ -20,6 +20,8 @@ import 'package:bilink/models/home_page.dart';
 import 'package:bilink/screens/chat_list_screen.dart';
 import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
 import 'package:bilink/screens/transport_map_fix.dart' as map_fix; // Import utility functions for location handling
+import 'package:bilink/screens/location_selection_screen_updated.dart'; // استيراد شاشة اختيار الموقع المحدثة
+// Import custom triangle painter for dropdown
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -190,8 +192,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       MaterialPageRoute(builder: (context) => StorageLocationsMapScreen()),
     );
   }
-  
-  Future<void> _navigateToTransportServicesMap() async {
+    Future<void> _navigateToTransportServicesMap() async {
     try {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -217,14 +218,53 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           ),
         );
       }
-      final synchronizer = LocationSynchronizer();
-      await synchronizer.synchronizeTransportLocations();
+        // أولا، اختيار موقع الانطلاق (الموقع الحالي)
+      final originResult = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LocationSelectionScreen(
+            isOriginSelection: true,
+          ),
+        ),
+      );
       
-      if (mounted) {
-        Navigator.push(
+      // إذا تم اختيار موقع الانطلاق، الانتقال لاختيار الوجهة
+      if (originResult != null && mounted) {
+        final LatLng originPosition = originResult['position'];
+        final String originAddress = originResult['address'];
+        
+        // ثانيا، اختيار الوجهة
+        final destinationResult = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TransportServiceMapWrapper()),
+          MaterialPageRoute(
+            builder: (context) => const LocationSelectionScreen(
+              isOriginSelection: false,
+            ),
+          ),
         );
+        
+        // إذا تم اختيار الوجهة، الانتقال لعرض الخريطة والمركبات القريبة
+        if (destinationResult != null && mounted) {
+          final LatLng destinationPosition = destinationResult['position'];
+          final String destinationAddress = destinationResult['address'];
+          
+          // مزامنة مواقع خدمات النقل قبل عرض الخريطة
+          final synchronizer = LocationSynchronizer();
+          await synchronizer.synchronizeTransportLocations();
+            if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransportServiceMapWrapper(
+                  originLocation: originPosition,
+                  originName: originAddress,
+                  destinationLocation: destinationPosition,
+                  destinationName: destinationAddress,
+                ),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -235,13 +275,12 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             margin: EdgeInsets.all(16),
             backgroundColor: Colors.redAccent,
-            ),
+          ),
         );
       }
     }
   }
-  
-  void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
+    void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -2125,12 +2164,11 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300, width: 1.2), // Slightly thicker border
           borderRadius: BorderRadius.circular(12), // Consistent rounding
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
+        ),        child: DropdownButtonHideUnderline(          child: DropdownButton<String>(
             isExpanded: true,
             value: _selectedRegion,
-            icon: Icon(Icons.keyboard_arrow_down_rounded, color: _primaryColor, size: 26), // Rounded icon
+            icon: null, // عدم استخدام أي أيقونة
+            iconSize: 0, // جعل حجم الأيقونة صفر
             elevation: 16, // Default is fine
             // padding: const EdgeInsets.symmetric(horizontal: 12), // Moved to Container
             borderRadius: BorderRadius.circular(12), // Consistent rounding

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/transport_service_map_updated.dart';
-import 'package:bilink/screens/location_selection_screen.dart';
+import 'package:bilink/screens/location_selection_screen_updated.dart';
 
 class TransportServiceMapWrapper extends StatefulWidget {
   final LatLng? originLocation;
@@ -50,56 +50,55 @@ class _TransportServiceMapWrapperState extends State<TransportServiceMapWrapper>
       }
     }
     
-    // If we already have destination from service data, use it
-    if (widget.serviceData != null || widget.destinationLocation != null) {
-      _initFromServiceData();
-    } else {
-      // Otherwise start the location selection flow
-      _startLocationSelectionFlow();
+    // Initialize origin from widget parameters
+    if (widget.originLocation != null) {
+      _originPosition = widget.originLocation;
+      _originAddress = widget.originName ?? '';
+      print("TransportServiceMapWrapper: Origin location set from parameters");
     }
-  }
-
-  // Initialize from provided service data
-  Future<void> _initFromServiceData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
-
-    // Set destination from service data or directly provided destination
-    if (widget.serviceData != null && widget.serviceData!['location'] != null) {
-      final locationData = widget.serviceData!['location'] as Map<String, dynamic>?;
-      _destinationPosition = safeGetLatLng(locationData);
-      
-      if (locationData != null && locationData['address'] != null) {
-        _destinationAddress = locationData['address'].toString();
-      }
-    } else if (widget.destinationLocation != null) {
+    
+    // Initialize destination from widget parameters
+    if (widget.destinationLocation != null) {
       _destinationPosition = widget.destinationLocation;
-      _destinationAddress = widget.destinationName ?? 'الوجهة';
+      _destinationAddress = widget.destinationName ?? '';
+      print("TransportServiceMapWrapper: Destination location set from parameters");
     }
-
-    // Still need to select origin (current location)
-    if (mounted) {
+    
+    // If we have both origin and destination, we can proceed directly
+    if (_originPosition != null && _destinationPosition != null) {
+      print("TransportServiceMapWrapper: Both origin and destination are available, ready to show map");
       setState(() {
         _isLoading = false;
       });
-      
-      // Now prompt user to select their current location
-      _selectOriginLocation();
+    } else {
+      // Otherwise, start the location selection flow
+      print("TransportServiceMapWrapper: Starting location selection flow");
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startLocationSelectionFlow();
+      });
     }
   }
-
-  // Start full location selection flow
+  
   void _startLocationSelectionFlow() async {
     if (mounted) {
       // First select origin (current location)
-      await _selectOriginLocation();
+      if (_originPosition == null) {
+        final originResult = await _selectOriginLocation();
+        if (!originResult && mounted) {
+          // User cancelled origin selection, go back
+          Navigator.pop(context);
+          return;
+        }
+      }
       
       // Then select destination
-      if (_originPosition != null && mounted) {
-        await _selectDestinationLocation();
+      if (_originPosition != null && _destinationPosition == null && mounted) {
+        final destinationResult = await _selectDestinationLocation();
+        if (!destinationResult && mounted) {
+          // User cancelled destination selection, go back
+          Navigator.pop(context);
+          return;
+        }
       }
       
       // If both locations are selected, show the map
@@ -202,13 +201,14 @@ class _TransportServiceMapWrapperState extends State<TransportServiceMapWrapper>
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF5722),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  backgroundColor: const Color(0xFF00A651), // Green accent color
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: Text(
-                  _originPosition == null 
-                      ? 'تحديد موقعك الحالي'
-                      : 'تحديد وجهتك',
+                  _originPosition == null ? 'تحديد موقعك الحالي' : 'تحديد وجهتك',
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
@@ -218,39 +218,12 @@ class _TransportServiceMapWrapperState extends State<TransportServiceMapWrapper>
       );
     }
     
-    // We have both origin and destination, show the map
+    // Show the map with both origin and destination
     return TransportServiceMapScreen(
-      originLocation: _originPosition,
-      originName: _originAddress,
       destinationLocation: _destinationPosition,
       destinationName: _destinationAddress,
+      originLocation: _originPosition,
+      originName: _originAddress,
     );
-  }
-  
-  // Extract LatLng from Firestore location data safely
-  LatLng? safeGetLatLng(Map<String, dynamic>? locationData) {
-    if (locationData == null) {
-      return null;
-    }
-    
-    try {
-      if (locationData.containsKey('geopoint')) {
-        final geopoint = locationData['geopoint'];
-        if (geopoint != null) {
-          return LatLng(geopoint.latitude, geopoint.longitude);
-        }
-      } else if (locationData.containsKey('latitude') && 
-                locationData.containsKey('longitude')) {
-        final lat = locationData['latitude'];
-        final lng = locationData['longitude'];
-        if (lat != null && lng != null) {
-          return LatLng(lat, lng);
-        }
-      }
-    } catch (e) {
-      print("Error extracting LatLng: $e");
-    }
-    
-    return null;
   }
 }
