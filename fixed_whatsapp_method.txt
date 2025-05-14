@@ -1,0 +1,35 @@
+  // دالة لفتح محادثة واتساب مع العميل
+  Future<void> _openWhatsApp(String phoneNumber) async {
+    try {
+      // تنظيف رقم الهاتف - إزالة أي أحرف غير رقمية
+      final cleanNumber = phoneNumber.replaceAll(RegExp(r'\D'), '');
+      
+      // تنسيق رمز البلد الجزائري (213)
+      var formattedNumber = cleanNumber;
+      if (!formattedNumber.startsWith('213') && !formattedNumber.startsWith('+213')) {
+        // إزالة الصفر الأول إذا كان موجوداً
+        if (formattedNumber.startsWith('0')) {
+          formattedNumber = formattedNumber.substring(1);
+        }
+        // إضافة رمز البلد
+        formattedNumber = '213$formattedNumber';
+      }
+      
+      // إنشاء رابط واتساب مع رسالة ترحيبية
+      final greeting = Uri.encodeComponent('مرحباً، أنا مزود خدمة من تطبيق BiLink');
+      final whatsappUrl = 'https://wa.me/$formattedNumber?text=$greeting';
+      
+      // فتح تطبيق واتساب
+      final uri = Uri.parse(whatsappUrl);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لا يمكن فتح تطبيق واتساب'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }

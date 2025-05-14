@@ -10,6 +10,7 @@ import 'package:bilink/screens/service_details_screen.dart';
 import 'package:bilink/services/directions_helper.dart';
 import 'package:bilink/screens/chat_screen.dart';
 import 'package:bilink/services/chat_service.dart';
+import 'package:bilink/services/transport_request_service.dart';
 
 class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
   final String originName;
@@ -22,7 +23,7 @@ class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
   final String? durationText;
 
   const NearbyVehiclesMap({
-    Key? key,
+    super.key,
     required this.originLocation,
     required this.originName,
     required this.destinationLocation,
@@ -32,7 +33,7 @@ class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
     this.routeDuration,
     this.distanceText,
     this.durationText,
-  }) : super(key: key);
+  });
 
   @override
   State<NearbyVehiclesMap> createState() => _NearbyVehiclesMapState();
@@ -947,9 +948,50 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
                 if (widget.durationText != null) _buildInfoRow(Icons.timer, 'مدة الرحلة', widget.durationText!),
               ],
             ),
+          ),          SizedBox(height: 16),
+          
+          // معلومات السعر
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'السعر الإجمالي:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${((widget.routeDistance ?? 0) * (vehicle['pricePerKm'] ?? 60)).toInt()} دج',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: _primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'سيتم حفظ تفاصيل الرحلة من ${widget.originName} إلى ${widget.destinationName} باستخدام ${widget.selectedVehicleType}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: 16),
-            // معلومات الدفع تم إزالتها
           
           SizedBox(height: 16),
           
@@ -964,9 +1006,10 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 3,
               ),
               child: Text(
-                'حجز هذه المركبة',
+                'تأكيد الطلب وإرسال إلى المزود',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1059,10 +1102,8 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
         SnackBar(content: Text('حدث خطأ أثناء محاولة بدء المحادثة')),
       );
     }
-  }
-
-  // حجز المركبة
-  void _bookVehicle(Map<String, dynamic> vehicle) {
+  }  // حجز المركبة
+  Future<void> _bookVehicle(Map<String, dynamic> vehicle) async {
     // التحقق من وجود مستخدم مسجل
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
@@ -1072,25 +1113,92 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
       return;
     }
     
-    // إذا كان مزود حقيقي وله معرف خدمة
-    if (vehicle['isRealProvider'] == true && vehicle['id'] != null) {
-      Navigator.pop(context); // إغلاق النافذة المنبثقة
+    // عرض مؤشر التحميل
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      // حساب السعر النهائي للرحلة
+      double distance = widget.routeDistance ?? 0;
+      double duration = widget.routeDuration ?? 0;
+      double price = distance * (vehicle['pricePerKm'] ?? 60); // افتراضي 60 دج للكيلومتر
       
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ServiceDetailsScreen(
-            serviceId: vehicle['id'],
+      if (vehicle['isRealProvider'] == true && vehicle['providerId'] != null) {
+        // إنشاء طلب نقل في قاعدة البيانات
+        final transportRequestService = TransportRequestService();
+        await transportRequestService.createTransportRequest(
+          providerId: vehicle['providerId'],
+          providerName: vehicle['name'] ?? vehicle['providerName'] ?? 'مزود خدمة',
+          vehicleType: widget.selectedVehicleType,
+          originLocation: widget.originLocation,
+          originName: widget.originName,
+          destinationLocation: widget.destinationLocation,
+          destinationName: widget.destinationName,
+          distance: distance,
+          duration: duration,
+          distanceText: widget.distanceText ?? '${distance.toStringAsFixed(2)} كم',
+          durationText: widget.durationText ?? '${(duration / 60).toStringAsFixed(0)} دقيقة',
+          price: price.roundToDouble(),
+        );
+        
+        // إغلاق مؤشر التحميل
+        Navigator.pop(context);
+        // إغلاق النافذة المنبثقة
+        Navigator.pop(context);
+        
+        // عرض رسالة نجاح
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم إرسال طلب النقل بنجاح. ستتلقى إشعاراً عند قبول الطلب.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 5),
           ),
-        ),
-      );
-    } else {
-      // في حالة المركبات الافتراضية، نعرض رسالة فقط
-      Navigator.pop(context); // إغلاق النافذة المنبثقة
+        );
+        
+        // انتقال المستخدم إلى تفاصيل الخدمة إذا كانت متوفرة
+        if (vehicle['id'] != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ServiceDetailsScreen(
+                serviceId: vehicle['id'],
+              ),
+            ),
+          );
+        }
+      } else {
+        // إغلاق مؤشر التحميل
+        Navigator.pop(context);
+        // إغلاق النافذة المنبثقة
+        Navigator.pop(context);
+        
+        // في حالة المركبات الافتراضية، نعرض رسالة فقط
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم إرسال طلب الحجز بنجاح. سيتم التواصل معك قريبًا.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      // إغلاق مؤشر التحميل
+      Navigator.pop(context);
+      // إغلاق النافذة المنبثقة
+      Navigator.pop(context);
+      
+      print('خطأ في حجز المركبة: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم إرسال طلب الحجز بنجاح. سيتم التواصل معك قريبًا.'),
-          backgroundColor: Colors.green,
+          content: Text('حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.'),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );

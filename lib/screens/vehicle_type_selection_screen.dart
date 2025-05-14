@@ -14,7 +14,7 @@ class VehicleTypeSelectionScreen extends StatefulWidget {
   final String? durationText;  // نص الوقت المتوقع
   
   const VehicleTypeSelectionScreen({
-    Key? key,
+    super.key,
     required this.originLocation,
     required this.originName,
     required this.destinationLocation,
@@ -23,7 +23,7 @@ class VehicleTypeSelectionScreen extends StatefulWidget {
     this.routeDuration,
     this.distanceText,
     this.durationText,
-  }) : super(key: key);
+  });
 
   @override
   State<VehicleTypeSelectionScreen> createState() => _VehicleTypeSelectionScreenState();
@@ -69,7 +69,7 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
     setState(() {
       _isCalculatingDistance = false;
     });
-  }// حساب السعر بناء على المسافة ونوع المركبة
+  }  // حساب السعر بناء على المسافة ونوع المركبة
   String _calculatePriceEstimate(VehicleTypeOption vehicleType) {
     if (_isCalculatingDistance) {
       return 'جاري الحساب...';
@@ -81,6 +81,16 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
     price = price.roundToDouble();
     
     return '${price.toInt()} دج';
+  }
+  
+  // الحصول على السعر كرقم للاستخدام في معالجة الطلب
+  double _getNumericPrice(VehicleTypeOption vehicleType) {
+    if (_isCalculatingDistance) {
+      return 0.0;
+    }
+    
+    double price = vehicleType.minPricePerKm * _distanceInKm;
+    return price.roundToDouble();
   }
   // نفس أنواع المركبات المستخدمة في شاشة إضافة الخدمة
   final List<VehicleTypeOption> _vehicleTypes = [

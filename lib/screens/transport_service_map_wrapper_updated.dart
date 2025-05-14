@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:bilink/screens/transport_service_map_updated_fixed.dart';
 import 'package:bilink/screens/vehicle_type_selection_screen.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:bilink/services/places_api_service.dart';
 import 'package:bilink/screens/location_selection_screen_updated.dart';
 import 'dart:async';
 

@@ -62,7 +62,7 @@ class _TransportServiceMapUnifiedState extends State<TransportServiceMapUnified>
   final Color _accentColor = const Color(0xFF00A651); 
   final Color _secondaryColor = const Color(0xFFFF5722);
     // Directions & Route
-  DirectionsService _directionsService = DirectionsService();
+  final DirectionsService _directionsService = DirectionsService();
   DirectionsResult? _directionsResult;
   List<LatLng> _polylineCoordinates = [];
   bool _isLoadingDirections = false;

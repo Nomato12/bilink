@@ -9,7 +9,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/service_details_screen.dart';
-import 'package:bilink/screens/transport_service_map_wrapper_updated.dart'; // استيراد الملف الجديد للخريطة
+// استيراد الملف الجديد للخريطة
 import 'package:bilink/screens/transport_service_map_wrapper_unified.dart'; // استيراد الملف الموحد للخريطة
 import 'package:bilink/services/location_synchronizer.dart'; // Importar el sincronizador
 import 'package:bilink/screens/storage_locations_map_screen.dart';
@@ -22,6 +22,7 @@ import 'package:bilink/screens/chat_list_screen.dart';
 import 'package:bilink/painters/logistics_painters.dart'; // استيراد رسامي الزخارف اللوجستية
 import 'package:bilink/screens/transport_map_fix.dart' as map_fix; // Import utility functions for location handling
 // Import custom triangle painter for dropdown
+import 'package:bilink/widgets/client_request_alert.dart';
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -267,6 +268,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       body: SafeArea(
         child: Stack(
           children: [
+            const ClientRequestAlert(), // <--- هنا تظهر الشُبّة أعلى كل شيء
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(

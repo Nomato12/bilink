@@ -510,7 +510,7 @@ class _TransportServiceMapScreenState extends State<TransportServiceMapScreen> {
               }
               
               realVehicles.add({
-                'id': 'provider_${serviceId}',
+                'id': 'provider_$serviceId',
                 'type': vehicleType,
                 'company': serviceDetails['providerName'] ?? 'مزود خدمة',
                 'rating': serviceDetails['rating']?.toString() ?? '4.5',

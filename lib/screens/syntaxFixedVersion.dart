@@ -5,16 +5,6 @@
 // 3. Corrected misaligned parentheses and brackets
 // 4. Made unused variables have proper comments
 
-import 'dart:async';
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilink/screens/fix_transport_map.dart' as map_fix;
-import 'package:bilink/screens/directions_map_tracking.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 // This corrected file fixes the syntax error around line 908 where there was a mismatched
 // parenthesis and indentation issues with a SizedBox at line 946.

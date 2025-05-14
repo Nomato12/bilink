@@ -6,6 +6,10 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bilink/screens/location_selection_screen_updated.dart';
 
 import 'package:bilink/firebase_options.dart'; // Importar opciones de Firebase
 import 'package:bilink/models/home_page.dart';
@@ -34,8 +38,7 @@ void main() async {
         return true;
       };
 
-      // Aumentar el tamaño del buffer para los canales de mensajes
-      const int bufferSize = 1024 * 1024; // 1MB      // Inicializar Firebase con las opciones configuradas
+      // Inicializar Firebase con las opciones configuradas
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -207,6 +210,59 @@ class _SplashScreenState extends State<SplashScreen>
 
     // الانتقال للصفحة المناسبة بعد انتهاء الرسوم المتحركة
     _checkAuthAndNavigate();
+
+    // Listen for FCM foreground messages (location_request)
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final data = message.data;
+      if (data['type'] == 'location_request') {
+        final navigator = Navigator.of(context, rootNavigator: true);
+        // Show dialog to prompt user to share location
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('طلب مشاركة الموقع'),
+            content: const Text('مزود الخدمة يطلب موقعك الحالي لتقديم الخدمة. هل ترغب في مشاركة موقعك؟'),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  navigator.pop();
+                  // Open location picker
+                  final result = await navigator.push(
+                    MaterialPageRoute(
+                      builder: (context) => const LocationSelectionScreen(),
+                    ),
+                  );
+                  if (result != null && result is Map) {
+                    final position = result['position'];
+                    final address = result['address'] ?? '';
+                    if (position != null) {
+                      // Update user document in Firestore
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                          'location': {
+                            'latitude': position.latitude,
+                            'longitude': position.longitude,
+                            'address': address,
+                            'timestamp': FieldValue.serverTimestamp(),
+                          },
+                        });
+                      }
+                    }
+                  }
+                },
+                child: const Text('مشاركة موقعي'),
+              ),
+            ],
+          ),
+        );
+      }
+    });
   }
 
   void _createParticles() {
@@ -283,9 +339,7 @@ class _SplashScreenState extends State<SplashScreen>
     bool isLoggedIn = false;
     try {
       isLoggedIn = await authService.checkPreviousLogin();
-      print(
-        "Auth check result: User is ${isLoggedIn ? "logged in" : "not logged in"}",
-      );
+      print("Auth check result: User is ${isLoggedIn ? "logged in" : "not logged in"}");
       if (isLoggedIn && authService.currentUser != null) {
         print("Logged in user ID: ${authService.currentUser!.uid}");
         print("User role: ${authService.currentUser!.role}");

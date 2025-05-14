@@ -205,7 +205,63 @@ class ChatService {
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastSenderId': _userId,
         'unreadCount_$receiverId': FieldValue.increment(1),
-      });
+      });    }
+  }
+
+  // إنشاء محادثة جديدة أو الحصول عليها إذا كانت موجودة بالفعل
+  Future<String> createOrGetChat({
+    required String userId1,
+    required String userId2,
+    String? userName1,
+    String? userName2,
+    String? userImage1,
+    String? userImage2,
+    String? serviceId,
+    String? serviceTitle,
+  }) async {
+    try {
+      if (userId1.isEmpty || userId2.isEmpty) {
+        throw ArgumentError('User IDs cannot be empty');
+      }
+
+      // التحقق مما إذا كانت المحادثة موجودة بالفعل
+      final chatId = Chat.createChatId(userId1, userId2);
+      final chatDoc = await _firestore.collection(_chatsCollection).doc(chatId).get();
+      
+      if (chatDoc.exists) {
+        print('Using existing chat with ID: $chatId');
+        return chatId;
+      }
+      
+      // إنشاء محادثة جديدة إذا لم تكن موجودة
+      final validUserName1 = userName1 ?? 'مستخدم';
+      final validUserName2 = userName2 ?? 'مستخدم';
+      
+      // استخدام الواجهة الموجودة لإنشاء المحادثة
+      if (userId1 == _userId) {
+        return createChat(
+          receiverId: userId2,
+          receiverName: validUserName2,
+          receiverImage: userImage2,
+          senderName: validUserName1,
+          senderImage: userImage1,
+          serviceId: serviceId,
+          serviceTitle: serviceTitle,
+        );
+      } else {
+        return createChat(
+          receiverId: userId1,
+          receiverName: validUserName1,
+          receiverImage: userImage1,
+          senderName: validUserName2,
+          senderImage: userImage2,
+          serviceId: serviceId,
+          serviceTitle: serviceTitle,
+        );
+      }
+    } catch (e) {
+      print('Error in createOrGetChat: $e');
+      rethrow;
     }
   }
 

@@ -14,7 +14,6 @@ class NotificationService {
   
   final CollectionReference _notificationsCollection = 
       FirebaseFirestore.instance.collection('notifications');
-
   // Send a service request from client to provider
   Future<String> sendServiceRequest({
     required String serviceId,
@@ -22,6 +21,15 @@ class NotificationService {
     required String serviceName,
     required String details,
     required DateTime requestDate,
+    // Add transport-specific optional parameters
+    GeoPoint? originLocation,
+    String? originName,
+    GeoPoint? destinationLocation,
+    String? destinationName,
+    String? distanceText,
+    String? durationText,
+    String? vehicleType,
+    double? price,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -42,8 +50,8 @@ class NotificationService {
         // Continue with default service type
       }
 
-      // Create the request document
-      final requestDoc = await _requestsCollection.add({
+      // Create the request data map
+      Map<String, dynamic> requestData = {
         'serviceId': serviceId,
         'serviceName': serviceName,
         'providerId': providerId,
@@ -54,7 +62,22 @@ class NotificationService {
         'status': 'pending', // pending, accepted, rejected
         'serviceType': serviceType, // Add service type to the request
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // Add transport-specific data if this is a transport service
+      if (serviceType == 'نقل') {
+        if (originLocation != null) requestData['originLocation'] = originLocation;
+        if (originName != null && originName.isNotEmpty) requestData['originName'] = originName;
+        if (destinationLocation != null) requestData['destinationLocation'] = destinationLocation;
+        if (destinationName != null && destinationName.isNotEmpty) requestData['destinationName'] = destinationName;
+        if (distanceText != null && distanceText.isNotEmpty) requestData['distanceText'] = distanceText;
+        if (durationText != null && durationText.isNotEmpty) requestData['durationText'] = durationText;
+        if (vehicleType != null && vehicleType.isNotEmpty) requestData['vehicleType'] = vehicleType;
+        if (price != null) requestData['price'] = price;
+      }
+
+      // Create the request document
+      final requestDoc = await _requestsCollection.add(requestData);
 
       // Create a notification for the provider
       await _notificationsCollection.add({
@@ -78,6 +101,41 @@ class NotificationService {
       throw Exception('Failed to send service request');
     }
   }
+
+  // Send a notification to a specific user
+  Future<void> sendNotification({
+    required String recipientId,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      // Create a notification document
+      await _notificationsCollection.add({
+        'userId': recipientId,
+        'title': title,
+        'body': body,
+        'type': data?['type'] ?? 'general',
+        'data': data ?? {},
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Send FCM notification
+      await _fcmService.sendNotificationToUser(
+        userId: recipientId,
+        title: title,
+        body: body,
+        data: data,
+      );
+      
+      debugPrint('Notification sent to user: $recipientId');
+    } catch (e) {
+      debugPrint('Error sending notification: $e');
+      // Continue execution even if notification fails
+    }
+  }
+
   // Update the status of a service request (accept or reject)
   Future<void> updateRequestStatus({
     required String requestId,
@@ -219,8 +277,8 @@ class NotificationService {
         .snapshots()
         .map((snapshot) => snapshot.docs);
   }
-  
   // Get client details for an accepted request
+    // Get client details for an accepted request
   Future<Map<String, dynamic>> getClientDetails(String clientId) async {
     try {
       final userDoc = await _firestore.collection('users').doc(clientId).get();
@@ -231,17 +289,204 @@ class NotificationService {
       
       final userData = userDoc.data() as Map<String, dynamic>;
       
-      return {
+      // Get additional client data if available
+      Map<String, dynamic> clientInfo = {
         'id': userDoc.id,
         'name': userData['displayName'] ?? 'عميل',
         'email': userData['email'] ?? '',
         'phone': userData['phoneNumber'] ?? '',
         'profilePicture': userData['profilePicture'] ?? '',
         'address': userData['address'] ?? '',
+        'fcmToken': userData['fcmToken'] ?? '',
+        'userRole': userData['role'] ?? 'client',
       };
+      
+      // Add location data if available - handle all possible location formats
+      // Case 1: Direct GeoPoint field
+      if (userData['location'] is GeoPoint) {
+        final location = userData['location'] as GeoPoint;
+        clientInfo['location'] = {
+          'latitude': location.latitude,
+          'longitude': location.longitude
+        };
+        print('Found client location (direct GeoPoint): ${location.latitude}, ${location.longitude}');
+      }
+      // Case 2: Nested location map with latitude/longitude
+      else if (userData['location'] is Map) {
+        final locationMap = userData['location'] as Map<String, dynamic>;
+        
+        // Check for GeoPoint in location map
+        if (locationMap['geopoint'] is GeoPoint) {
+          final geoPoint = locationMap['geopoint'] as GeoPoint;
+          clientInfo['location'] = {
+            'latitude': geoPoint.latitude,
+            'longitude': geoPoint.longitude,
+            'address': locationMap['address'] ?? ''
+          };
+          print('Found client location (nested GeoPoint): ${geoPoint.latitude}, ${geoPoint.longitude}');
+        }
+        // Check for lat/long in location map
+        else if (locationMap['latitude'] is num && locationMap['longitude'] is num) {
+          clientInfo['location'] = {
+            'latitude': locationMap['latitude'].toDouble(),
+            'longitude': locationMap['longitude'].toDouble(),
+            'address': locationMap['address'] ?? ''
+          };
+          print('Found client location (nested lat/long): ${locationMap['latitude']}, ${locationMap['longitude']}');
+        }
+      }
+      // Case 3: Direct lat/long fields at root
+      else if (userData['latitude'] is num && userData['longitude'] is num) {
+        clientInfo['location'] = {
+          'latitude': userData['latitude'].toDouble(),
+          'longitude': userData['longitude'].toDouble()
+        };
+        print('Found client location (direct lat/long): ${userData['latitude']}, ${userData['longitude']}');
+      }
+      // Case 4: Last known location
+      else if (userData['lastLocation'] is GeoPoint) {
+        final location = userData['lastLocation'] as GeoPoint;
+        clientInfo['location'] = {
+          'latitude': location.latitude,
+          'longitude': location.longitude
+        };
+        print('Found client location (lastLocation): ${location.latitude}, ${location.longitude}');
+      }
+      // Case 5: Home location as fallback
+      else if (userData['homeLocation'] is GeoPoint) {
+        final location = userData['homeLocation'] as GeoPoint;
+        clientInfo['location'] = {
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'isHomeLocation': true
+        };
+        print('Found client location (homeLocation): ${location.latitude}, ${location.longitude}');
+      } else {
+        print('No location data found for client: $clientId');
+      }
+        // Add any additional contact methods if available
+      if (userData.containsKey('alternativePhone')) {
+        clientInfo['alternativePhone'] = userData['alternativePhone'];
+      }
+      if (userData.containsKey('whatsapp')) {
+        clientInfo['whatsapp'] = userData['whatsapp'];
+      }
+      
+      return clientInfo;
     } catch (e) {
       print('Error getting client details: $e');
       throw Exception('Failed to get client details');
+    }
+  }
+  
+    // Get transport request details for a specific client
+  Future<Map<String, dynamic>> getClientTransportRequestDetails(String clientId) async {
+    try {
+      // Search for accepted transport requests for this client
+      print('Searching for transport requests for client: $clientId');
+      final requestQuery = await _requestsCollection
+        .where('clientId', isEqualTo: clientId)
+        .where('serviceType', isEqualTo: 'نقل')
+        .where('status', isEqualTo: 'accepted')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+        if (requestQuery.docs.isEmpty) {
+        print('No accepted transport requests found for client: $clientId');
+        
+        // Even though there are no transport requests, we can still return a basic details object
+        // with hasLocationData set to false to prevent null errors in the UI
+        return {
+          'requestId': '',
+          'originName': '',
+          'destinationName': '',
+          'distanceText': '',
+          'durationText': '',
+          'price': 0.0,
+          'vehicleType': '',
+          'hasLocationData': false
+        }; // Return empty details instead of null
+      }
+      
+      // Get the most recent transport request
+      final requestDoc = requestQuery.docs.first;
+      final requestData = requestDoc.data() as Map<String, dynamic>;
+      
+      print('Found transport request: ${requestDoc.id}');
+      
+      // Convert GeoPoint objects to readable format if they exist
+      Map<String, dynamic> transportDetails = {
+        'requestId': requestDoc.id,
+        'originName': requestData['originName'] ?? '',
+        'destinationName': requestData['destinationName'] ?? '',
+        'distanceText': requestData['distanceText'] ?? '',
+        'durationText': requestData['durationText'] ?? '',
+        'hasLocationData': false,
+      };
+      
+      // Process price properly - ensure it's a double
+      var priceValue = requestData['price'];
+      if (priceValue != null) {
+        if (priceValue is int) {
+          transportDetails['price'] = priceValue.toDouble();
+        } else if (priceValue is double) {
+          transportDetails['price'] = priceValue;
+        } else if (priceValue is String) {
+          transportDetails['price'] = double.tryParse(priceValue) ?? 0.0;
+        } else {
+          transportDetails['price'] = 0.0;
+        }
+      } else {
+        transportDetails['price'] = 0.0;
+      }
+      
+      print('Price in transport details: ${transportDetails['price']}');
+      
+      transportDetails['vehicleType'] = requestData['vehicleType'] ?? '';
+      
+      // Add location data if available
+      if (requestData.containsKey('originLocation') && requestData['originLocation'] != null) {
+        try {
+          final originGeoPoint = requestData['originLocation'] as GeoPoint;
+          transportDetails['originLocation'] = {
+            'latitude': originGeoPoint.latitude,
+            'longitude': originGeoPoint.longitude,
+          };
+          transportDetails['hasLocationData'] = true;
+          print('Origin location: ${originGeoPoint.latitude}, ${originGeoPoint.longitude}');
+        } catch (e) {
+          print('Error processing origin location: $e');
+        }
+      }
+      
+      if (requestData.containsKey('destinationLocation') && requestData['destinationLocation'] != null) {
+        try {
+          final destinationGeoPoint = requestData['destinationLocation'] as GeoPoint;
+          transportDetails['destinationLocation'] = {
+            'latitude': destinationGeoPoint.latitude,
+            'longitude': destinationGeoPoint.longitude,
+          };
+          transportDetails['hasLocationData'] = true;
+          print('Destination location: ${destinationGeoPoint.latitude}, ${destinationGeoPoint.longitude}');
+        } catch (e) {
+          print('Error processing destination location: $e');
+        }
+      }
+      
+      return transportDetails;
+    } catch (e) {
+      print('Error getting client transport request details: $e');
+      // Return a valid empty object instead of null to avoid breaking the UI
+      return {
+        'requestId': '',
+        'originName': '',
+        'destinationName': '',
+        'distanceText': '',
+        'durationText': '',
+        'price': 0.0,
+        'vehicleType': '',
+        'hasLocationData': false
+      };
     }
   }
 }
