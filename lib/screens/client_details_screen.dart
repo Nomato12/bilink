@@ -215,7 +215,9 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
         );
       }
     }
-  }  Future<void> _loadClientDetails() async {
+  }
+
+  Future<void> _loadClientDetails() async {
     try {
       setState(() {
         _isLoading = true;
@@ -226,7 +228,8 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
       final clientDetails = await _notificationService.getClientDetails(
         widget.clientId,
       );
-        // استخدم دالة المساعدة للحصول على موقع العميل
+      
+      // استخدم دالة المساعدة للحصول على موقع العميل
       GeoPoint? clientGeoPoint = LocationHelper.getLocationFromData(clientDetails);
       String clientAddress = LocationHelper.getAddressFromData(clientDetails);
       bool isLocationRecent = LocationHelper.isLocationRecent(clientDetails);
@@ -258,37 +261,135 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
             ),
           };
         });
-      } else if (clientDetails.containsKey('location') && clientDetails['location'] != null) {
-        var locationData = clientDetails['location'];
-        print('Client location data found directly: $locationData');
+      } else {
+        // إذا لم يتم العثور على موقع في بيانات العميل، نحاول الحصول عليه من تخزين المواقع المنفصل
+        print('Looking for client location in dedicated location storage');
+        final locationData = await LocationHelper.getClientLocationData(widget.clientId);
         
-        // If we have location data, initialize client map markers
-        try {
-          // Extract latitude and longitude from the location data
-          if (locationData is Map<String, dynamic>) {
-            double? latitude, longitude;
+        if (locationData != null) {
+          print('Client location found in dedicated storage: $locationData');
+          
+          // معالجة بيانات الموقع الأساسي (نقطة الانطلاق)
+          if (locationData.containsKey('originLocation') && locationData['originLocation'] is GeoPoint) {
+            final originGeoPoint = locationData['originLocation'] as GeoPoint;
+            final originLocation = LatLng(originGeoPoint.latitude, originGeoPoint.longitude);
+            final originName = locationData['originName'] ?? 'موقع العميل';
             
-            if (locationData.containsKey('latitude') && locationData.containsKey('longitude')) {
-              latitude = locationData['latitude'] is double 
-                  ? locationData['latitude'] 
-                  : double.tryParse(locationData['latitude'].toString());
+            // تعيين نقطة الانطلاق كموقع العميل الافتراضي
+            setState(() {
+              _initialCameraPosition = CameraPosition(
+                target: originLocation,
+                zoom: 15.0,
+              );
               
-              longitude = locationData['longitude'] is double 
-                  ? locationData['longitude'] 
-                  : double.tryParse(locationData['longitude'].toString());
+              _markers = {
+                Marker(
+                  markerId: const MarkerId('clientLocation'),
+                  position: originLocation,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                  infoWindow: InfoWindow(
+                    title: 'موقع العميل',
+                    snippet: originName,
+                  ),
+                ),
+              };
+            });
+            
+            // إذا كانت هناك وجهة، نضيفها أيضًا
+            if (locationData.containsKey('destinationLocation') && locationData['destinationLocation'] is GeoPoint) {
+              final destGeoPoint = locationData['destinationLocation'] as GeoPoint;
+              final destLocation = LatLng(destGeoPoint.latitude, destGeoPoint.longitude);
+              final destName = locationData['destinationName'] ?? 'وجهة العميل';
               
-              if (latitude != null && longitude != null) {
-                // Add a marker for client location
-                final clientLocation = LatLng(latitude, longitude);
+              // حفظ معلومات النقل والموقع
+              _hasTransportRequestData = true;
+              _originLocation = originLocation;
+              _destinationLocation = destLocation;
+              _originName = originName;
+              _destinationName = destName;
+              
+              // إذا كانت هناك معلومات إضافية، نحفظها أيضًا
+              if (locationData.containsKey('distanceText')) _distanceText = locationData['distanceText'];
+              if (locationData.containsKey('durationText')) _durationText = locationData['durationText'];
+              
+              // إضافة علامة للوجهة
+              setState(() {
+                _markers = {
+                  ..._markers,
+                  Marker(
+                    markerId: const MarkerId('destination'),
+                    position: destLocation,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                    infoWindow: InfoWindow(
+                      title: 'وجهة العميل',
+                      snippet: destName,
+                    ),
+                  ),
+                };
+              });
+            }          }
+        } else if (clientDetails.containsKey('location') && clientDetails['location'] != null) {
+          // الكود الأصلي للتعامل مع بيانات الموقع المدمجة في تفاصيل العميل
+          var locationData = clientDetails['location'];
+          print('Client location data found directly: $locationData');
+          
+          // If we have location data, initialize client map markers
+          try {
+            // Extract latitude and longitude from the location data
+            if (locationData is Map<String, dynamic>) {
+              double? latitude, longitude;
+              
+              if (locationData.containsKey('latitude') && locationData.containsKey('longitude')) {
+                latitude = locationData['latitude'] is double 
+                    ? locationData['latitude'] 
+                    : double.tryParse(locationData['latitude'].toString());
+                
+                longitude = locationData['longitude'] is double 
+                    ? locationData['longitude'] 
+                    : double.tryParse(locationData['longitude'].toString());
+                
+                if (latitude != null && longitude != null) {
+                  // Add a marker for client location
+                  final clientLocation = LatLng(latitude, longitude);
+                  
+                  setState(() {
+                    // Initialize map with client location
+                    _initialCameraPosition = CameraPosition(
+                      target: clientLocation,
+                      zoom: 15.0,
+                    );
+                    
+                    // Add client marker
+                    _markers = {
+                      Marker(
+                        markerId: const MarkerId('clientLocation'),
+                        position: clientLocation,
+                        icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueAzure,
+                        ),
+                        infoWindow: InfoWindow(
+                          title: 'موقع العميل',
+                          snippet: clientDetails['address'] ?? '',
+                        ),
+                      ),
+                    };
+                  });
+                  
+                  print('Successfully set up client location on map: $latitude, $longitude');
+                } else {
+                  print('Invalid latitude or longitude values in client location data');
+                }
+              } else if (locationData.containsKey('geopoint') && locationData['geopoint'] is GeoPoint) {
+                // استخراج البيانات من نوع GeoPoint
+                final geoPoint = locationData['geopoint'] as GeoPoint;
+                final clientLocation = LatLng(geoPoint.latitude, geoPoint.longitude);
                 
                 setState(() {
-                  // Initialize map with client location
                   _initialCameraPosition = CameraPosition(
                     target: clientLocation,
                     zoom: 15.0,
                   );
                   
-                  // Add client marker
                   _markers = {
                     Marker(
                       markerId: const MarkerId('clientLocation'),
@@ -304,14 +405,13 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                   };
                 });
                 
-                print('Successfully set up client location on map: $latitude, $longitude');
+                print('Successfully set up client location from geopoint: ${geoPoint.latitude}, ${geoPoint.longitude}');
               } else {
-                print('Invalid latitude or longitude values in client location data');
+                print('Location data missing required latitude/longitude fields');
               }
-            } else if (locationData.containsKey('geopoint') && locationData['geopoint'] is GeoPoint) {
-              // استخراج البيانات من نوع GeoPoint
-              final geoPoint = locationData['geopoint'] as GeoPoint;
-              final clientLocation = LatLng(geoPoint.latitude, geoPoint.longitude);
+            } else if (locationData is GeoPoint) {
+              // التعامل مع البيانات من نوع GeoPoint مباشرة
+              final clientLocation = LatLng(locationData.latitude, locationData.longitude);
               
               setState(() {
                 _initialCameraPosition = CameraPosition(
@@ -334,46 +434,18 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                 };
               });
               
-              print('Successfully set up client location from geopoint: ${geoPoint.latitude}, ${geoPoint.longitude}');
+              print('Successfully set up client location from direct GeoPoint: ${locationData.latitude}, ${locationData.longitude}');
+            } else if (locationData is String) {
+              print('Location data is a string reference, not coordinates: $locationData');
             } else {
-              print('Location data missing required latitude/longitude fields');
+              print('Unknown location data format: ${locationData.runtimeType}');
             }
-          } else if (locationData is GeoPoint) {
-            // التعامل مع البيانات من نوع GeoPoint مباشرة
-            final clientLocation = LatLng(locationData.latitude, locationData.longitude);
-            
-            setState(() {
-              _initialCameraPosition = CameraPosition(
-                target: clientLocation,
-                zoom: 15.0,
-              );
-              
-              _markers = {
-                Marker(
-                  markerId: const MarkerId('clientLocation'),
-                  position: clientLocation,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueAzure,
-                  ),
-                  infoWindow: InfoWindow(
-                    title: 'موقع العميل',
-                    snippet: clientDetails['address'] ?? '',
-                  ),
-                ),
-              };
-            });
-            
-            print('Successfully set up client location from direct GeoPoint: ${locationData.latitude}, ${locationData.longitude}');
-          } else if (locationData is String) {
-            print('Location data is a string reference, not coordinates: $locationData');
-          } else {
-            print('Unknown location data format: ${locationData.runtimeType}');
+          } catch (locationError) {
+            print('Error processing client location data: $locationError');
           }
-        } catch (locationError) {
-          print('Error processing client location data: $locationError');
+        } else {
+          print('No location data found in client details');
         }
-      } else {
-        print('No location data found in client details');
       }
         // تحميل معلومات طلب النقل الخاص بالعميل (إن وجد)
       final transportDetails = await _notificationService

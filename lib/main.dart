@@ -19,22 +19,23 @@ import 'package:bilink/services/fcm_service.dart'; // استيراد خدمة ا
 void main() async {
   // Iniciar la aplicación en una zona de error controlada
   runZonedGuarded(
-    () async {
-      // Asegurarse de que las vinculaciones de Flutter se inicialicen dentro de la misma zona
-      WidgetsFlutterBinding.ensureInitialized();      // Mejorar el manejo de errores para evitar mensajes corruptos
+    () async {      // Asegurarse de que las vinculaciones de Flutter se inicialicen dentro de la misma zona
+      WidgetsFlutterBinding.ensureInitialized();      // تحسين معالجة الأخطاء لمنع توقف التطبيق
       FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
+        // تسجيل الخطأ بدون عرضه للمستخدم لتجنب توقف التطبيق
         developer.log(
           'Flutter error caught',
-          error: details.exception,
+          error: details.exception.toString(),
           stackTrace: details.stack,
         );
-      };
-
-      // Actualizar a la configuración de la UI más reciente para mejorar el rendimiento
-      // Uso del API no-deprecado para manejar errores de plataforma
+        // منع الخطأ من التسبب في توقف التطبيق
+        // استخدام معالج الأخطاء الافتراضي مع منع توقف التطبيق
+        FlutterError.presentError(details);
+      }; // تحسين معالجة أخطاء المنصة
       ui.PlatformDispatcher.instance.onError = (error, stack) {
+        // تسجيل أخطاء المنصة دون عرضها للمستخدم
         developer.log('Platform error caught', error: error, stackTrace: stack);
+        // return true لتمنع انتشار الخطأ وتوقف التطبيق
         return true;
       };
 
@@ -48,13 +49,15 @@ void main() async {
       await fcmService.initialize();
 
       runApp(const MyApp());
-    },
-    (error, stack) {
+    },    (error, stack) {
+      // تسجيل الأخطاء غير المتوقعة بدون عرضها للمستخدم
       developer.log(
         'Uncaught error in runZonedGuarded',
         error: error,
         stackTrace: stack,
       );
+      // هنا يمكنك إضافة أي منطق آخر للتعامل مع الأخطاء، مثل الإبلاغ عن الأخطاء
+      // لكن بدون إيقاف التطبيق
     },
   );
 }

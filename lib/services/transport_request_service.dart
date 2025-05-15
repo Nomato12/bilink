@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/models/transport_request.dart';
 import 'package:bilink/services/notification_service.dart';
+import 'package:bilink/utils/location_helper.dart';
 
 class TransportRequestService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -30,9 +31,70 @@ class TransportRequestService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
         throw Exception('User not logged in');
-      }      // Get client name from Firestore
+      }      // Get client name and location data from Firestore
       final userDoc = await _firestore.collection('users').doc(currentUser.uid).get();
-      final clientName = userDoc.exists ? (userDoc.data()?['name'] ?? userDoc.data()?['displayName'] ?? 'Client') : 'Client';      // Create transport request document
+      final userData = userDoc.exists ? userDoc.data() : null;
+      final clientName = userData?['name'] ?? userData?['displayName'] ?? 'Client';
+      
+      // Get client's current location
+      GeoPoint? clientLocation;
+      String clientAddress = '';
+      
+      if (userData != null) {
+        // Try to extract client location from user document
+        clientLocation = LocationHelper.getLocationFromData(userData);
+        clientAddress = LocationHelper.getAddressFromData(userData);
+      }
+      
+      // If client location not found in user document, check client_locations collection
+      if (clientLocation == null) {
+        final clientLocationData = await LocationHelper.getClientLocationData(currentUser.uid);
+        if (clientLocationData != null && clientLocationData.containsKey('originLocation')) {
+          clientLocation = clientLocationData['originLocation'] as GeoPoint?;
+          clientAddress = clientLocationData['originName'] ?? '';
+        }
+      }
+      
+      // Save the client's location information for future reference
+      if (clientLocation == null) {
+        // Use origin location as client location when no other location is available
+        clientLocation = GeoPoint(originLocation.latitude, originLocation.longitude);
+        clientAddress = originName;
+        
+        // Update the client's location in Firestore for next time
+        try {
+          await _firestore.collection('users').doc(currentUser.uid).update({
+            'location': {
+              'latitude': originLocation.latitude,
+              'longitude': originLocation.longitude,
+              'address': originName,
+              'timestamp': FieldValue.serverTimestamp(),
+            }
+          });
+          
+          // Also save to client_locations collection
+          await LocationHelper.saveClientLocationData(
+            clientId: currentUser.uid,
+            originLocation: originLocation,
+            originName: originName,
+            destinationLocation: destinationLocation,
+            destinationName: destinationName,
+            distanceText: distanceText,
+            durationText: durationText,
+            serviceType: 'نقل',
+          );
+        } catch (e) {
+          print('Error updating client location: $e');
+          // Continue with request creation even if location update fails
+        }
+      }      // Format location coordinates for easy access
+      String originCoords = '${originLocation.latitude.toStringAsFixed(6)},${originLocation.longitude.toStringAsFixed(6)}';
+      String destCoords = '${destinationLocation.latitude.toStringAsFixed(6)},${destinationLocation.longitude.toStringAsFixed(6)}';
+      String clientCoords = clientLocation != null 
+          ? '${clientLocation.latitude.toStringAsFixed(6)},${clientLocation.longitude.toStringAsFixed(6)}' 
+          : originCoords;
+      
+      // Create transport request document
       final Map<String, dynamic> requestData = {
         'clientId': currentUser.uid,
         'clientName': clientName,
@@ -51,10 +113,15 @@ class TransportRequestService {
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'serviceType': 'نقل',
-        'details': 'طلب خدمة نقل من $originName إلى $destinationName باستخدام $vehicleType'
-      };
-
-      // Use NotificationService to send the service request
+        'details': 'طلب خدمة نقل من $originName ($originCoords) إلى $destinationName ($destCoords) باستخدام $vehicleType',
+        'clientLocation': clientLocation,
+        'clientAddress': clientAddress,
+        'locationData': {
+          'originCoords': originCoords,
+          'destinationCoords': destCoords,
+          'clientCoords': clientCoords,
+        },
+      };// Use NotificationService to send the service request
       final String requestId = await _notificationService.sendServiceRequest(
         serviceId: providerId, // Using providerId as serviceId
         providerId: providerId,
@@ -70,7 +137,19 @@ class TransportRequestService {
         durationText: durationText,
         vehicleType: vehicleType,
         price: price,
-      );
+        clientLocation: clientLocation, // Include client location
+        clientAddress: clientAddress, // Include client address
+      );      // Also save client location in the service_requests collection directly
+      await _firestore.collection('service_requests').doc(requestId).update({
+        'clientLocation': clientLocation,
+        'clientAddress': clientAddress,
+        'details': 'طلب خدمة نقل من $originName ($originCoords) إلى $destinationName ($destCoords) باستخدام $vehicleType',
+        'locationData': {
+          'originCoords': originCoords,
+          'destinationCoords': destCoords,
+          'clientCoords': clientCoords,
+        },
+      });
 
       // Send notification to provider
       await _notificationService.sendNotification(

@@ -20,8 +20,9 @@ class TransportRequest {
   final String status; // 'pending', 'accepted', 'rejected', 'completed'
   final Timestamp createdAt;
   final Timestamp? acceptedAt;
-  final Timestamp? completedAt;
-
+  final Timestamp? completedAt;  final GeoPoint? clientLocation; // Client's current location
+  final String clientAddress; // Client's address
+  final Map<String, dynamic>? locationData; // Additional location data for display
   TransportRequest({
     required this.id,
     required this.clientId,
@@ -42,8 +43,10 @@ class TransportRequest {
     required this.createdAt,
     this.acceptedAt,
     this.completedAt,
+    this.clientLocation,
+    this.clientAddress = '',
+    this.locationData,
   });
-
   // Convert model to Firestore document
   Map<String, dynamic> toMap() {
     return {
@@ -64,11 +67,12 @@ class TransportRequest {
       'status': status,
       'createdAt': createdAt,
       'acceptedAt': acceptedAt,
-      'completedAt': completedAt,
-      'serviceType': 'نقل', // To identify transport requests
+      'completedAt': completedAt,      'serviceType': 'نقل', // To identify transport requests
+      'clientLocation': clientLocation, // Include client location if available
+      'clientAddress': clientAddress, // Include client address
+      'locationData': locationData, // Include additional location data
     };
   }
-
   // Create model from Firestore document
   factory TransportRequest.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -89,9 +93,11 @@ class TransportRequest {
       durationText: data['durationText'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
       status: data['status'] ?? 'pending',
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      acceptedAt: data['acceptedAt'],
+      createdAt: data['createdAt'] ?? Timestamp.now(),      acceptedAt: data['acceptedAt'],
       completedAt: data['completedAt'],
+      clientLocation: data['clientLocation'], // Extract client location if available
+      clientAddress: data['clientAddress'] ?? '', // Extract client address with empty fallback
+      locationData: data['locationData'] as Map<String, dynamic>?, // Extract additional location data
     );
   }
 }

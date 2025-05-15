@@ -8,6 +8,7 @@ This document provides technical details about the fix implemented for the clien
 2. **Incorrect Conditional Rendering**: The client details screen had an overly restrictive condition for displaying location data that prevented the map from showing even when valid location data was available.
 3. **Syntax Errors**: There were syntax errors in the client_details_screen.dart file that caused rendering issues.
 4. **Improper Location Data Processing**: Location data from client details wasn't being properly extracted and processed for map display.
+5. **Inadequate Location Data Format**: Transport requests lacked properly formatted location coordinates that could be easily used for mapping.
 
 ## Changes Implemented
 
@@ -66,6 +67,24 @@ if (_initialCameraPosition != null && _markers.isNotEmpty)
 - Reformatted the code for better readability and maintenance
 - Ensured proper widget nesting and closing brackets
 
+### 5. Enhanced Location Data Structure
+- Added a new `locationData` field to TransportRequest model with mappable coordinate strings
+- Updated the transport_request_service.dart to include coordinates in details field
+- Enhanced the LocationHelper to extract location from the new data structure
+- Created a migration script to update existing transport requests with the new format
+
+```dart
+// Sample of enhanced location data structure
+{
+  'locationData': {
+    'originCoords': '36.710819,3.215420',
+    'destinationCoords': '36.752887,3.042048',
+    'clientCoords': '36.710819,3.215420'
+  },
+  'details': 'طلب خدمة نقل من المطار (36.710819,3.215420) إلى وسط المدينة (36.752887,3.042048) باستخدام سيارة'
+}
+```
+
 ## Testing Methodology
 The fix was verified using multiple test scripts:
 - `verify_location_fix.dart`: Basic verification of location display conditions
@@ -90,3 +109,6 @@ After applying these fixes:
 2. Implement a fallback UI when location services are disabled
 3. Add client location update functionality
 4. Consider caching location data for offline access
+5. Implement a more standardized location data structure across the entire app
+6. Consider implementing Plus Codes (Open Location Code) for more precise location sharing
+7. Add a UI indicator for when location data is from an actual client device versus an origin/destination point

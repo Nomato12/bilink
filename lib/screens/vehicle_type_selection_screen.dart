@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/screens/nearby_vehicles_map.dart';  // استيراد صفحة المركبات القريبة
 import 'package:geolocator/geolocator.dart';
+import 'package:bilink/utils/location_helper.dart';  // استيراد ملف المساعدة للموقع
+import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;  // استيراد للوصول للمستخدم الحالي
+// استيراد ملف المساعدة للموقع
+import 'package:firebase_auth/firebase_auth.dart';  // استيراد للوصول للمستخدم الحالي
 
 class VehicleTypeSelectionScreen extends StatefulWidget {
   final LatLng originLocation;
@@ -32,6 +36,8 @@ class VehicleTypeSelectionScreen extends StatefulWidget {
 class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen> {
   double _distanceInKm = 0.0;
   bool _isCalculatingDistance = true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _isSavingLocation = false;
 
   @override
   void initState() {
@@ -382,27 +388,75 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
             ),
             
             const SizedBox(height: 16),
-            
-            // زر بحث عن المركبات
-            ElevatedButton(              onPressed: _selectedVehicleType == null
+              // زر بحث عن المركبات
+            ElevatedButton(
+              onPressed: _selectedVehicleType == null
                   ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NearbyVehiclesMap(
-                            originLocation: widget.originLocation,
-                            originName: widget.originName,
-                            destinationLocation: widget.destinationLocation,
-                            destinationName: widget.destinationName,
-                            selectedVehicleType: _selectedVehicleType!,
-                            routeDistance: widget.routeDistance,
-                            routeDuration: widget.routeDuration,
-                            distanceText: widget.distanceText,
-                            durationText: widget.durationText,
+                  : () async {
+                      // تخزين حالة التحميل
+                      setState(() {
+                        _isSavingLocation = true;
+                      });
+                      
+                      // عرض مؤشر التحميل
+                      if (_isSavingLocation) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF0B3D91),
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
+                      
+                      // الحصول على معرّف المستخدم الحالي
+                      final userId = _auth.currentUser?.uid;
+                      
+                      if (userId != null) {
+                        // حفظ بيانات الموقع في قاعدة البيانات
+                        await LocationHelper.saveClientLocationData(
+                          clientId: userId,
+                          originLocation: widget.originLocation,
+                          originName: widget.originName,
+                          destinationLocation: widget.destinationLocation,
+                          destinationName: widget.destinationName,
+                          routeDistance: widget.routeDistance,
+                          routeDuration: widget.routeDuration,
+                          distanceText: widget.distanceText,
+                          durationText: widget.durationText,
+                          serviceType: 'نقل',
+                        );
+                      }
+                      
+                      // إغلاق مؤشر التحميل إذا لم يتم إغلاقه بالفعل
+                      if (context.mounted && _isSavingLocation) {
+                        Navigator.of(context).pop();
+                        setState(() {
+                          _isSavingLocation = false;
+                        });
+                      }
+                      
+                      // الانتقال إلى شاشة البحث عن المركبات
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NearbyVehiclesMap(
+                              originLocation: widget.originLocation,
+                              originName: widget.originName,
+                              destinationLocation: widget.destinationLocation,
+                              destinationName: widget.destinationName,
+                              selectedVehicleType: _selectedVehicleType!,
+                              routeDistance: widget.routeDistance,
+                              routeDuration: widget.routeDuration,
+                              distanceText: widget.distanceText,
+                              durationText: widget.durationText,
+                            ),
+                          ),
+                        );
+                      }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0B3D91),

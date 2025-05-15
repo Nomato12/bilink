@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:bilink/screens/full_screen_map.dart';
 import 'package:bilink/screens/request_location_map.dart';
 import 'package:bilink/utils/location_helper.dart';
+import 'package:bilink/screens/client_location_map.dart';
 
 class ServiceRequestCard extends StatelessWidget {
   final Map<String, dynamic> requestData;
@@ -28,13 +29,7 @@ class ServiceRequestCard extends StatelessWidget {
     final String details = requestData['details'] ?? '';
     final String serviceType = requestData['serviceType'] ?? 'تخزين';
     final Timestamp? createdAt = requestData['createdAt'] as Timestamp?;
-    
-    // Get client location using helper
-    GeoPoint? clientLocation = LocationHelper.getLocationFromData(requestData);
-    String clientAddress = LocationHelper.getAddressFromData(requestData);
-    bool isLiveLocation = LocationHelper.isLocationRecent(requestData);
-    
-    // Transport-specific data
+      // Transport-specific data
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
     final String originName = requestData['originName'] ?? '';
@@ -43,6 +38,25 @@ class ServiceRequestCard extends StatelessWidget {
     final String durationText = requestData['durationText'] ?? '';
     final String vehicleType = requestData['vehicleType'] ?? '';
     final double price = (requestData['price'] ?? 0).toDouble();
+      // Get client location using helper
+    GeoPoint? clientLocation = LocationHelper.getLocationFromData(requestData);
+    String clientAddress = LocationHelper.getAddressFromData(requestData);
+    bool isLiveLocation = LocationHelper.isLocationRecent(requestData);
+    
+    // If client location is null, try to use origin or destination for transport requests
+    if (clientLocation == null && serviceType == 'نقل') {
+      if (originLocation != null) {
+        clientLocation = originLocation;
+        // Set the display address to origin location for better UX
+        clientAddress = originName.isNotEmpty ? originName : 'نقطة الانطلاق';
+        isLiveLocation = false;
+      } else if (destinationLocation != null) {
+        clientLocation = destinationLocation;
+        // Set the display address to destination location for better UX
+        clientAddress = destinationName.isNotEmpty ? destinationName : 'نقطة الوصول';
+        isLiveLocation = false;
+      }
+    }
     
     // Format date
     final String formattedCreatedAt = createdAt != null 
@@ -651,44 +665,69 @@ class ServiceRequestCard extends StatelessWidget {
                       _buildRouteButton(context, clientLocation, clientName),
                     ] else ...[
                       SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(                          onPressed: () {
+                        width: double.infinity,                        child: ElevatedButton.icon(
+                          onPressed: () {
                             // عرض رسالة منبثقة في حالة عدم وجود موقع متاح
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('موقع العميل غير متوفر'),
-                                content: const Text('لم يتم العثور على بيانات موقع لهذا العميل.\nهل تريد الانتقال إلى صفحة تفاصيل العميل؟'),
+                                content: const Text('لم يتم العثور على بيانات موقع لهذا العميل.\nهل تريد طلب الموقع من العميل أو الانتقال لشاشة الخريطة؟'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
                                     child: const Text('إلغاء'),
                                   ),
                                   TextButton(
-                                    onPressed: () => _sendLocationRequest(context, requestData['clientId'] ?? '', clientName),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.blue,
-                                    ),
-                                    child: const Text('طلب الموقع'),
-                                  ),
-                                  ElevatedButton(
                                     onPressed: () {
                                       Navigator.pop(context);
-                                      Navigator.push(
+                                      _sendLocationRequest(context, requestData['clientId'] ?? '', clientName);
+                                    },
+                                    child: const Text('طلب الموقع'),
+                                  ),                                  ElevatedButton(                                    onPressed: () {
+                                      Navigator.pop(context);
+                                        // استخدام موقع النقل إذا كان متوفر، وإلا استخدام موقع افتراضي
+                                      GeoPoint locationToUse;
+                                      String locationTitle = 'موقع $clientName';
+                                      String addressToShow = 'العنوان غير متوفر';
+                                      
+                                      // تحقق من توفر موقع الانطلاق أو الوجهة في حالة خدمة النقل
+                                      if (serviceType == 'نقل') {
+                                        if (originLocation != null) {
+                                          locationToUse = originLocation;
+                                          locationTitle = 'نقطة الانطلاق';
+                                          addressToShow = originName.isNotEmpty ? originName : 'العنوان غير متوفر';
+                                        } else if (destinationLocation != null) {
+                                          locationToUse = destinationLocation;
+                                          locationTitle = 'نقطة الوصول';
+                                          addressToShow = destinationName.isNotEmpty ? destinationName : 'العنوان غير متوفر';
+                                        } else {
+                                          // موقع افتراضي إذا لم يكن هناك موقع
+                                          locationToUse = const GeoPoint(36.716667, 3.000000);
+                                        }
+                                      } else {
+                                        // في حالة خدمة غير النقل استخدم موقع افتراضي
+                                        locationToUse = const GeoPoint(36.716667, 3.000000);
+                                      }                                      Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => ClientDetailsScreen(
+                                          builder: (context) => RequestLocationMap(
+                                            location: locationToUse,
+                                            title: locationTitle,
+                                            address: addressToShow, 
+                                            enableNavigation: true,
                                             clientId: requestData['clientId'] ?? '',
-                                            showDestinationDirectly: true,
+                                            showRouteToCurrent: true,
+                                            showLocationUnavailableMessage: true, // Show warning since this isn't the actual client location
                                           ),
                                         ),
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green.shade700,
+                                      backgroundColor: Colors.blue,
                                       foregroundColor: Colors.white,
                                     ),
-                                    child: const Text('نعم، انتقل للتفاصيل'),
+                                    child: const Text('فتح الخريطة'),
                                   ),
                                 ],
                               ),
@@ -960,46 +999,91 @@ class ServiceRequestCard extends StatelessWidget {
       }
       print('Error updating request status: $e');
     }
-  }
-  // فتح تطبيق الخرائط للملاحة إلى الموقع
-  void _openLocationInMaps(BuildContext context, GeoPoint location, String label) async {
+  }  // فتح الخريطة لعرض موقع العميل داخل التطبيق
+  void _openLocationInMaps(BuildContext context, GeoPoint? location, String label) async {
     try {
+      if (location == null) {
+        // Show error message if location is null
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('الموقع غير متوفر'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
-      final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
-      final uri = Uri.parse(url);
-      bool launched = false;
-
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        launched = true;
-      }
-      if (!launched) {
-        final geoUri = Uri.parse('geo:${location.latitude},${location.longitude}?q=${Uri.encodeComponent(label)}');
-        if (await canLaunchUrl(geoUri)) {
-          await launchUrl(geoUri, mode: LaunchMode.externalApplication);
-          launched = true;
-        }
-      }
-      if (!launched) {
-        final appleMapsUrl = Uri.parse('http://maps.apple.com/?q=${location.latitude},${location.longitude}');
-        if (await canLaunchUrl(appleMapsUrl)) {
-          await launchUrl(appleMapsUrl, mode: LaunchMode.externalApplication);
-          launched = true;
-        }
-      }
+      
       if (context.mounted) Navigator.of(context).pop();
+      
+      // استخراج عنوان الموقع من التسمية
+      String locationName = 'موقع العميل';
+      String locationAddress = '';
+      
+      if (label.contains(' - ')) {
+        final parts = label.split(' - ');
+        if (parts.length >= 2) {
+          locationName = parts[1];
+          locationAddress = parts[0];
+        } else {
+          locationName = label;
+        }
+      } else {
+        locationName = label;
+      }
+      
+      // فتح خريطة داخل التطبيق
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ClientLocationMap(
+              location: location,
+              locationName: locationName,
+              locationAddress: locationAddress,
+              isLiveLocation: label.contains('مباشر') || label.contains('الحالي'),
+            ),
+          ),
+        );
+      }
     } catch (e) {
+      print('Error opening location map: $e');
       if (context.mounted) Navigator.of(context).pop();
+        // في حالة حدوث خطأ، محاولة فتح خرائط جوجل
+      try {
+        // الكود قد لا يصل هنا مطلقًا إذا كان الموقع null لأننا نتحقق في البداية
+        // لكن نضيف فحصًا إضافيًا للتأكد من أن location ليس null
+        if (location != null) {
+          final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+      } catch (e) {
+        print('Failed to open Google Maps: $e');
+      }
     }
   }
-
   // فتح تطبيق الخرائط للملاحة بين نقطة الانطلاق والوجهة
-  void _openDirectionsInMaps(BuildContext context, GeoPoint originLocation, GeoPoint destinationLocation, String originName, String destinationName) async {
+  void _openDirectionsInMaps(BuildContext context, GeoPoint? originLocation, GeoPoint? destinationLocation, String originName, String destinationName) async {
     try {
+      if (originLocation == null || destinationLocation == null) {
+        // Show error message if either location is null
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('أحد المواقع غير متوفر، لا يمكن عرض المسار'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       final url = 'https://www.google.com/maps/dir/?api=1&origin=${originLocation.latitude},${originLocation.longitude}'
           '&destination=${destinationLocation.latitude},${destinationLocation.longitude}';
       final uri = Uri.parse(url);
@@ -1008,86 +1092,112 @@ class ServiceRequestCard extends StatelessWidget {
       }
     } catch (e) {
       // Handle error if needed
-    }  }
-  
-  // عرض خريطة كاملة الشاشة للموقع
-  void _showClientLocationOnMap(BuildContext context, GeoPoint clientLocation, String clientName, {bool showRoute = false}) async {
-    try {
-      final String address = requestData['clientAddress'] ?? '';
-      final String clientId = requestData['clientId'] ?? '';
-      
-      if (showRoute) {
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-        
-        // Try to open in Google Maps with directions
-        final url = 'https://www.google.com/maps/dir/?api=1&destination=${clientLocation.latitude},${clientLocation.longitude}&destination_name=${Uri.encodeComponent(clientName)}&travelmode=driving';
-        final uri = Uri.parse(url);
-        
-        bool launched = false;
-        
-        if (await canLaunchUrl(uri)) {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-        
-        // Try alternative URI format if the first one fails
-        if (!launched) {
-          final geoUrl = 'geo:0,0?q=${clientLocation.latitude},${clientLocation.longitude}(${Uri.encodeComponent(clientName)})&mode=d';
-          final geoUri = Uri.parse(geoUrl);
-          
-          if (await canLaunchUrl(geoUri)) {
-            launched = await launchUrl(geoUri, mode: LaunchMode.externalApplication);
-          }
-        }
-        
-        // Close loading dialog
-        if (context.mounted) {
-          Navigator.pop(context);
-          
-          // Show message if failed
-          if (!launched) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('لم يتم العثور على تطبيق خرائط يدعم الاتجاهات'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        }
-      } else {
-        // Just show the map without directions
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RequestLocationMap(
-              location: clientLocation,
-              title: 'موقع $clientName',
-              address: address, 
-              enableNavigation: true,
-              clientId: clientId.isNotEmpty ? clientId : null,
-              showRouteToCurrent: showRoute,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog if it's open
       if (context.mounted) {
-        Navigator.pop(context);
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ أثناء محاولة فتح الخريطة: $e'),
+            content: Text('حدث خطأ أثناء محاولة فتح خرائط جوجل: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    }}
+  
+  // عرض خريطة كاملة الشاشة للموقع  
+  void _showClientLocationOnMap(BuildContext context, GeoPoint? clientLocation, String clientName, {bool showRoute = false}) async {
+    try {
+      // If client location is null, try to use transport location from client_locations
+      if (clientLocation == null) {
+        final String clientId = requestData['clientId'] ?? '';
+        GeoPoint? locationToUse;
+        String locationTitle = 'موقع $clientName';
+        String addressToShow = 'العنوان غير متوفر';
+        bool usedTransportLocation = false;
+
+        // Attempt to fetch from client_locations collection
+        if (clientId.isNotEmpty) {
+          final locationData = await LocationHelper.getClientLocationData(clientId);
+          if (locationData != null) {
+            if (locationData['originLocation'] is GeoPoint) {
+              locationToUse = locationData['originLocation'] as GeoPoint;
+              locationTitle = 'نقطة الانطلاق';
+              addressToShow = locationData['originName'] ?? 'نقطة الانطلاق';
+              usedTransportLocation = true;
+            } else if (locationData['destinationLocation'] is GeoPoint) {
+              locationToUse = locationData['destinationLocation'] as GeoPoint;
+              locationTitle = 'نقطة الوصول';
+              addressToShow = locationData['destinationName'] ?? 'نقطة الوصول';
+              usedTransportLocation = true;
+            }
+          }
+        }
+        // If still null, fallback to requestData transport fields
+        if (locationToUse == null) {
+          final String serviceType = requestData['serviceType'] ?? '';
+          if (serviceType == 'نقل') {
+            final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
+            final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
+            final String originName = requestData['originName'] ?? '';
+            final String destinationName = requestData['destinationName'] ?? '';
+            if (originLocation != null) {
+              locationToUse = originLocation;
+              locationTitle = 'نقطة الانطلاق';
+              addressToShow = originName.isNotEmpty ? originName : 'نقطة الانطلاق';
+              usedTransportLocation = true;
+            } else if (destinationLocation != null) {
+              locationToUse = destinationLocation;
+              locationTitle = 'نقطة الوصول';
+              addressToShow = destinationName.isNotEmpty ? destinationName : 'نقطة الوصول';
+              usedTransportLocation = true;
+            }
+          }
+        }
+        // If still null, fallback to default
+        locationToUse ??= const GeoPoint(36.716667, 3.000000);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RequestLocationMap(
+              location: locationToUse!,
+              title: locationTitle,
+              address: addressToShow,
+              enableNavigation: true,
+              clientId: clientId.isNotEmpty ? clientId : null,
+              showRouteToCurrent: showRoute,
+              showLocationUnavailableMessage: !usedTransportLocation, // Only show warning if not using real transport location
+            ),
+          ),
+        );
+        return;
+      }
+      // For non-null client location
+      final String address = requestData['clientAddress'] ?? '';
+      final String clientId = requestData['clientId'] ?? '';
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RequestLocationMap(
+            location: clientLocation,
+            title: 'موقع $clientName',
+            address: address, 
+            enableNavigation: true,
+            clientId: clientId.isNotEmpty ? clientId : null,
+            showRouteToCurrent: showRoute,
+          ),
+        ),
+      );
+    } catch (e) {
+      // Show error message
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء محاولة عرض الموقع: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error showing client location on map: $e');
     }
   }
   // Show the full-screen map
@@ -1114,157 +1224,6 @@ class ServiceRequestCard extends StatelessWidget {
     }
   }
 
-  // Buscar y navegar a la ubicación del cliente
-  void _fetchAndNavigateToClientLocation(BuildContext context, String clientId) async {
-    try {
-      if (clientId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('معرّف العميل غير متوفر'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
-      // Mostrar indicador de carga
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
-      // Buscar la información del cliente en Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(clientId)
-          .get();
-      
-      // Cerrar el indicador de carga
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
-      
-      if (!userDoc.exists) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لا يمكن العثور على معلومات العميل'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      
-      final userData = userDoc.data() as Map<String, dynamic>;      
-      // Comprobar si hay datos de ubicación
-      GeoPoint? clientLocation;
-      String locationAddress = 'موقع العميل';
-      bool isLiveLocation = false;
-      Timestamp? locationTimestamp;
-      
-      // Intentar obtener la ubicación del usuario desde diferentes campos
-      if (userData.containsKey('location') && userData['location'] is Map<String, dynamic>) {
-        final locationData = userData['location'] as Map<String, dynamic>;
-        if (locationData.containsKey('latitude') && locationData.containsKey('longitude')) {
-          clientLocation = GeoPoint(
-            locationData['latitude'] as double,
-            locationData['longitude'] as double,
-          );
-          
-          if (locationData.containsKey('address') && locationData['address'] is String) {
-            locationAddress = locationData['address'] as String;
-          }
-          
-          if (locationData.containsKey('timestamp') && locationData['timestamp'] is Timestamp) {
-            locationTimestamp = locationData['timestamp'] as Timestamp;
-            final DateTime now = DateTime.now();
-            final DateTime locationTime = locationTimestamp.toDate();
-            // Check if the location is recent (within the last 10 minutes)
-            if (now.difference(locationTime).inMinutes < 10) {
-              isLiveLocation = true;
-            }
-          }
-        }
-      } else if (userData.containsKey('lastLocation') && userData['lastLocation'] is GeoPoint) {
-        clientLocation = userData['lastLocation'] as GeoPoint;
-        
-        if (userData.containsKey('lastLocationTimestamp') && userData['lastLocationTimestamp'] is Timestamp) {
-          locationTimestamp = userData['lastLocationTimestamp'] as Timestamp;
-          final DateTime now = DateTime.now();
-          final DateTime locationTime = locationTimestamp.toDate();
-          // Check if the location is recent (within the last 10 minutes)
-          if (now.difference(locationTime).inMinutes < 10) {
-            isLiveLocation = true;
-          }
-        }
-      } else if (userData.containsKey('homeLocation') && userData['homeLocation'] is GeoPoint) {
-        clientLocation = userData['homeLocation'] as GeoPoint;
-        locationAddress = 'عنوان العميل';
-      }      if (clientLocation == null) {
-        if (context.mounted) {
-          // Mostrar diálogo para solicitar al cliente su ubicación
-          _showRequestLocationDialog(context, clientId, userData['displayName'] ?? 'العميل');
-        }
-        return;
-      }
-      
-      // Show dialog with options to view on map or navigate
-      if (context.mounted) {
-        _showLocationOptionsDialog(
-          context, 
-          clientLocation, 
-          userData['displayName'] ?? 'العميل', 
-          locationAddress,
-          isLiveLocation: isLiveLocation,
-          locationTimestamp: locationTimestamp
-        );
-      }
-    } catch (e) {
-      print('Error fetching client location: $e');
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // Cerrar el diálogo si está abierto
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء محاولة الوصول إلى موقع العميل: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-  
-  // Mostrar diálogo para solicitar la ubicación del cliente
-  void _showRequestLocationDialog(BuildContext context, String clientId, String clientName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('موقع العميل غير متوفر'),
-        content: Text('لم نتمكن من العثور على موقع $clientName. هل تريد إرسال طلب للحصول على موقعه الحالي؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _sendLocationRequest(context, clientId, clientName);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('طلب الموقع'),
-          ),
-        ],
-      ),
-    );
-  }
-  
   // Enviar solicitud de ubicación al cliente
   void _sendLocationRequest(BuildContext context, String clientId, String clientName) async {
     try {
@@ -1333,110 +1292,10 @@ class ServiceRequestCard extends StatelessWidget {
         );
       }
     }
-  }  // Show dialog with options for client location
-  void _showLocationOptionsDialog(BuildContext context, GeoPoint location, String clientName, String address, {bool isLiveLocation = false, Timestamp? locationTimestamp}) {
-    String locationInfo = address.isNotEmpty ? 'العنوان: $address' : '';
-    
-    if (locationTimestamp != null) {
-      final dateFormat = DateFormat('yyyy/MM/dd hh:mm a');
-      final formattedTime = dateFormat.format(locationTimestamp.toDate());
-      locationInfo += locationInfo.isNotEmpty ? '\n' : '';
-      locationInfo += 'وقت تحديث الموقع: $formattedTime';
-    }
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.location_on, color: Colors.green),
-            const SizedBox(width: 8),
-            Text('موقع $clientName'),
-            if (isLiveLocation) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.gps_fixed, color: Colors.white, size: 12),
-                    SizedBox(width: 4),
-                    Text(
-                      'مباشر',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (locationInfo.isNotEmpty) ...[
-              Text(locationInfo),
-              const SizedBox(height: 16),
-            ],
-            const Text('ماذا تريد أن تفعل؟'),
-          ],
-        ),
-        actions: [          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _showClientLocationOnMap(context, location, clientName);
-            },
-            icon: const Icon(Icons.map),
-            label: const Text('عرض على الخريطة'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _showClientLocationOnMap(context, location, clientName, showRoute: true);
-            },
-            icon: const Icon(Icons.route),
-            label: const Text('عرض المسار'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _openLocationInMaps(context, location, '$address - $clientName');
-            },
-            icon: const Icon(Icons.directions),
-            label: const Text('الملاحة'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Add this method to handle direct route navigation from current to client location
-  void _openRouteToClient(BuildContext context, GeoPoint clientLocation, String clientName) {
-    _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true);
   }
 
   // Add a button to directly show the route to bottom of card when client location is available
-  Widget _buildRouteButton(BuildContext context, GeoPoint clientLocation, String clientName) {
+  Widget _buildRouteButton(BuildContext context, GeoPoint? clientLocation, String clientName) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       child: ElevatedButton.icon(
@@ -1450,5 +1309,8 @@ class ServiceRequestCard extends StatelessWidget {
         ),
       ),
     );
+  }  // Add this method to handle direct route navigation from current to client location
+  void _openRouteToClient(BuildContext context, GeoPoint? clientLocation, String clientName) {
+    _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true);
   }
 }

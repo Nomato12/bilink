@@ -13,8 +13,7 @@ class NotificationService {
       FirebaseFirestore.instance.collection('service_requests');
   
   final CollectionReference _notificationsCollection = 
-      FirebaseFirestore.instance.collection('notifications');
-  // Send a service request from client to provider
+      FirebaseFirestore.instance.collection('notifications');  // Send a service request from client to provider
   Future<String> sendServiceRequest({
     required String serviceId,
     required String providerId,
@@ -30,6 +29,9 @@ class NotificationService {
     String? durationText,
     String? vehicleType,
     double? price,
+    // Client location information
+    GeoPoint? clientLocation,
+    String? clientAddress,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -63,8 +65,7 @@ class NotificationService {
         'serviceType': serviceType, // Add service type to the request
         'createdAt': FieldValue.serverTimestamp(),
       };
-      
-      // Add transport-specific data if this is a transport service
+        // Add transport-specific data if this is a transport service
       if (serviceType == 'نقل') {
         if (originLocation != null) requestData['originLocation'] = originLocation;
         if (originName != null && originName.isNotEmpty) requestData['originName'] = originName;
@@ -74,6 +75,10 @@ class NotificationService {
         if (durationText != null && durationText.isNotEmpty) requestData['durationText'] = durationText;
         if (vehicleType != null && vehicleType.isNotEmpty) requestData['vehicleType'] = vehicleType;
         if (price != null) requestData['price'] = price;
+        
+        // Add client location information
+        if (clientLocation != null) requestData['clientLocation'] = clientLocation;
+        if (clientAddress != null && clientAddress.isNotEmpty) requestData['clientAddress'] = clientAddress;
       }
 
       // Create the request document

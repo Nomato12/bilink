@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
-import 'dart:math' show min, max, sin, cos, sqrt, atan2, pi;
+import 'dart:math' show sin, cos, sqrt, atan2, pi;
 
 class RequestLocationMap extends StatefulWidget {
   final GeoPoint location;
@@ -13,6 +13,7 @@ class RequestLocationMap extends StatefulWidget {
   final bool enableNavigation;
   final String? clientId; // Add clientId parameter for real-time tracking
   final bool showRouteToCurrent; // Show route between client and current location
+  final bool showLocationUnavailableMessage; // Show message if location is not the actual client location
 
   const RequestLocationMap({
     super.key,
@@ -22,6 +23,7 @@ class RequestLocationMap extends StatefulWidget {
     this.enableNavigation = true,
     this.clientId,
     this.showRouteToCurrent = false,
+    this.showLocationUnavailableMessage = false,
   });
 
   @override
@@ -31,19 +33,15 @@ class RequestLocationMap extends StatefulWidget {
 class _RequestLocationMapState extends State<RequestLocationMap> {
   late GoogleMapController _mapController;
   bool _mapInitialized = false;
-  final Set<Marker> _markers = {};
-  StreamSubscription<DocumentSnapshot>? _locationSubscription;
+  final Set<Marker> _markers = {};  StreamSubscription<DocumentSnapshot>? _locationSubscription;
   bool _isTracking = false;
   GeoPoint _currentLocation;
   bool _showTrackingOptions = false;
   
   // For routing
   GeoPoint? _providerLocation;
-  bool _isLoadingProviderLocation = false;
   final Map<PolylineId, Polyline> _polylines = {};
-  final bool _showingRoute = false;
-  
-  _RequestLocationMapState() : _currentLocation = GeoPoint(0, 0);
+    _RequestLocationMapState() : _currentLocation = GeoPoint(0, 0);
   
   @override
   void initState() {
@@ -59,10 +57,20 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     if (widget.showRouteToCurrent) {
       _getProviderCurrentLocation();
     }
-  }
-  @override
+  }  @override
   void dispose() {
-    _stopTracking();
+    // إلغاء الاشتراك بشكل آمن دون عرض أي رسائل
+    if (_locationSubscription != null) {
+      _locationSubscription!.cancel();
+      _locationSubscription = null;
+    }
+    _isTracking = false;
+    
+    // التأكد من إغلاق وحدة تحكم الخريطة
+    if (_mapInitialized) {
+      _mapController.dispose();
+    }
+    
     super.dispose();
   }
 
@@ -96,13 +104,8 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       );
     }
   }
-  
-  // Get the provider's current location
+    // Get the provider's current location
   Future<void> _getProviderCurrentLocation() async {
-    setState(() {
-      _isLoadingProviderLocation = true;
-    });
-    
     try {
       // Request location permission
       LocationPermission permission = await Geolocator.checkPermission();
@@ -116,28 +119,23 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       if (permission == LocationPermission.deniedForever) {
         throw Exception('إذن الموقع مرفوض بشكل دائم، يرجى تمكينه من إعدادات التطبيق');
       }
-      
-      // Get current position
+        // Get current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       
-      setState(() {
-        _providerLocation = GeoPoint(position.latitude, position.longitude);
-        _isLoadingProviderLocation = false;
-        _updateMarker();
-      });
-      
-      // Create route if needed
-      if (widget.showRouteToCurrent) {
-        _createRoute();
+      if (mounted) {
+        setState(() {
+          _providerLocation = GeoPoint(position.latitude, position.longitude);
+          _updateMarker();
+        });
+        
+        // Create route if needed
+        if (widget.showRouteToCurrent) {
+          _createRoute();
+        }
       }
-      
-    } catch (e) {
-      setState(() {
-        _isLoadingProviderLocation = false;
-      });
-      
+        } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -161,8 +159,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
       LatLng(_currentLocation.latitude, _currentLocation.longitude),
     ];
-    
-    // Create polyline
+      // Create polyline
     final PolylineId id = const PolylineId('route');
     final Polyline polyline = Polyline(
       polylineId: id,
@@ -171,29 +168,29 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       width: 5,
     );
     
-    setState(() {
-      _polylines[id] = polyline;
-    });
-    
-    // Fit the map to include both points
-    if (_mapInitialized) {
-      LatLngBounds bounds = LatLngBounds(
-        southwest: LatLng(
-          min(_providerLocation!.latitude, _currentLocation.latitude),
-          min(_providerLocation!.longitude, _currentLocation.longitude),
-        ),
-        northeast: LatLng(
-          max(_providerLocation!.latitude, _currentLocation.latitude),
-          max(_providerLocation!.longitude, _currentLocation.longitude),
-        ),
-      );
+    if (mounted) {
+      setState(() {
+        _polylines[id] = polyline;
+      });
       
-      // Add padding to the bounds
-      _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      // Fit the map to include both points
+      if (_mapInitialized) {
+        LatLngBounds bounds = LatLngBounds(
+          southwest: LatLng(
+            min(_providerLocation!.latitude, _currentLocation.latitude),
+            min(_providerLocation!.longitude, _currentLocation.longitude),
+          ),
+          northeast: LatLng(
+            max(_providerLocation!.latitude, _currentLocation.latitude),
+            max(_providerLocation!.longitude, _currentLocation.longitude),
+          ),
+        );
+        
+        // Add padding to the bounds
+        _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      }
     }
-  }
-  
-  // Find the minimum of two values
+  }    // Find the minimum of two values
   double min(double a, double b) => a < b ? a : b;
   
   // Find the maximum of two values
@@ -209,7 +206,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         .doc(widget.clientId)
         .snapshots()
         .listen((snapshot) {
-      if (snapshot.exists) {
+      if (snapshot.exists && mounted) {
         final data = snapshot.data() as Map<String, dynamic>;
         GeoPoint? newLocation;
         
@@ -225,14 +222,14 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
           newLocation = data['lastLocation'] as GeoPoint;
         }
         
-        if (newLocation != null) {
+        if (newLocation != null && mounted) {
           setState(() {
             _currentLocation = newLocation!;
             _updateMarker();
           });
           
           // Auto-center map on new location
-          if (_mapInitialized) {
+          if (_mapInitialized && mounted) {
             _mapController.animateCamera(
               CameraUpdate.newLatLng(
                 LatLng(_currentLocation.latitude, _currentLocation.longitude),
@@ -244,29 +241,23 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     });
     
     // Show notification that tracking is active
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم تفعيل تتبع موقع العميل'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تفعيل تتبع موقع العميل'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
-
   void _stopTracking() {
     _locationSubscription?.cancel();
     _locationSubscription = null;
     _isTracking = false;
     
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إيقاف تتبع موقع العميل'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    // لا نقوم بعرض رسالة Snackbar هنا لأنه قد يكون غير آمن إذا تم استدعاء هذه الدالة من dispose()
+    // بدلاً من ذلك، نتحقق ما إذا كان الويدجت نشطاً قبل عرض الرسالة
   }
 
   // Refresh client location once without starting continuous tracking
@@ -319,32 +310,30 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         }
       } else if (userData.containsKey('lastLocation') && userData['lastLocation'] is GeoPoint) {
         newLocation = userData['lastLocation'] as GeoPoint;
-      }
-      
-      if (newLocation != null) {
-        setState(() {
-          _currentLocation = newLocation!;
-          _updateMarker();
-        });
-        
-        // Center map on new location
-        if (_mapInitialized) {
-          _mapController.animateCamera(
-            CameraUpdate.newLatLng(
-              LatLng(_currentLocation.latitude, _currentLocation.longitude),
-            ),
-          );
-        }
-        
-        // Show success message
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم تحديث موقع العميل'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      }        if (newLocation != null && mounted) {
+          setState(() {
+            _currentLocation = newLocation!;
+            _updateMarker();
+            
+            // Center map on new location
+            if (_mapInitialized) {
+              _mapController.animateCamera(
+                CameraUpdate.newLatLng(
+                  LatLng(_currentLocation.latitude, _currentLocation.longitude),
+                ),
+              );
+            }
+          });
+          
+          // Show success message
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم تحديث موقع العميل'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -354,8 +343,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             ),
           );
         }
-      }
-    } catch (e) {
+      }    } catch (e) {
       // Close loading indicator
       if (context.mounted) {
         Navigator.pop(context);
@@ -411,12 +399,21 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
               onPressed: _refreshLocation,
               tooltip: 'تحديث الموقع',
             ),
-          if (_showTrackingOptions)
-            IconButton(
+          if (_showTrackingOptions)            IconButton(
               icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed),
               onPressed: () {
                 if (_isTracking) {
                   _stopTracking();
+                  // عرض رسالة توقف التتبع هنا بدلاً من داخل _stopTracking
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('تم إيقاف تتبع موقع العميل'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 } else {
                   _startTracking();
                 }
@@ -436,8 +433,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             IconButton(
               icon: Icon(_polylines.isNotEmpty ? Icons.route : Icons.add_road),
               onPressed: () {
-                if (_polylines.isNotEmpty) {
-                  setState(() {
+                if (_polylines.isNotEmpty) {                  setState(() {
                     _polylines.clear();
                   });
                 } else {
@@ -471,17 +467,45 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             onMapCreated: (controller) {
               _mapController = controller;
               // Set custom map style
-              _setMapStyle(controller);
-              setState(() {
+              _setMapStyle(controller);              setState(() {
                 _mapInitialized = true;
               });
               
               // Create route if needed after map is initialized
-              if (widget.showRouteToCurrent && _providerLocation != null) {
+              if (widget.showRouteToCurrent && _providerLocation != null && mounted) {
                 _createRoute();
               }
             },
-          ),          // Info panel at the bottom
+          ),
+          
+          // إذا كان موقع العميل غير متوفر، عرض رسالة تنبيه للمستخدم
+          if (widget.showLocationUnavailableMessage)
+            Positioned(
+              top: 20,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'هذا موقع تقريبي. موقع العميل الفعلي غير متوفر.',
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          // Info panel at the bottom
           Positioned(
             bottom: 0,
             left: 0,
@@ -553,7 +577,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                             ),
                             onPressed: _refreshLocation,
                           ),
-                        TextButton.icon(
+            TextButton.icon(
                           icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed, 
                               size: 16, 
                               color: _isTracking ? Colors.red : Colors.green),
@@ -565,12 +589,21 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                             ),
                           ),
                           onPressed: () {
-                            if (_isTracking) {
-                              _stopTracking();
-                            } else {
-                              _startTracking();
-                            }
-                            setState(() {});
+                            setState(() {
+                              if (_isTracking) {
+                                _stopTracking();
+                                // عرض رسالة توقف التتبع هنا بدلاً من داخل _stopTracking
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('تم إيقاف تتبع موقع العميل'),
+                                    backgroundColor: Colors.orange,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              } else {
+                                _startTracking();
+                              }
+                            });
                           },
                         ),
                       ],
