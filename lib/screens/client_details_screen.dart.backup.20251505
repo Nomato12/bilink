@@ -8,8 +8,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bilink/utils/location_helper.dart';
 import 'package:bilink/screens/chat_screen.dart';
 import 'package:bilink/services/directions_service.dart';
-import 'dart:math' as math;
-import 'package:bilink/screens/directions_map_tracking.dart';
 
 class ClientDetailsScreen extends StatefulWidget {
   final String clientId;
@@ -32,7 +30,6 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   CameraPosition? _initialCameraPosition;
-  GoogleMapController? _mapController;
 
   bool _hasTransportRequestData = false;
   LatLng? _originLocation;
@@ -199,47 +196,21 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
   }
   // Helper: Open in Google Maps
   Future<void> _openInGoogleMaps(LatLng position, {LatLng? destination}) async {
-    if (_mapController == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('جاري تحميل الخريطة...'), backgroundColor: Colors.orange),
-      );
-      return;
+    String url;
+    if (destination != null) {
+      // URL for directions between two points
+      url = 'https://www.google.com/maps/dir/?api=1&origin=${position.latitude},${position.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving';
+    } else {
+      // URL for viewing a single location
+      url = 'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
     }
-
-    try {
-      if (destination != null) {
-        // للانتقال بين نقطتين (مسار)
-        final bounds = LatLngBounds(
-          southwest: LatLng(
-            math.min(position.latitude, destination.latitude) - 0.01,
-            math.min(position.longitude, destination.longitude) - 0.01,
-          ),
-          northeast: LatLng(
-            math.max(position.latitude, destination.latitude) + 0.01,
-            math.max(position.longitude, destination.longitude) + 0.01,
-          ),
-        );
-        
-        await _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-        
-        // تحميل المسار إذا لم يكن موجوداً
-        if (_polylines.isEmpty) {
-          _loadDirections();
-        }
-      } else {
-        // للانتقال إلى نقطة واحدة
-        await _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(position, 15),
-        );
-      }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم الانتقال إلى الموقع بنجاح'), backgroundColor: Colors.green),
-      );
-    } catch (e) {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حدث خطأ أثناء الانتقال إلى الموقع'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('لا يمكن فتح تطبيق الخرائط'), backgroundColor: Colors.red),
         );
       }
     }
@@ -857,6 +828,56 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
       maxLng += lngPadding;
       
       // تحديث موقع الكاميرا
+      // حساب المركز الجديد
+      final centerLat = (minLat + maxLat) / 2;
+      final centerLng = (minLng + maxLng) / 2;
+      
+      // تقدير مستوى التكبير المناسب
+      final latDiff = (maxLat - minLat).abs();
+      final lngDiff = (maxLng - minLng).abs();
+      final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
+      final zoom = maxDiff > 0.1 ? 10.0 : (maxDiff > 0.05 ? 12.0 : 14.0);
+      
+      // تعيين موقع الكاميرا الجديد
+      _initialCameraPosition = CameraPosition(
+        target: LatLng(centerLat, centerLng),
+        zoom: zoom,
+      );
+      
+      print('✅ تم تحديث موقع الكاميرا ليشمل جميع العلامات. مستوى التكبير: $zoom');
+    } catch (e) {
+      print('❌ خطأ في تحديث موقع الكاميرا: $e');
+    }
+  }
+
+  // دالة مساعدة لتحديث موقع الكاميرا لتشمل جميع العلامات
+  void _updateCameraToFitAllMarkers() {
+    if (_markers.isEmpty) return;
+    
+    try {
+      // حساب الحدود التي تشمل جميع العلامات
+      double minLat = double.infinity;
+      double maxLat = -double.infinity;
+      double minLng = double.infinity;
+      double maxLng = -double.infinity;
+      
+      for (final marker in _markers) {
+        if (marker.position.latitude < minLat) minLat = marker.position.latitude;
+        if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
+        if (marker.position.longitude < minLng) minLng = marker.position.longitude;
+        if (marker.position.longitude > maxLng) maxLng = marker.position.longitude;
+      }
+      
+      // إضافة هامش للحدود
+      final latPadding = (maxLat - minLat) * 0.1;
+      final lngPadding = (maxLng - minLng) * 0.1;
+      
+      minLat -= latPadding;
+      maxLat += latPadding;
+      minLng -= lngPadding;
+      maxLng += lngPadding;
+      
+      // تحديث موقع الكاميرا
       final southwest = LatLng(minLat, minLng);
       final northeast = LatLng(maxLat, maxLng);
       
@@ -880,45 +901,6 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
     } catch (e) {
       print('❌ خطأ في تحديث موقع الكاميرا: $e');
     }
-  }
-
-  // فتح شاشة الخريطة كاملة الشاشة مع التتبع المباشر
-  void _openFullScreenMap() {
-    if (_originLocation == null && !_markers.any((m) => m.markerId.value == 'clientLocation')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يمكن فتح الخريطة: موقع العميل غير متوفر'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    // تحديد نقطة البداية (موقع العميل)
-    LatLng originPos;
-    if (_markers.any((m) => m.markerId.value == 'clientLocation')) {
-      final clientMarker = _markers.firstWhere(
-        (marker) => marker.markerId.value == 'clientLocation',
-        orElse: () => _markers.first,
-      );
-      originPos = clientMarker.position;
-    } else {
-      originPos = _originLocation!;
-    }
-
-    // التأكد من تحميل المسار إذا كانت الوجهة متوفرة
-    if (_destinationLocation != null && _polylines.isEmpty) {
-      _loadDirections();
-    }
-
-    // فتح شاشة الخريطة كاملة الشاشة
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => LiveTrackingMapScreen(
-          originLocation: originPos,
-          originName: _originName.isEmpty ? 'موقع العميل' : _originName,
-          destinationLocation: _destinationLocation,
-          destinationName: _destinationName.isEmpty ? 'وجهة العميل' : _destinationName,
-        ),
-      ),
-    );
   }
 
   @override
@@ -1214,7 +1196,8 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                         ]),
                                     ],
                                   ),
-                                ),                                Container(
+                                ),
+                                Container(
                                   height: 250,
                                   clipBehavior: Clip.antiAlias,
                                   decoration: BoxDecoration(
@@ -1230,16 +1213,15 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                     myLocationButtonEnabled: false,
                                     zoomControlsEnabled: true,
                                     mapToolbarEnabled: true,
-                                    onMapCreated: (controller) {
-                                      _mapController = controller;
-                                    },
+                                    onMapCreated: (controller) {},
                                   ),
                                 ),
                                 if (_destinationLocation != null) ...[
                                   Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Column(
-                                      children: [                                        ElevatedButton.icon(
+                                      children: [
+                                        ElevatedButton.icon(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.blue,
                                             foregroundColor: Colors.white,
@@ -1248,8 +1230,7 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                               borderRadius: BorderRadius.circular(10),
                                             ),
                                             elevation: 3,
-                                          ),
-                                          onPressed: () {
+                                          ),                                          onPressed: () {
                                             // Get the client's current location marker
                                             final clientMarker = _markers.firstWhere(
                                               (marker) => marker.markerId.value == 'clientLocation',
@@ -1263,24 +1244,6 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                           icon: const Icon(Icons.directions),
                                           label: const Text(
                                             'عرض طريق من الموقع إلى الوجهة',
-                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(double.infinity, 50),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            elevation: 3,
-                                          ),
-                                          onPressed: _openFullScreenMap,
-                                          icon: const Icon(Icons.fullscreen),
-                                          label: const Text(
-                                            'فتح خريطة كاملة مع تتبع المسار',
                                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                           ),
                                         ),
@@ -1340,7 +1303,8 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(10),
                                         ),
-                                      ),                                      onPressed: () {
+                                      ),
+                                      onPressed: () {
                                         // Get the first marker (client location)
                                         final clientMarker = _markers.first;
                                         _openInGoogleMaps(clientMarker.position);
@@ -1348,25 +1312,6 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                       icon: const Icon(Icons.navigation),
                                       label: const Text(
                                         'تتبع موقع العميل',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.purple,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(double.infinity, 50),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                      onPressed: _openFullScreenMap,
-                                      icon: const Icon(Icons.fullscreen),
-                                      label: const Text(
-                                        'فتح خريطة كاملة الشاشة',
                                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -1541,7 +1486,8 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                           ]),
                                       ],
                                     ),
-                                  ),                                  Container(
+                                  ),
+                                  Container(
                                     height: 250,
                                     clipBehavior: Clip.antiAlias,
                                     decoration: BoxDecoration(
@@ -1557,11 +1503,9 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                       myLocationButtonEnabled: false,
                                       zoomControlsEnabled: true,
                                       mapToolbarEnabled: true,
-                                      onMapCreated: (controller) {
-                                        _mapController = controller;
-                                      },
+                                      onMapCreated: (controller) {},
                                     ),
-                                  ),Padding(
+                                  ),                                  Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Column(
                                       children: [
@@ -1747,14 +1691,5 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
         );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    // التخلص من متحكم الخريطة عند إغلاق الصفحة
-    if (_mapController != null) {
-      _mapController!.dispose();
-    }
-    super.dispose();
   }
 }

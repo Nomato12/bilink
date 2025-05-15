@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:bilink/services/directions_helper.dart';
-import 'package:bilink/models/directions_result.dart';
 
 class RequestLocationMap extends StatefulWidget {
   final GeoPoint location;
@@ -15,6 +14,9 @@ class RequestLocationMap extends StatefulWidget {
   final String? clientId; // Add clientId parameter for real-time tracking
   final bool showRouteToCurrent; // Show route between client and current location
   final bool showLocationUnavailableMessage; // Show message if location is not the actual client location
+  final GeoPoint? destinationLocation; // إضافة موقع الوجهة
+  final String? destinationName; // إضافة اسم الوجهة
+  final String? requestId; // إضافة معرّف الطلب
 
   const RequestLocationMap({
     super.key,
@@ -25,6 +27,9 @@ class RequestLocationMap extends StatefulWidget {
     this.clientId,
     this.showRouteToCurrent = false,
     this.showLocationUnavailableMessage = false,
+    this.destinationLocation, // إضافة موقع الوجهة كمعامل اختياري
+    this.destinationName, // إضافة اسم الوجهة كمعامل اختياري
+    this.requestId, // إضافة معرّف الطلب كمعامل اختياري
   });
 
   @override
@@ -34,15 +39,22 @@ class RequestLocationMap extends StatefulWidget {
 class _RequestLocationMapState extends State<RequestLocationMap> {
   late GoogleMapController _mapController;
   bool _mapInitialized = false;
-  final Set<Marker> _markers = {};  StreamSubscription<DocumentSnapshot>? _locationSubscription;
+  final Set<Marker> _markers = {};  
+  StreamSubscription<DocumentSnapshot>? _locationSubscription;
   bool _isTracking = false;
-  GeoPoint _currentLocation;
+  late GeoPoint _currentLocation;
   bool _showTrackingOptions = false;
   
   // For routing
   GeoPoint? _providerLocation;
   final Map<PolylineId, Polyline> _polylines = {};
-    _RequestLocationMapState() : _currentLocation = GeoPoint(0, 0);
+  
+  // للوجهة النهائية
+  GeoPoint? _destinationLocation;
+  String? _destinationName;
+  bool _showDestination = false;
+
+  _RequestLocationMapState() : _currentLocation = GeoPoint(0, 0);
   
   @override
   void initState() {
@@ -54,11 +66,17 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     // If clientId is provided, enable tracking option
     _showTrackingOptions = widget.clientId != null;
     
+    // Initialize destination information if provided
+    if (widget.destinationLocation != null) {
+      _destinationLocation = widget.destinationLocation;
+      _destinationName = widget.destinationName;
+    }
+    
     // Get provider location if route should be shown
     if (widget.showRouteToCurrent) {
       _getProviderCurrentLocation();
     }
-  }  @override
+  }@override
   void dispose() {
     // إلغاء الاشتراك بشكل آمن دون عرض أي رسائل
     if (_locationSubscription != null) {
@@ -74,7 +92,6 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     
     super.dispose();
   }
-
   void _updateMarker() {
     _markers.clear();
     
@@ -104,8 +121,23 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         ),
       );
     }
+    
+    // Add destination marker if available and should be shown
+    if (_destinationLocation != null && _showDestination) {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('destinationLocation'),
+          position: LatLng(_destinationLocation!.latitude, _destinationLocation!.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: InfoWindow(
+            title: 'الوجهة النهائية',
+            snippet: _destinationName ?? 'الوجهة',
+          ),
+        ),
+      );
+    }
   }
-    // Get the provider's current location
+  // Get the provider's current location
   Future<void> _getProviderCurrentLocation() async {
     try {
       // Request location permission
@@ -120,7 +152,8 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       if (permission == LocationPermission.deniedForever) {
         throw Exception('إذن الموقع مرفوض بشكل دائم، يرجى تمكينه من إعدادات التطبيق');
       }
-        // Get current position
+      
+      // Get current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -131,12 +164,29 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
           _updateMarker();
         });
         
+        // التحقق مما إذا كان السائق قد وصل إلى العميل
+        if (_hasReachedClient() && _destinationLocation != null && !_showDestination) {
+          setState(() {
+            _showDestination = true;
+            _updateMarker(); // تحديث العلامات لإظهار علامة الوجهة
+          });
+          
+          // عرض رسالة إشعار بالوصول للعميل
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم الوصول إلى العميل! استخدم زر التتبع لعرض الوجهة النهائية'),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        
         // Create route if needed
         if (widget.showRouteToCurrent) {
           _createRoute();
         }
       }
-        } catch (e) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -147,7 +197,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       }
       print('Error getting location: $e');
     }
-  }  // Create route between provider and client locations
+  }// Create route between provider and client locations
   Future<void> _createRoute() async {
     if (_providerLocation == null) {
       await _getProviderCurrentLocation();
@@ -461,115 +511,200 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.address.isNotEmpty) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.location_on, color: Colors.green, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.address,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: Colors.grey, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'الإحداثيات: ${_currentLocation.latitude.toStringAsFixed(6)}, ${_currentLocation.longitude.toStringAsFixed(6)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
-                  ),                  if (_showTrackingOptions) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-            TextButton.icon(
-                          icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed, 
-                              size: 16, 
-                              color: _isTracking ? Colors.red : Colors.green),
-                          label: Text(
-                            _isTracking ? 'إيقاف التتبع' : 'تفعيل التتبع المباشر',
-                            style: TextStyle(
-                              color: _isTracking ? Colors.red : Colors.green,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.address.isNotEmpty) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.green, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                widget.address,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Row(
+                        children: [
+                          const Icon(Icons.info_outline, color: Colors.grey, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'الإحداثيات: ${_currentLocation.latitude.toStringAsFixed(6)}, ${_currentLocation.longitude.toStringAsFixed(6)}',
+                            style: const TextStyle(
                               fontSize: 12,
+                              color: Colors.grey,
                             ),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              if (_isTracking) {
-                                _stopTracking();
-                                // عرض رسالة توقف التتبع هنا بدلاً من داخل _stopTracking
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('تم إيقاف تتبع موقع العميل'),
-                                    backgroundColor: Colors.orange,
-                                    duration: Duration(seconds: 2),
+                        ],
+                      ),
+                      if (_showTrackingOptions) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            TextButton.icon(
+                              icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed,
+                                  size: 16,
+                                  color: _isTracking ? Colors.red : Colors.green),
+                              label: Text(
+                                _isTracking ? 'إيقاف التتبع' : 'تفعيل التتبع المباشر',
+                                style: TextStyle(
+                                  color: _isTracking ? Colors.red : Colors.green,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (_isTracking) {
+                                    _stopTracking();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('تم إيقاف تتبع موقع العميل'),
+                                        backgroundColor: Colors.orange,
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } else {
+                                    _startTracking();
+                                  }
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_providerLocation != null && _polylines.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Divider(color: Colors.grey.withOpacity(0.3), height: 16),
+                        Row(
+                          children: [
+                            Icon(Icons.route, color: Colors.blue, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'المسافة تقريبًا: ${_calculateDistance(_currentLocation, _providerLocation!).toStringAsFixed(1)} كم',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_showDestination && _destinationLocation != null) ...[
+                        const SizedBox(height: 8),
+                        Divider(color: Colors.grey.withOpacity(0.3), height: 16),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, color: Colors.blue, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'الوجهة النهائية: ${_destinationName ?? "الوجهة"}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _createRouteToDestination,
+                          icon: Icon(Icons.navigation, size: 16),
+                          label: Text('بدء الملاحة إلى الوجهة النهائية'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(double.infinity, 36),
+                          ),
+                        ),
+                      ],
+                      if (_destinationLocation != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: ElevatedButton.icon(                            icon: const Icon(Icons.flag, size: 18),
+                            label: const Text(
+                              'اذهب إلى وجهة العميل',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 40),
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),onPressed: () async {
+                              if (_mapInitialized && _destinationLocation != null) {
+                                // First, animate to the destination location
+                                _mapController.animateCamera(
+                                  CameraUpdate.newLatLngZoom(
+                                    LatLng(_destinationLocation!.latitude, _destinationLocation!.longitude),
+                                    16.0,
                                   ),
                                 );
-                              } else {
-                                _startTracking();
+                                
+                                // Then, get the provider's current location if not available
+                                if (_providerLocation == null) {
+                                  await _getProviderCurrentLocation();
+                                }
+                                
+                                // If we have both provider location and destination, create a route
+                                if (_providerLocation != null) {
+                                  await _createRouteToDestination();
+                                  
+                                  // Show a message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('تم إنشاء المسار إلى وجهة العميل: ${_destinationName ?? "الوجهة"}'),
+                                      backgroundColor: Colors.deepPurple,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
                               }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                  // Display route information if available
-                  if (_providerLocation != null && _polylines.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Divider(color: Colors.grey.withOpacity(0.3), height: 16),
-                    Row(
-                      children: [
-                        Icon(Icons.route, color: Colors.blue, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'المسافة تقريبًا: ${_calculateDistance(_currentLocation, _providerLocation!).toStringAsFixed(1)} كم',
-                            style: TextStyle(
-                              fontSize: 12, 
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
+                            },
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -651,11 +786,9 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         ),
       );
     }
-  }
-  void _openLocationInMaps() async {
+  }  void _openLocationInMaps() async {
     try {
       // قم بإظهار الخريطة داخل التطبيق بدلاً من فتح تطبيق خارجي
-      
       // إظهار مؤشر التحميل
       showDialog(
         context: context,
@@ -664,7 +797,6 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
           child: CircularProgressIndicator(),
         ),
       );
-      
       // إذا كان هناك مسار بالفعل، تأكد من تكبير/تصغير الخريطة لتناسب المسار
       if (_polylines.isNotEmpty) {
         _fitRouteInMap();
@@ -673,9 +805,32 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         if (_providerLocation == null) {
           await _getProviderCurrentLocation();
         }
-        
         if (_providerLocation != null) {
-          await _createRoute();
+          // التحقق مما إذا وصل السائق إلى العميل وهناك وجهة نهائية
+          if (_hasReachedClient() && _destinationLocation != null && !_showDestination) {
+            setState(() {
+              _showDestination = true;
+              _updateMarker(); // تحديث العلامات لإضافة علامة الوجهة
+            });
+            // إنشاء مسار إلى الوجهة النهائية بدلاً من العميل
+            await _createRouteToDestination();
+            // إغلاق مؤشر التحميل
+            if (context.mounted) {
+              Navigator.pop(context);
+              // عرض رسالة وصول للعميل وإظهار الوجهة النهائية
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('تم الوصول إلى العميل! جاري عرض الوجهة النهائية: ${_destinationName ?? "الوجهة"}'),
+                  backgroundColor: Colors.blue,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+            return;
+          } else {
+            // إنشاء المسار العادي إلى العميل
+            await _createRoute();
+          }
         } else {
           // إذا تعذر الحصول على موقع المزود، ركز على موقع العميل فقط
           if (_mapInitialized) {
@@ -688,17 +843,14 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
           }
         }
       }
-      
       // إغلاق مؤشر التحميل
       if (context.mounted) {
         Navigator.pop(context);
       }
-      
       // إذا كانت ميزة التتبع متاحة ولم تكن مفعلة، قم بتفعيلها
       if (_showTrackingOptions && !_isTracking) {
         _startTracking();
       }
-      
       // عرض رسالة نجاح
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -712,14 +864,75 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       if (context.mounted) {
         Navigator.pop(context);
       }
-      
       // عرض رسالة خطأ
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('حدث خطأ أثناء محاولة تتبع الموقع: $e'),
           backgroundColor: Colors.red,
         ),
-      );      print('Error opening in-app maps: $e');
+      );
+      print('Error opening in-app maps: $e');
+    }
+  }
+  
+  // التحقق مما إذا وصل السائق إلى موقع العميل
+  bool _hasReachedClient() {
+    if (_providerLocation == null) return false;
+    
+    // حساب المسافة بين موقع السائق والعميل
+    final double distance = _calculateDistance(
+      _providerLocation!,
+      _currentLocation
+    );
+    
+    // نعتبر أن السائق وصل إذا كان على بعد أقل من 100 متر
+    return distance < 0.1; // 0.1 كم = 100 متر
+  }
+  
+  // إنشاء مسار إلى الوجهة النهائية
+  Future<void> _createRouteToDestination() async {
+    if (_destinationLocation == null || _providerLocation == null) return;
+    
+    try {
+      final DirectionsHelper directionsService = DirectionsHelper();
+      
+      setState(() {
+        _polylines.clear();
+      });
+      
+      final result = await directionsService.getRoute(
+        origin: LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
+        destination: LatLng(_destinationLocation!.latitude, _destinationLocation!.longitude),
+      );
+      
+      if (result == null) {
+        throw Exception('لم يتم العثور على مسار إلى الوجهة النهائية');
+      }
+      
+      // Create polyline with the route from directions service
+      final PolylineId id = const PolylineId('destination_route');
+      final Polyline polyline = Polyline(
+        polylineId: id,
+        color: Colors.blue,
+        points: result.polylinePoints,
+        width: 5,
+      );
+    
+      setState(() {
+        _polylines[id] = polyline;
+      });
+      
+      // Set zoom to fit the route
+      _fitRouteInMap();
+      
+    } catch (e) {
+      print('Error creating route to destination: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء إنشاء المسار إلى الوجهة النهائية: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

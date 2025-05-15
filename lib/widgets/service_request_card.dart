@@ -6,9 +6,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/services/fcm_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:bilink/screens/full_screen_map.dart';
-import 'package:bilink/screens/request_location_map.dart';
-import 'package:bilink/utils/location_helper.dart';
 import 'package:bilink/screens/client_location_map.dart';
+import 'package:bilink/utils/location_helper.dart';
+
+// Import only specific classes needed from request_location_map.dart
+import 'package:bilink/screens/request_location_map.dart' hide ScaffoldMessenger;
 
 class ServiceRequestCard extends StatelessWidget {
   final Map<String, dynamic> requestData;
