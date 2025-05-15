@@ -252,10 +252,9 @@ class _ClientLocationMapState extends State<ClientLocationMap> {
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _openInGoogleMaps,
+                          child: ElevatedButton.icon(                            onPressed: _openInGoogleMaps,
                             icon: const Icon(Icons.directions),
-                            label: const Text('الملاحة'),
+                            label: const Text('تتبع'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0B3D91),
                               foregroundColor: Colors.white,

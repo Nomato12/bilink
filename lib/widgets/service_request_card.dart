@@ -650,10 +650,9 @@ class ServiceRequestCard extends StatelessWidget {
                               onPressed: () => _openLocationInMaps(
                                 context, 
                                 clientLocation, 
-                                'موقع $clientName - ${clientAddress.isNotEmpty ? clientAddress : ''}'
-                              ),
+                                'موقع $clientName - ${clientAddress.isNotEmpty ? clientAddress : ''}'                              ),
                               icon: const Icon(Icons.directions, size: 16),
-                              label: const Text('الملاحة', style: TextStyle(fontSize: 12)),
+                              label: const Text('تتبع', style: TextStyle(fontSize: 12)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,

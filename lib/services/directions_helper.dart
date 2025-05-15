@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:bilink/models/directions_result.dart';
 
 // مفتاح API الخاص بـ Google Maps - متطابق مع المفتاح في ملف AndroidManifest.xml
 const String GOOGLE_MAPS_API_KEY = "AIzaSyCSsMQzPwR92-RwufaNA9kPpi0nB4XjAtw";
@@ -30,6 +31,70 @@ class DirectionsHelper {
       return _getFallbackDirections(origin, destination);
     }
   }
+  
+  // طريقة واجهة للحصول على مسار موجه للاستخدام المباشر في الخريطة
+  Future<DirectionsResult?> getRoute({
+    required LatLng origin,
+    required LatLng destination,
+  }) async {
+    try {
+      final directionData = await getDirections(origin, destination);
+      
+      if (directionData.isEmpty || 
+          !directionData.containsKey('routes') || 
+          directionData['routes'].isEmpty) {
+        return null;
+      }
+      
+      // استخراج بيانات المسار
+      final route = directionData['routes'][0];
+      
+      // استخراج المسافة والوقت
+      String distance = '';
+      String duration = '';
+      
+      if (route.containsKey('legs') && route['legs'].isNotEmpty) {
+        final leg = route['legs'][0];
+        distance = leg['distance']['text'] ?? '0 كم';
+        duration = leg['duration']['text'] ?? '0 دقيقة';
+      }
+      
+      // استخراج نقاط المسار
+      List<LatLng> polylinePoints = [];
+      
+      if (route.containsKey('overview_polyline') && 
+          route['overview_polyline'].containsKey('points')) {
+        final encodedPoints = route['overview_polyline']['points'];
+        
+        try {
+          final PolylinePoints polylinePointsDecoder = PolylinePoints();
+          final points = polylinePointsDecoder.decodePolyline(encodedPoints);
+          
+          polylinePoints = points
+              .map((point) => LatLng(point.latitude, point.longitude))
+              .toList();
+        } catch (e) {
+          print('Failed to decode polyline: $e');
+          return null;
+        }
+      }
+      
+      if (polylinePoints.isEmpty) {
+        // إذا لم نتمكن من استخراج نقاط المسار، نستخدم المسار البسيط
+        polylinePoints = [origin, destination];
+      }
+      
+      return DirectionsResult(
+        polylinePoints: polylinePoints,
+        distance: distance,
+        duration: duration,
+      );
+    } catch (e) {
+      print('Error getting route: $e');
+      return null;
+    }
+  }
+  
   // استخدام Google Directions API للحصول على مسارات طرق حقيقية
   static Future<Map<String, dynamic>?> _getGoogleDirections(
     LatLng origin,

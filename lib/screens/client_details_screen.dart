@@ -851,10 +851,9 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                       // Get the first marker (client location)
                                       final clientMarker = _markers.first;
                                       _openInGoogleMaps(clientMarker.position);
-                                    },
-                                    icon: const Icon(Icons.navigation),
+                                    },                                    icon: const Icon(Icons.navigation),
                                     label: const Text(
-                                      'الملاحة إلى موقع العميل',
+                                      'تتبع موقع العميل',
                                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                     ),
                                   ),

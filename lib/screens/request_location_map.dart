@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
-import 'dart:math' show sin, cos, sqrt, atan2, pi;
+import 'dart:math' as math;
+import 'package:bilink/services/directions_helper.dart';
+import 'package:bilink/models/directions_result.dart';
 
 class RequestLocationMap extends StatefulWidget {
   final GeoPoint location;
@@ -146,51 +147,109 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       }
       print('Error getting location: $e');
     }
-  }
-  // Create route between provider and client locations
-  void _createRoute() {
+  }  // Create route between provider and client locations
+  Future<void> _createRoute() async {
     if (_providerLocation == null) {
-      _getProviderCurrentLocation();
-      return;
+      await _getProviderCurrentLocation();
+      if (_providerLocation == null) return;
     }
     
-    // Create a simple straight line between provider and client
-    List<LatLng> polylineCoordinates = [
-      LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
-      LatLng(_currentLocation.latitude, _currentLocation.longitude),
-    ];
-      // Create polyline
-    final PolylineId id = const PolylineId('route');
-    final Polyline polyline = Polyline(
-      polylineId: id,
-      color: Colors.blue,
-      points: polylineCoordinates,
-      width: 5,
-    );
+    setState(() {
+      _polylines.clear();
+    });
     
-    if (mounted) {
+    try {
+      // Use DirectionsService to get a proper route instead of a straight line
+      final directionsService = DirectionsHelper();
+      final result = await directionsService.getRoute(
+        origin: LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
+        destination: LatLng(_currentLocation.latitude, _currentLocation.longitude),
+      );
+      
+      if (result == null) {
+        // If directions service fails, fall back to a straight line
+        List<LatLng> polylineCoordinates = [
+          LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
+          LatLng(_currentLocation.latitude, _currentLocation.longitude),
+        ];
+        
+        final PolylineId id = const PolylineId('route');
+        final Polyline polyline = Polyline(
+          polylineId: id,
+          color: Colors.blue,
+          points: polylineCoordinates,
+          width: 5,
+        );
+        
+        setState(() {
+          _polylines[id] = polyline;
+        });
+        
+        // Set zoom to fit the route
+        _fitRouteInMap();
+        return;
+      }
+      
+      // Create polyline with the route from directions service
+      final PolylineId id = const PolylineId('route');
+      final Polyline polyline = Polyline(
+        polylineId: id,
+        color: Colors.blue,
+        points: result.polylinePoints,
+        width: 5,
+      );
+    
       setState(() {
         _polylines[id] = polyline;
       });
       
-      // Fit the map to include both points
-      if (_mapInitialized) {
-        LatLngBounds bounds = LatLngBounds(
-          southwest: LatLng(
-            min(_providerLocation!.latitude, _currentLocation.latitude),
-            min(_providerLocation!.longitude, _currentLocation.longitude),
-          ),
-          northeast: LatLng(
-            max(_providerLocation!.latitude, _currentLocation.latitude),
-            max(_providerLocation!.longitude, _currentLocation.longitude),
-          ),
-        );
-        
-        // Add padding to the bounds
-        _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-      }
+      // Set zoom to fit the route
+      _fitRouteInMap();
+      
+    } catch (e) {
+      print('Error creating route: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء إنشاء المسار: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-  }    // Find the minimum of two values
+  }
+    // Adjust map to fit the route
+  void _fitRouteInMap() {
+    if (_polylines.isEmpty || !_mapInitialized) return;
+    
+    // Get all points from all polylines
+    List<LatLng> points = [];
+    _polylines.forEach((_, polyline) {
+      points.addAll(polyline.points);
+    });
+    
+    if (points.isEmpty) return;
+    
+    // Find the bounds of all points
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+    
+    for (var point in points) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+    
+    // Create bounds and animate camera
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+    
+    // Add padding
+    _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+  }// Find the minimum of two values
   double min(double a, double b) => a < b ? a : b;
   
   // Find the maximum of two values
@@ -250,115 +309,14 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         ),
       );
     }
-  }
-  void _stopTracking() {
+  }  void _stopTracking() {
     _locationSubscription?.cancel();
     _locationSubscription = null;
     _isTracking = false;
     
     // لا نقوم بعرض رسالة Snackbar هنا لأنه قد يكون غير آمن إذا تم استدعاء هذه الدالة من dispose()
     // بدلاً من ذلك، نتحقق ما إذا كان الويدجت نشطاً قبل عرض الرسالة
-  }
-
-  // Refresh client location once without starting continuous tracking
-  void _refreshLocation() async {
-    if (widget.clientId == null) return;
-    
-    try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
-      // Fetch the latest location from Firestore
-      final docSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.clientId)
-          .get();
-      
-      // Close loading indicator
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
-      
-      if (!docSnapshot.exists) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لا يمكن العثور على معلومات العميل'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      
-      final userData = docSnapshot.data() as Map<String, dynamic>;
-      GeoPoint? newLocation;
-      
-      if (userData.containsKey('location') && userData['location'] is Map<String, dynamic>) {
-        final locationData = userData['location'] as Map<String, dynamic>;
-        if (locationData.containsKey('latitude') && locationData.containsKey('longitude')) {
-          newLocation = GeoPoint(
-            locationData['latitude'] as double,
-            locationData['longitude'] as double,
-          );
-        }
-      } else if (userData.containsKey('lastLocation') && userData['lastLocation'] is GeoPoint) {
-        newLocation = userData['lastLocation'] as GeoPoint;
-      }        if (newLocation != null && mounted) {
-          setState(() {
-            _currentLocation = newLocation!;
-            _updateMarker();
-            
-            // Center map on new location
-            if (_mapInitialized) {
-              _mapController.animateCamera(
-                CameraUpdate.newLatLng(
-                  LatLng(_currentLocation.latitude, _currentLocation.longitude),
-                ),
-              );
-            }
-          });
-          
-          // Show success message
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم تحديث موقع العميل'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لم يتم العثور على موقع محدث للعميل'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }    } catch (e) {
-      // Close loading indicator
-      if (context.mounted) {
-        Navigator.pop(context);
-        
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء تحديث الموقع: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      print('Error refreshing location: $e');
-    }
-  }  @override
+  }@override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -391,15 +349,9 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
               ),
             ],
           ],
-        ),
-        actions: [
-          if (_showTrackingOptions && !_isTracking)
+        ),        actions: [
+          if (_showTrackingOptions)
             IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _refreshLocation,
-              tooltip: 'تحديث الموقع',
-            ),
-          if (_showTrackingOptions)            IconButton(
               icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed),
               onPressed: () {
                 if (_isTracking) {
@@ -422,11 +374,10 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
               tooltip: _isTracking ? 'إيقاف التتبع' : 'تتبع الموقع',
               color: _isTracking ? Colors.green : null,
             ),
-          if (widget.enableNavigation)
-            IconButton(
+          if (widget.enableNavigation)            IconButton(
               icon: const Icon(Icons.directions),
               onPressed: _openLocationInMaps,
-              tooltip: 'الملاحة',
+              tooltip: 'تتبع',
             ),
           // Add route toggle button
           if (widget.showRouteToCurrent || _providerLocation != null)
@@ -559,24 +510,11 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                         ),
                       ),
                     ],
-                  ),
-                  if (_showTrackingOptions) ...[
+                  ),                  if (_showTrackingOptions) ...[
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (!_isTracking)
-                          TextButton.icon(
-                            icon: const Icon(Icons.refresh, size: 16, color: Colors.blue),
-                            label: const Text(
-                              'تحديث الموقع',
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontSize: 12,
-                              ),
-                            ),
-                            onPressed: _refreshLocation,
-                          ),
             TextButton.icon(
                           icon: Icon(_isTracking ? Icons.gps_off : Icons.gps_fixed, 
                               size: 16, 
@@ -635,29 +573,27 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: widget.enableNavigation ? FloatingActionButton.extended(
+      ),      floatingActionButton: widget.enableNavigation ? FloatingActionButton.extended(
         onPressed: _openLocationInMaps,
         icon: const Icon(Icons.navigation),
-        label: const Text('الملاحة'),
+        label: const Text('تتبع'),
         backgroundColor: Colors.green,
       ) : null,
     );
   }
-  
-  // Calculate distance between two points in km
+    // Calculate distance between two points in km
   double _calculateDistance(GeoPoint point1, GeoPoint point2) {
     // Using the Haversine formula
     const radius = 6371.0; // Earth radius in kilometers
-    final lat1 = point1.latitude * pi / 180;
-    final lat2 = point2.latitude * pi / 180;
-    final deltaLat = (point2.latitude - point1.latitude) * pi / 180;
-    final deltaLng = (point2.longitude - point1.longitude) * pi / 180;
+    final lat1 = point1.latitude * math.pi / 180;
+    final lat2 = point2.latitude * math.pi / 180;
+    final deltaLat = (point2.latitude - point1.latitude) * math.pi / 180;
+    final deltaLng = (point2.longitude - point1.longitude) * math.pi / 180;
 
-    final a = sin(deltaLat/2) * sin(deltaLat/2) +
-              cos(lat1) * cos(lat2) *
-              sin(deltaLng/2) * sin(deltaLng/2);
-    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    final a = math.sin(deltaLat/2) * math.sin(deltaLat/2) +
+              math.cos(lat1) * math.cos(lat2) *
+              math.sin(deltaLng/2) * math.sin(deltaLng/2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a));
     return radius * c;
   }
     // Set custom map style with better Arabic language support
@@ -716,10 +652,11 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       );
     }
   }
-  
   void _openLocationInMaps() async {
     try {
-      // Show loading indicator
+      // قم بإظهار الخريطة داخل التطبيق بدلاً من فتح تطبيق خارجي
+      
+      // إظهار مؤشر التحميل
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -727,67 +664,62 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
           child: CircularProgressIndicator(),
         ),
       );
-
-      // Try Google Maps URL format first
-      final url = 'https://www.google.com/maps/search/?api=1&query=${_currentLocation.latitude},${_currentLocation.longitude}';
-      final uri = Uri.parse(url);
       
-      bool launched = false;
-      
-      if (await canLaunchUrl(uri)) {
-        launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      
-      // If Google Maps didn't work, try geo: scheme which works on many platforms
-      if (!launched) {
-        final String label = widget.address.isNotEmpty ? widget.address : widget.title;
-        final geoUrl = 'geo:${_currentLocation.latitude},${_currentLocation.longitude}?q=${Uri.encodeComponent(label)}';
-        final geoUri = Uri.parse(geoUrl);
+      // إذا كان هناك مسار بالفعل، تأكد من تكبير/تصغير الخريطة لتناسب المسار
+      if (_polylines.isNotEmpty) {
+        _fitRouteInMap();
+      } else {
+        // إذا لم يكن هناك مسار، قم بإنشاء واحد
+        if (_providerLocation == null) {
+          await _getProviderCurrentLocation();
+        }
         
-        if (await canLaunchUrl(geoUri)) {
-          launched = await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+        if (_providerLocation != null) {
+          await _createRoute();
+        } else {
+          // إذا تعذر الحصول على موقع المزود، ركز على موقع العميل فقط
+          if (_mapInitialized) {
+            _mapController.animateCamera(
+              CameraUpdate.newLatLngZoom(
+                LatLng(_currentLocation.latitude, _currentLocation.longitude),
+                15.0,
+              ),
+            );
+          }
         }
       }
       
-      // If still not working, try Apple Maps format as a last resort
-      if (!launched) {
-        final String label = widget.address.isNotEmpty ? widget.address : widget.title;
-        final appleMapsUrl = 'maps://?q=${Uri.encodeComponent(label)}&ll=${_currentLocation.latitude},${_currentLocation.longitude}';
-        final appleMapsUri = Uri.parse(appleMapsUrl);
-        
-        if (await canLaunchUrl(appleMapsUri)) {
-          launched = await launchUrl(appleMapsUri, mode: LaunchMode.externalApplication);
-        }
-      }
-      
-      // Close loading indicator
+      // إغلاق مؤشر التحميل
       if (context.mounted) {
         Navigator.pop(context);
       }
       
-      // Show error if unable to launch any maps app
-      if (!launched && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لا يمكن فتح تطبيق الخرائط'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      // إذا كانت ميزة التتبع متاحة ولم تكن مفعلة، قم بتفعيلها
+      if (_showTrackingOptions && !_isTracking) {
+        _startTracking();
       }
+      
+      // عرض رسالة نجاح
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تفعيل تتبع موقع العميل في الخريطة'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
-      // Close loading indicator
+      // إغلاق مؤشر التحميل
       if (context.mounted) {
         Navigator.pop(context);
-        
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء محاولة فتح الخرائط: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
-      print('Error opening maps: $e');
+      
+      // عرض رسالة خطأ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء محاولة تتبع الموقع: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );      print('Error opening in-app maps: $e');
     }
   }
 }
