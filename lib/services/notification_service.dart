@@ -104,8 +104,7 @@ class NotificationService {
     } catch (e) {
       print('Error sending service request: $e');
       throw Exception('Failed to send service request');
-    }
-  }
+    }  }
 
   // Send a notification to a specific user
   Future<void> sendNotification({
@@ -114,8 +113,11 @@ class NotificationService {
     required String body,
     Map<String, dynamic>? data,
   }) async {
+    // تم إلغاء إرسال الإشعارات - مع الاحتفاظ بسجل الإشعارات في قاعدة البيانات
+    debugPrint('تم إلغاء إرسال الإشعار: $title إلى المستخدم: $recipientId');
+    
     try {
-      // Create a notification document
+      // لا نزال نحتفظ بسجل الإشعارات في قاعدة البيانات ولكن بدون ظهور الإشعارات الفعلية
       await _notificationsCollection.add({
         'userId': recipientId,
         'title': title,
@@ -126,17 +128,17 @@ class NotificationService {
         'createdAt': FieldValue.serverTimestamp(),
       });
       
-      // Send FCM notification
-      await _fcmService.sendNotificationToUser(
-        userId: recipientId,
-        title: title,
-        body: body,
-        data: data,
-      );
+      // تم تعطيل إرسال إشعار FCM
+      // await _fcmService.sendNotificationToUser(
+      //   userId: recipientId,
+      //   title: title,
+      //   body: body,
+      //   data: data,
+      // );
       
-      debugPrint('Notification sent to user: $recipientId');
+      debugPrint('تم حفظ سجل الإشعار دون إظهاره للمستخدم: $recipientId');
     } catch (e) {
-      debugPrint('Error sending notification: $e');
+      debugPrint('خطأ في حفظ سجل الإشعار: $e');
       // Continue execution even if notification fails
     }
   }
@@ -194,12 +196,13 @@ class NotificationService {
         notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
             ? 'تم رفض طلب $serviceTypeText للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
             : 'تم رفض طلب $serviceTypeText للخدمة: $serviceName';
-      }// Create a notification for the client
+      }      // Create a notification for the client
       await _notificationsCollection.add({
         'userId': clientId,
         'title': notificationTitle,
         'body': notificationBody,
-        'type': 'request_update',        'data': {
+        'type': 'request_update',        
+        'data': {
           'requestId': requestId,
           'serviceId': serviceId,
           'providerId': providerId,
@@ -213,18 +216,24 @@ class NotificationService {
         'createdAt': FieldValue.serverTimestamp(),
       });
       
-      // إرسال إشعار FCM للعميل
+      // تم تعطيل إرسال إشعار FCM للعميل
+      debugPrint('تم إلغاء إرسال إشعار FCM للعميل: $clientId');
+      /*
       try {
         await _fcmService.sendNotificationToUser(
           userId: clientId,
           title: notificationTitle,
-          body: notificationBody,
-          data: {            'type': 'request_update',
+          body: notificationBody,          
+          data: {            
+            'type': 'request_update',
             'requestId': requestId,
             'status': status,
             'serviceId': serviceId,
             'providerId': providerId,
             'serviceType': serviceType,  // Add service type to FCM data
+            'targetScreen': 'client_interface', // Add target screen for routing
+            'isForClient': true, // Explicitly mark notification for client only
+            'userId': clientId // Include the target user ID for filtering
           },
         );
         debugPrint('تم إرسال إشعار FCM للعميل: $clientId');
@@ -232,6 +241,7 @@ class NotificationService {
         debugPrint('خطأ في إرسال إشعار FCM: $fcmError');
         // استمرار التنفيذ حتى لو فشل إرسال الإشعار عبر FCM
       }
+      */
     } catch (e) {
       print('Error updating request status: $e');
       throw Exception('Failed to update request status');

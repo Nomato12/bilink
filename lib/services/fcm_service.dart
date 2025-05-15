@@ -1,10 +1,11 @@
 // filepath: d:\bilink\lib\services\fcm_service.dart 
 import 'package:firebase_messaging/firebase_messaging.dart'; 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; 
+// Import commented out since notifications are disabled
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart'; 
 import 'package:firebase_core/firebase_core.dart'; 
 import 'package:flutter/material.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
  
 /// Service for handling Firebase Cloud Messaging (FCM) notifications 
 class FcmService { 
@@ -13,20 +14,20 @@ class FcmService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance; 
   final FirebaseAuth _auth = FirebaseAuth.instance; 
  
-  // Notification channel for Android 
-  final AndroidNotificationChannel _channel = const AndroidNotificationChannel( 
-    'high_importance_channel', 
-    '??????? ????', 
-    description: '?????? ??? ?????? ????????? ??????', 
-    importance: Importance.high, 
-    enableVibration: true, 
-    enableLights: true, 
-    showBadge: true, 
-  ); 
+  // Notification channel for Android - commented out since notifications are disabled
+  // final AndroidNotificationChannel _channel = const AndroidNotificationChannel( 
+  //   'high_importance_channel', 
+  //   '??????? ????', 
+  //   description: '?????? ??? ?????? ????????? ??????', 
+  //   importance: Importance.high, 
+  //   enableVibration: true, 
+  //   enableLights: true, 
+  //   showBadge: true, 
+  // ); 
  
-  // Local notifications plugin 
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =  
-      FlutterLocalNotificationsPlugin(); 
+  // Local notifications plugin - commented out since notifications are disabled
+  // final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =  
+  //     FlutterLocalNotificationsPlugin();
  
   /// Initialize the FCM service 
   Future<void> initialize() async { 
@@ -63,9 +64,14 @@ class FcmService {
  
     debugPrint('??????? ?????: ${settings.authorizationStatus}'); 
   } 
- 
-  /// Initialize local notifications 
+   /// Initialize local notifications 
   Future<void> _initializeLocalNotifications() async { 
+    // تخطي تهيئة الإشعارات المحلية عندما تكون الإشعارات معطلة
+    debugPrint('تم تخطي تهيئة الإشعارات المحلية');
+    return;
+
+    // الكود القديم لتهيئة الإشعارات المحلية - تم تعطيله
+    /*
     const AndroidInitializationSettings initializationSettingsAndroid = 
         AndroidInitializationSettings('@mipmap/ic_launcher'); 
  
@@ -86,7 +92,7 @@ class FcmService {
       onDidReceiveNotificationResponse: (NotificationResponse response) { 
         final payload = response.payload; 
         if (payload != null) { 
-          debugPrint('?? ????? ??? ???????: $payload'); 
+          debugPrint('تم النقر على الإشعار: $payload'); 
         } 
       }, 
     ); 
@@ -95,7 +101,8 @@ class FcmService {
     await _flutterLocalNotificationsPlugin 
         .resolvePlatformSpecificImplementation< 
             AndroidFlutterLocalNotificationsPlugin>() 
-        ?.createNotificationChannel(_channel); 
+        ?.createNotificationChannel(_channel);
+    */
   } 
  
   /// Save the device token for the current user 
@@ -118,25 +125,31 @@ class FcmService {
       debugPrint('??? ?? ??? ??? ??????: $e'); 
     } 
   } 
- 
-  /// Send a notification to a user 
+   /// Send a notification to a user 
   Future<void> sendNotificationToUser({ 
     required String userId, 
     required String title, 
     required String body, 
     Map<String, dynamic>? data, 
   }) async { 
+    // تخطي إرسال الإشعارات للمستخدمين
+    debugPrint('تم إلغاء إرسال الإشعار إلى المستخدم: $userId');
+    debugPrint('عنوان الإشعار: $title');
+    return;
+    
+    /*
+    // الكود القديم لإرسال الإشعارات - تم تعطيله
     try { 
       // Get user device tokens 
       final userDoc = await _firestore.collection('users').doc(userId).get(); 
       if (!userDoc.exists) { 
-        debugPrint('???????? ??? ?????: $userId'); 
+        debugPrint('المستخدم غير موجود: $userId'); 
         return; 
       } 
  
       final userData = userDoc.data(); 
       if (userData == null) { 
-        debugPrint('?????? ???????? ?????: $userId'); 
+        debugPrint('بيانات المستخدم فارغة: $userId'); 
         return; 
       } 
  
@@ -147,7 +160,7 @@ class FcmService {
       _showLocalNotification(title: title, body: body, payload: data?.toString()); 
  
       if (tokens.isEmpty) { 
-        debugPrint('?? ???? ???? ????? ????????: $userId - ????? ??? ??????? ??????'); 
+        debugPrint('لا توجد رموز جهاز للمستخدم: $userId - تخطي إرسال الإشعار'); 
         return; 
       } 
  
@@ -164,88 +177,93 @@ class FcmService {
         'createdAt': FieldValue.serverTimestamp(), 
       }); 
  
-      debugPrint('?? ????? ??????? ??? ????????: $userId (${tokens.length} ????)'); 
+      debugPrint('تم إضافة الإشعار إلى الفايرستور: $userId (${tokens.length} جهاز)'); 
     } catch (e) { 
-      debugPrint('??? ?? ????? ???????: $e'); 
-    } 
-  } 
-   /// Show a local notification 
+      debugPrint('خطأ في إرسال الإشعار: $e'); 
+    }    */
+  }  
+  
+  // Commented out since notifications are disabled
+  /*
+  /// Show a local notification 
   Future<void> _showLocalNotification({ 
     required String title, 
     required String body, 
-    String? payload, 
+    String? payload,
   }) async { 
-    try { 
-      final AndroidNotificationDetails androidPlatformChannelSpecifics = 
-          AndroidNotificationDetails( 
-        _channel.id, 
-        _channel.name, 
-        channelDescription: _channel.description, 
-        importance: Importance.max, 
-        priority: Priority.high, 
-        showWhen: true, 
-        enableVibration: true, 
-        playSound: true,
-        // Don't use bigLargeIcon to avoid the ambiguous method reference issue
-      ); 
- 
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics = 
-          DarwinNotificationDetails( 
-        presentAlert: true, 
-        presentBadge: true, 
-        presentSound: true, 
-      ); 
- 
-      final NotificationDetails platformChannelSpecifics = NotificationDetails( 
-        android: androidPlatformChannelSpecifics, 
-        iOS: iOSPlatformChannelSpecifics,
-      ); 
- 
-      await _flutterLocalNotificationsPlugin.show( 
-        DateTime.now().millisecond, // Use current time as unique ID 
-        title, 
-        body, 
-        platformChannelSpecifics, 
-        payload: payload, 
-      ); 
-    } catch (e) { 
-      debugPrint('??? ?? ??? ??????? ??????: $e'); 
-    } 
-  } 
- 
-  /// Handle background messages 
+    // تخطي عرض الإشعارات المحلية لكن دون حذف الدالة نفسها لأنها مستخدمة في أماكن أخرى
+    debugPrint('تم حذف الإشعار المحلي: $title');
+    return;
+  }
+  */
+   /// Handle background messages 
   static Future<void> _handleBackgroundMessage(RemoteMessage message) async { 
     await Firebase.initializeApp(); 
  
-    debugPrint('?? ?????? ????? ?? ???????: ${message.notification?.title}'); 
-  } 
- 
-  /// Handle foreground messages 
+    debugPrint('تم استلام إشعار في الخلفية: ${message.notification?.title}');
+    // تخطي معالجة الإشعارات في الخلفية
+    return;
+  }/// Handle foreground messages 
   void _handleForegroundMessage(RemoteMessage message) { 
-    debugPrint('?? ?????? ????? ?? ???????: ${message.notification?.title}'); 
- 
-    if (message.notification != null) { 
+    debugPrint('تم استلام إشعار في المقدمة: ${message.notification?.title}'); 
+    
+    // حذف جميع الإشعارات - تخطي عرض الإشعارات بالكامل
+    return;
+    
+    /*
+    // الكود القديم لعرض الإشعارات - تم تعطيله
+    final data = message.data;
+    final isForClient = data['isForClient'] == 'true';
+    final targetScreen = data['targetScreen'];
+    final currentUserId = _auth.currentUser?.uid;
+    final targetUserId = data['userId'];
+    
+    final bool shouldShow = (!isForClient) || 
+                           (isForClient && targetUserId == currentUserId);
+    
+    final bool isApprovalNotification = data['type'] == 'request_update' && 
+                                       data['status'] == 'accepted';
+    
+    if (isApprovalNotification && targetUserId != currentUserId) {
+      return;
+    }
+    
+    if (message.notification != null && shouldShow) { 
       _showLocalNotification( 
-        title: message.notification!.title ?? '????? ????', 
+        title: message.notification!.title ?? 'إشعار جديد', 
         body: message.notification!.body ?? '', 
         payload: message.data.toString(), 
       ); 
-    } 
-  } 
- 
-  /// Handle notification open (when user taps on a notification) 
+    }
+    */
+  }
+   /// Handle notification open (when user taps on a notification) 
   void _handleNotificationOpen(RemoteMessage message) { 
-    debugPrint('?? ????? ??? ???????: ${message.notification?.title}'); 
- 
+    debugPrint('تم النقر على الإشعار: ${message.notification?.title}'); 
+    
+    // حذف جميع الإشعارات - تخطي معالجة النقر على الإشعار
+    return;
+    
+    /*
+    // الكود القديم لمعالجة النقر على الإشعارات - تم تعطيله
     final data = message.data; 
     if (data.isEmpty) return; 
- 
-    // Here you can navigate to different screens based on notification type 
-    // This needs to be implemented based on your navigation system 
+
+    final targetUserId = data['userId'];
+    final currentUserId = _auth.currentUser?.uid;
+    
+    if (targetUserId != null && targetUserId != currentUserId) {
+      return;
+    }
+    
     final notificationType = data['type']; 
-    if (notificationType == 'request_update') { 
-      // Example: Navigate to notifications screen 
+    final isForClient = data['isForClient'] == 'true';
+    final targetScreen = data['targetScreen']; 
+    
+    if (notificationType == 'request_update' && isForClient && targetScreen == 'client_interface') { 
+      // Only route to client notifications screen if this is a client notification
       // Navigator.pushNamed(context, '/notifications'); 
-    } 
-  } 
-} 
+    }
+    */
+  }
+}

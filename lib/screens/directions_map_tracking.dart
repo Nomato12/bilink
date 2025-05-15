@@ -160,8 +160,12 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
 
   @override
   void dispose() {
-    // إلغاء الاشتراك في تحديثات الموقع عند إنهاء الشاشة
-    _stopTracking();
+    // Cancel all timers to prevent callbacks after widget disposal
+    _navigationUpdateTimer?.cancel();
+    
+    // Cancel any active position stream subscriptions
+    _positionStreamSubscription?.cancel();
+    
     super.dispose();
   }
   
@@ -216,27 +220,33 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         final minutes = int.tryParse(match.group(1) ?? "0") ?? 0;
         _remainingTimeInSeconds = minutes * 60;
       }
-    }
-      // إنشاء مؤقت لتحديث بيانات الملاحة كل ثانية
+    }      // إنشاء مؤقت لتحديث بيانات الملاحة كل ثانية
     _navigationUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingTimeInSeconds > 0) {
         // تأكد من أن الـ widget لا يزال متاحًا قبل تحديث الحالة
         if (mounted) {
-          setState(() {
-            _remainingTimeInSeconds--;
-            // تحديث نسبة التقدم
-            final totalTime = int.tryParse(_tripInfo['duration']?.replaceAll(RegExp(r'[^0-9]'), '') ?? "0") ?? 0;
-            if (totalTime > 0) {
-              _progressPercentage = 1.0 - (_remainingTimeInSeconds / (totalTime * 60));
-              _progressPercentage = _progressPercentage.clamp(0.0, 1.0);
-              
-              // تحديث الخطوة الحالية بناءً على النسبة المئوية
-              if (_directionSteps.isNotEmpty) {
-                _currentStepIndex = (_progressPercentage * (_directionSteps.length - 1)).floor();
-                _currentStepIndex = _currentStepIndex.clamp(0, _directionSteps.length - 1);
+          // Use a try-catch block to catch any errors related to setState
+          try {
+            setState(() {
+              _remainingTimeInSeconds--;
+              // تحديث نسبة التقدم
+              final totalTime = int.tryParse(_tripInfo['duration']?.replaceAll(RegExp(r'[^0-9]'), '') ?? "0") ?? 0;
+              if (totalTime > 0) {
+                _progressPercentage = 1.0 - (_remainingTimeInSeconds / (totalTime * 60));
+                _progressPercentage = _progressPercentage.clamp(0.0, 1.0);
+                
+                // تحديث الخطوة الحالية بناءً على النسبة المئوية
+                if (_directionSteps.isNotEmpty) {
+                  _currentStepIndex = (_progressPercentage * (_directionSteps.length - 1)).floor();
+                  _currentStepIndex = _currentStepIndex.clamp(0, _directionSteps.length - 1);
+                }
               }
-            }
-          });
+            });
+          } catch (e) {
+            // If an error occurs during setState, cancel the timer
+            print('Error updating navigation: $e');
+            timer.cancel();
+          }
         } else {
           // إذا كان الـ widget غير متاح، إلغاء المؤقت
           timer.cancel();
@@ -251,8 +261,7 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         }
       }
     });
-    
-    // الاشتراك في تحديثات الموقع في الوقت الفعلي
+      // الاشتراك في تحديثات الموقع في الوقت الفعلي
     final locationSettings = LocationSettings(
       accuracy: LocationAccuracy.best, 
       distanceFilter: 5, // تحديث كل 5 أمتار
@@ -264,14 +273,21 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       
       final newPosition = LatLng(position.latitude, position.longitude);
       
-      setState(() {
-        _currentNavigationPosition = newPosition;
-      });
-      
-      // تحديث علامة الموقع الحالي
-      _updateCurrentLocationMarker(newPosition);
-      
+      // Use a try-catch block to prevent errors when setting state
       try {
+        setState(() {
+          _currentNavigationPosition = newPosition;
+        });
+        
+        // تحديث علامة الموقع الحالي
+        _updateCurrentLocationMarker(newPosition);
+      } catch (e) {
+        print('Error updating location state: $e');
+        // If there's an error, consider canceling the subscription
+        _positionStreamSubscription?.cancel();
+        return;
+      }
+        try {
         // تحريك الخريطة لمتابعة الموقع الحالي بحركة سلسة
         if (mounted) {
           final GoogleMapController controller = await _controller.future;
@@ -301,26 +317,34 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
           
           // تنبيه صوتي وشاشة عند الوصول للوجهة
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('لقد وصلت إلى وجهتك!'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 5),
+            try {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('لقد وصلت إلى وجهتك!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            } catch (e) {
+              print('Error showing arrival snackbar: $e');
+            }
+            
+            try {
+              // تحريك الكاميرا لإظهار الوجهة
+              final GoogleMapController controller = await _controller.future;
+              controller.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                  target: _destinationPosition!,
+                  zoom: 18.0,
+                  tilt: 0,
+                  bearing: 0,
+                ),
               ),
             );
-            
-            // تحريك الكاميرا لإظهار الوجهة
-            final GoogleMapController controller = await _controller.future;
-            controller.animateCamera(
-              CameraUpdate.newCameraPosition(
-                CameraPosition(
-                target: _destinationPosition!,
-                zoom: 18.0,
-                tilt: 0,
-                bearing: 0,
-              ),
-            ),
-          );
+            } catch (e) {
+              print('Error animating camera on arrival: $e');
+            }
           }
         }
       } catch (e) {
@@ -337,8 +361,7 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       ),
     );
   }
-  
-  // إيقاف التتبع وتنظيف الموارد
+    // إيقاف التتبع وتنظيف الموارد
   void _stopTracking() {    
     if (_navigationUpdateTimer != null) {
       _navigationUpdateTimer!.cancel();
@@ -352,43 +375,63 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     
     // تأكد من أن الـ widget لا يزال متاحًا قبل تحديث الحالة
     if (mounted) {
-      setState(() {
+      try {
+        setState(() {
+          _isTracking = false;
+        });
+      } catch (e) {
+        print('Error updating tracking state: $e');
+        // Just set the variable without setState
         _isTracking = false;
-      });
+      }
     } else {
       // إذا كان الـ widget غير متاح، فقط قم بتحديث المتغير
       _isTracking = false;
     }
-  }
-  // تحديث علامة الموقع الحالي مع السهم للإشارة إلى الاتجاه
+  }// تحديث علامة الموقع الحالي مع السهم للإشارة إلى الاتجاه
   void _updateCurrentLocationMarker(LatLng position) {
     if (!mounted) return;
     
     // استخدام setState فقط إذا كان الـ widget لا يزال نشط
-    setState(() {
-      // إزالة علامة الموقع الحالي إذا كانت موجودة
-      _markers.removeWhere((marker) => marker.markerId.value == 'current_location');
-      
-      // إضافة علامة جديدة للموقع الحالي
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('current_location'),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          infoWindow: const InfoWindow(title: 'موقعك الحالي'),
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
-          zIndex: 2,
-        ),
-      );
-    });
+    try {
+      setState(() {
+        // إزالة علامة الموقع الحالي إذا كانت موجودة
+        _markers.removeWhere((marker) => marker.markerId.value == 'current_location');
+        
+        // إضافة علامة جديدة للموقع الحالي
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: position,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+            infoWindow: const InfoWindow(title: 'موقعك الحالي'),
+            flat: true,
+            anchor: const Offset(0.5, 0.5),
+            zIndex: 2,
+          ),
+        );
+      });
+    } catch (e) {
+      print('Error updating location marker: $e');
+      // If there's an error during setState, it might indicate a lifecycle issue
+      // Consider canceling any active subscriptions
+      if (_positionStreamSubscription != null) {
+        _positionStreamSubscription!.cancel();
+      }
+    }
   }
-
   // استرجاع الموقع الحالي للمستخدم
   Future<void> _getCurrentLocation() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
+    
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+    } catch (e) {
+      print('Error setting loading state: $e');
+      return;
+    }
 
     try {
       // طلب الإذن لاستخدام خدمة الموقع
@@ -396,75 +439,116 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('لم يتم السماح باستخدام خدمة الموقع')),
-          );
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('لم يتم السماح باستخدام خدمة الموقع')),
+            );
+          }
+          
+          if (mounted) {
+            try {
+              setState(() {
+                _isLoading = false;
+              });
+            } catch (stateError) {
+              print('Error updating loading state: $stateError');
+            }
+          }
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'تم حظر استخدام خدمة الموقع. يرجى تفعيلها من إعدادات الجهاز',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'تم حظر استخدام خدمة الموقع. يرجى تفعيلها من إعدادات الجهاز',
+              ),
+              action: SnackBarAction(
+                label: 'الإعدادات',
+                onPressed: () => Geolocator.openAppSettings(),
+              ),
             ),
-            action: SnackBarAction(
-              label: 'الإعدادات',
-              onPressed: () => Geolocator.openAppSettings(),
-            ),
-          ),
-        );
-        setState(() {
-          _isLoading = false;
-        });
+          );
+        }
+        
+        if (mounted) {
+          try {
+            setState(() {
+              _isLoading = false;
+            });
+          } catch (stateError) {
+            print('Error updating loading state: $stateError');
+          }
+        }
         return;
-      }
-
-      // الحصول على الموقع الحالي
+      }      // الحصول على الموقع الحالي
       final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      setState(() {
-        _originPosition = LatLng(position.latitude, position.longitude);
-      });
+      if (!mounted) return;
+      
+      try {
+        setState(() {
+          _originPosition = LatLng(position.latitude, position.longitude);
+        });
+      } catch (e) {
+        print('Error updating position state: $e');
+        if (!mounted) return;
+      }
 
       // الحصول على العنوان من الإحداثيات
       final address = await _getAddressFromLatLng(_originPosition!);
+      
+      if (!mounted) return;
+      
       if (address.isNotEmpty) {
-        setState(() {
-          _originAddress = address;
-        });
+        try {
+          setState(() {
+            _originAddress = address;
+          });
+        } catch (e) {
+          print('Error updating address state: $e');
+          if (!mounted) return;
+        }
       }
 
       // تحريك الخريطة للموقع الحالي
-      _animateToPosition(_originPosition!);
+      if (mounted) {
+        _animateToPosition(_originPosition!);
 
-      // إضافة علامة للموقع الحالي
-      _addMarker(
-        _originPosition!,
-        'origin',
-        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-        _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
-      );
-      
-      // إذا كانت الوجهة محددة، قم بحساب المسار
-      if (_destinationPosition != null) {
-        _calculateAndDisplayRoute();
+        // إضافة علامة للموقع الحالي
+        _addMarker(
+          _originPosition!,
+          'origin',
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          _originAddress.isEmpty ? 'موقعك الحالي' : _originAddress,
+        );
+        
+        // إذا كانت الوجهة محددة، قم بحساب المسار
+        if (_destinationPosition != null) {
+          _calculateAndDisplayRoute();
+        }
       }
     } catch (e) {
       print('Error getting location: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء تحديد الموقع: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء تحديد الموقع: $e')));
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        try {
+          setState(() {
+            _isLoading = false;
+          });
+        } catch (stateError) {
+          print('Error updating final loading state: $stateError');
+        }
+      }
     }
   }
 
@@ -495,8 +579,7 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         CameraPosition(target: position, zoom: 15.0),
       ),
     );
-  }
-  // إضافة علامة على الخريطة
+  }  // إضافة علامة على الخريطة
   void _addMarker(
     LatLng position,
     String markerId,
@@ -505,22 +588,26 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
   ) {
     if (!mounted) return;
     
-    setState(() {
-      // إزالة العلامة القديمة إذا كانت موجودة
-      _markers.removeWhere((marker) => marker.markerId.value == markerId);
+    try {
+      setState(() {
+        // إزالة العلامة القديمة إذا كانت موجودة
+        _markers.removeWhere((marker) => marker.markerId.value == markerId);
 
-      // إضافة العلامة الجديدة
-      _markers.add(
-        Marker(
-          markerId: MarkerId(markerId),
-          position: position,
-          icon: icon,
-          infoWindow: InfoWindow(title: title),
-        ),
-      );
-    });
-  }
-  // حساب وعرض المسار بين نقطتين
+        // إضافة العلامة الجديدة
+        _markers.add(
+          Marker(
+            markerId: MarkerId(markerId),
+            position: position,
+            icon: icon,
+            infoWindow: InfoWindow(title: title),
+          ),
+        );
+      });
+    } catch (e) {
+      print('Error adding marker: $e');
+      // This error might indicate a widget lifecycle issue
+    }
+  }  // حساب وعرض المسار بين نقطتين
   Future<void> _calculateAndDisplayRoute() async {
     if (_originPosition == null || _destinationPosition == null) {
       return;
@@ -528,9 +615,14 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     
     if (!mounted) return;
     
-    setState(() {
-      _isLoading = true;
-    });
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+    } catch (e) {
+      print('Error setting loading state: $e');
+      return;
+    }
     
     try {
       // الحصول على بيانات المسار من خدمة الاتجاهات
@@ -558,31 +650,41 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       if (!mounted) return;
       
       // عرض لوحة الاتجاهات
-      setState(() {
-        _showDirectionsPanel = true;
-      });
+      try {
+        setState(() {
+          _showDirectionsPanel = true;
+          _isLoading = false;
+        });
+      } catch (e) {
+        print('Error updating UI after route calculation: $e');
+        return;
+      }
       
       // عرض رسالة إعلامية
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم حساب المسار: ${_tripInfo['distance']} (${_tripInfo['duration']})'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم حساب المسار: ${_tripInfo['distance']} (${_tripInfo['duration']})'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       print('Error calculating route: $e');
       if (mounted) {
+        try {
+          setState(() {
+            _isLoading = false;
+          });
+        } catch (stateError) {
+          print('Error updating loading state: $stateError');
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('حدث خطأ أثناء حساب المسار'),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
       }
     }
   }

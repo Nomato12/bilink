@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bilink/services/notification_service.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 
 class ClientRequestAlert extends StatefulWidget {
   const ClientRequestAlert({super.key});
@@ -20,6 +21,7 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
   
   bool _isVisible = false;
   Map<String, dynamic>? _latestApprovedRequest;
+  StreamSubscription<QuerySnapshot>? _requestSubscription;
 
   @override
   void initState() {
@@ -51,6 +53,8 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
 
   @override
   void dispose() {
+    // Cancel subscription to prevent updates after widget is disposed
+    _requestSubscription?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -61,8 +65,11 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
     
     final userId = _auth.currentUser!.uid;
     
+    // Cancel any existing subscription first
+    _requestSubscription?.cancel();
+    
     // Listen to any client requests that were recently approved
-    FirebaseFirestore.instance
+    _requestSubscription = FirebaseFirestore.instance
         .collection('service_requests')
         .where('clientId', isEqualTo: userId)
         .where('status', isEqualTo: 'accepted')
@@ -70,6 +77,9 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
         .limit(1)
         .snapshots()
         .listen((snapshot) {
+          // Check if widget is still mounted before proceeding
+          if (!mounted) return;
+          
           if (snapshot.docs.isEmpty) return;
           
           final latestDoc = snapshot.docs.first;
@@ -90,6 +100,9 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
                 _latestApprovedRequest!['id'] == latestDoc.id) {
               return;
             }
+            
+            // Check if widget is still mounted before updating state
+            if (!mounted) return;
             
             // Update state and show alert
             setState(() {
@@ -134,6 +147,9 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
           .where('type', isEqualTo: 'request_update')
           .get()
           .then((snapshot) {
+            // Check if widget is still mounted before proceeding
+            if (!mounted) return;
+            
             for (var doc in snapshot.docs) {
               _notificationService.markNotificationAsRead(doc.id);
             }

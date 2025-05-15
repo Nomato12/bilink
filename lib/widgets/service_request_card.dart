@@ -950,17 +950,18 @@ class ServiceRequestCard extends StatelessWidget {
             'type': 'service_request_update',
             'requestId': requestId,
           });
-          
-          // Try to send FCM notification
+            // Try to send FCM notification to the client
           try {
             await fcmService.sendNotificationToUser(
               userId: clientId,
               title: title,
-              body: body,
-              data: {
+              body: body,              data: {
                 'type': 'request_update',
                 'requestId': requestId,
-                'status': newStatus
+                'status': newStatus,
+                'targetScreen': 'client_interface', // Add target screen for routing
+                'isForClient': true, // Explicitly mark notification for client only
+                'userId': clientId // Include the target user ID for filtering
               },
             );
           } catch (fcmError) {
@@ -973,7 +974,7 @@ class ServiceRequestCard extends StatelessWidget {
       if (context.mounted) {
         Navigator.pop(context);
         
-        // Show success message
+        // Show success message to the provider (not a notification - just a temporary snackbar)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('تم تحديث حالة الطلب بنجاح'),
