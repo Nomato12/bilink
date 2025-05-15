@@ -75,13 +75,12 @@ if (_initialCameraPosition != null && _markers.isNotEmpty)
 
 ```dart
 // Sample of enhanced location data structure
-{
-  'locationData': {
+{  'locationData': {
     'originCoords': '36.710819,3.215420',
     'destinationCoords': '36.752887,3.042048',
     'clientCoords': '36.710819,3.215420'
   },
-  'details': 'طلب خدمة نقل من المطار (36.710819,3.215420) إلى وسط المدينة (36.752887,3.042048) باستخدام سيارة'
+  'details': 'طلب خدمة نقل من المطار إلى وسط المدينة باستخدام سيارة'
 }
 ```
 

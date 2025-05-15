@@ -80,7 +80,7 @@ Future<void> enhanceTransportLocationData() async {
             : originCoords;
             
         // Create enhanced details string
-        String enhancedDetails = 'طلب خدمة نقل من $originName ($originCoords) إلى $destinationName ($destCoords) باستخدام $vehicleType';
+        String enhancedDetails = 'طلب خدمة نقل من $originName إلى $destinationName باستخدام $vehicleType';
         
         // Create location data map
         Map<String, dynamic> locationData = {

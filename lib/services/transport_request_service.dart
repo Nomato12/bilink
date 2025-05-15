@@ -108,12 +108,11 @@ class TransportRequestService {
         'distance': distance,
         'duration': duration,
         'distanceText': distanceText,
-        'durationText': durationText,
-        'price': price,
+        'durationText': durationText,        'price': price,
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'serviceType': 'نقل',
-        'details': 'طلب خدمة نقل من $originName ($originCoords) إلى $destinationName ($destCoords) باستخدام $vehicleType',
+        'details': 'طلب خدمة نقل من $originName إلى $destinationName باستخدام $vehicleType',
         'clientLocation': clientLocation,
         'clientAddress': clientAddress,
         'locationData': {
@@ -143,7 +142,7 @@ class TransportRequestService {
       await _firestore.collection('service_requests').doc(requestId).update({
         'clientLocation': clientLocation,
         'clientAddress': clientAddress,
-        'details': 'طلب خدمة نقل من $originName ($originCoords) إلى $destinationName ($destCoords) باستخدام $vehicleType',
+        'details': 'طلب خدمة نقل من $originName إلى $destinationName باستخدام $vehicleType',
         'locationData': {
           'originCoords': originCoords,
           'destinationCoords': destCoords,
