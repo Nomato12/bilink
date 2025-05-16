@@ -46,6 +46,9 @@ class NotificationService {
         if (serviceDoc.exists) {
           final serviceData = serviceDoc.data() as Map<String, dynamic>;
           serviceType = serviceData['type'] ?? serviceData['serviceType'] ?? 'تخزين';
+          print('Retrieved service type from service document: $serviceType for service ID: $serviceId');
+        } else {
+          print('Service document does not exist for ID: $serviceId, using default service type: $serviceType');
         }
       } catch (e) {
         print('Error retrieving service type: $e');
@@ -79,13 +82,13 @@ class NotificationService {
         // Add client location information
         if (clientLocation != null) requestData['clientLocation'] = clientLocation;
         if (clientAddress != null && clientAddress.isNotEmpty) requestData['clientAddress'] = clientAddress;
-      }
-
-      // Create the request document
+      }      // Create the request document
+      print('Creating service request with data: ${requestData.toString()}');
       final requestDoc = await _requestsCollection.add(requestData);
+      print('Service request created with ID: ${requestDoc.id}');
 
       // Create a notification for the provider
-      await _notificationsCollection.add({
+      final notificationData = {
         'userId': providerId,
         'title': 'طلب خدمة جديد',
         'body': 'لديك طلب ${serviceType == 'نقل' ? 'نقل' : 'تخزين'} جديد للخدمة: $serviceName',
@@ -98,7 +101,11 @@ class NotificationService {
         },
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      print('Creating notification for provider: $providerId with data: ${notificationData.toString()}');
+      await _notificationsCollection.add(notificationData);
+      print('Notification created for provider: $providerId');
 
       return requestDoc.id;
     } catch (e) {
@@ -246,14 +253,18 @@ class NotificationService {
       throw Exception('Failed to update request status');
     }
   }
-
   // Get unread notifications count for a user
   Stream<int> getUnreadNotificationsCount(String userId) {
+    print('Getting unread notifications count for user: $userId');
+    
     return _notificationsCollection
         .where('userId', isEqualTo: userId)
         .where('read', isEqualTo: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+        .map((snapshot) {
+          print('Found ${snapshot.docs.length} unread notifications for user: $userId');
+          return snapshot.docs.length;
+        });
   }
 
   // Get all notifications for a user
@@ -271,15 +282,23 @@ class NotificationService {
       'read': true,
     });
   }
-
   // Get pending service requests for a provider
   Stream<List<DocumentSnapshot>> getProviderPendingRequests(String providerId) {
+    print('Fetching pending requests for provider: $providerId');
+    
     return _requestsCollection
         .where('providerId', isEqualTo: providerId)
         .where('status', isEqualTo: 'pending')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs);
+        .map((snapshot) {
+          print('Found ${snapshot.docs.length} pending requests');
+          for (var doc in snapshot.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            print('Request ID: ${doc.id}, Type: ${data['serviceType'] ?? 'تخزين'}, Service: ${data['serviceName']}');
+          }
+          return snapshot.docs;
+        });
   }
   
   // Get accepted requests for a provider

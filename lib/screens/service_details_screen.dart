@@ -1856,10 +1856,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                           child: CircularProgressIndicator(),
                         );
                       },
-                    );
-
-                    // Crear instancia del servicio de notificaciones
+                    );                    // Crear instancia del servicio de notificaciones
                     final notificationService = NotificationService();
+                    
+                    // Get the service type from the service data
+                    final serviceType = _serviceData!['type'] ?? _serviceData!['serviceType'] ?? 'تخزين';
+                    print('Sending service request with type: $serviceType');
 
                     // Enviar la solicitud y notificación al proveedor
                     await notificationService.sendServiceRequest(

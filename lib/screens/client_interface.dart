@@ -2149,12 +2149,11 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                         SizedBox(width: 12), // Adjusted space
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () async {
-                              Navigator.of(context).pop();
+                            onPressed: () async {                              Navigator.of(context).pop();
                               await Provider.of<AuthService>(context, listen: false).logout();
                               if (mounted) {
                                 Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => BiLinkHomePage()), // Ensure BiLinkHomePage is correct
+                                  MaterialPageRoute(builder: (_) => const BiLinkHomePage()), // Added const to ensure proper initialization
                                   (route) => false,
                                 );
                               }

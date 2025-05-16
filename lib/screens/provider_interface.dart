@@ -2346,8 +2346,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                             SizedBox(width: 10),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () async {
-                                  Navigator.of(context).pop();
+                                onPressed: () async {                                  Navigator.of(context).pop();
                                   await Provider.of<AuthService>(
                                     context,
                                     listen: false,

@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as path;
 import 'package:bilink/services/auth_service.dart';
 import 'package:bilink/models/user_model.dart';
+import 'package:bilink/models/home_page.dart';
 
 class AccountProfileScreen extends StatefulWidget {
   const AccountProfileScreen({super.key});
@@ -385,10 +386,14 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                                   final authService = Provider.of<AuthService>(
                                     context, 
                                     listen: false,
-                                  );
-                                  await authService.logout();
+                                  );                                  await authService.logout();
                                   if (mounted) {
-                                    Navigator.of(context).pop();
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => const BiLinkHomePage(),
+                                      ),
+                                      (route) => false,
+                                    );
                                   }
                                 }
                               },
