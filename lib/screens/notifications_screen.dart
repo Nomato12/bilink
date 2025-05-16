@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/services/auth_service.dart';
-import 'package:bilink/widgets/service_request_card.dart';
+import 'package:bilink/widgets/service_request_card.dart' show ServiceRequestCard;
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});

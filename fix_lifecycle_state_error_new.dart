@@ -2,8 +2,6 @@
 // This addresses the _ElementLifecycle.defunct assertion error in directions_map_tracking.dart
 // and provides more comprehensive lifecycle handling for all async operations
 
-import 'dart:async';
-import 'package:flutter/material.dart';
 
 class FixDirectionsMapLifecycle {
   // The specific implementations needed for the directions_map_tracking.dart file

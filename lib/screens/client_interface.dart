@@ -23,6 +23,8 @@ import 'package:bilink/painters/logistics_painters.dart'; // استيراد رس
 import 'package:bilink/screens/transport_map_fix.dart' as map_fix; // Import utility functions for location handling
 // Import custom triangle painter for dropdown
 import 'package:bilink/widgets/client_request_alert.dart';
+import 'package:bilink/services/service_request_notification_service.dart';
+import 'package:bilink/widgets/accepted_service_requests_dialog.dart';
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -41,6 +43,9 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
   
   // متغيرات القائمة الجانبية
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  // متغيرات لإشعارات قبول الطلبات
+  final ServiceRequestNotificationService _requestNotificationService = ServiceRequestNotificationService();
   
   // الألوان الأساسية - نظام ألوان متناسق للخدمات اللوجستية
   final Color _primaryColor = const Color(0xFF0B3D91); // لون أزرق بحري عميق يرمز للموثوقية والاحترافية
@@ -244,8 +249,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           ),
         );
       }
-    }
-  }void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
+    }  }void _openTransportLocationOnMap(LatLng location, String locationName, Map<String, dynamic> service) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -255,7 +259,35 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
           serviceData: service,
         ),
       ),
-    );
+    );  }
+  // Show the service accepted requests dialog
+  void _showAcceptedRequestsDialog(BuildContext context) {
+    _requestNotificationService.getAcceptedRequests().first.then((requests) {
+      if (requests.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('لا توجد طلبات جديدة مقبولة'),
+            backgroundColor: _accentColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: EdgeInsets.all(16),
+          ),
+        );
+        return;
+      }
+      
+      showDialog(
+        context: context,
+        builder: (context) => AcceptedServiceRequestsDialog(
+          requests: requests,
+          onClose: () {
+            // Automatically mark all requests as notified when dialog is closed
+            _requestNotificationService.markAllRequestsAsNotified();
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    });
   }
 
   @override
@@ -418,6 +450,37 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                                   onPressed: _showSortingOptions,
                                   icon: const Icon(Icons.filter_list, color: Colors.white, size: 22),
                                   tooltip: 'ترتيب الخدمات',
+                                ),
+                              ),                              const SizedBox(width: 8),
+                              // أيقونة إشعارات طلبات الخدمة المقبولة
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: StreamBuilder<int>(
+                                  stream: _requestNotificationService.getAcceptedRequestsCount(),
+                                  builder: (context, snapshot) {
+                                    final acceptedCount = snapshot.data ?? 0;
+                                    return Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                                          tooltip: 'طلبات مقبولة',
+                                          onPressed: () {
+                                            _showAcceptedRequestsDialog(context);
+                                          },
+                                        ),
+                                        if (acceptedCount > 0)
+                                          Positioned(
+                                            right: 4,
+                                            top: 4,
+                                            child: NotificationBadge(count: acceptedCount),
+                                          ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -1944,7 +2007,6 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
       ),
     );
   }
-
   void _showAccountMenu(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;

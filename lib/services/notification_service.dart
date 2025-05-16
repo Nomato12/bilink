@@ -164,13 +164,12 @@ class NotificationService {
       final providerData = await _firestore.collection('users').doc(providerId).get();
       final providerName = providerData.exists 
           ? (providerData.data() as Map<String, dynamic>)['displayName'] ?? 'مزود الخدمة'
-          : 'مزود الخدمة';
-
-      // Update request status with response date
+          : 'مزود الخدمة';      // Update request status with response date
       Map<String, dynamic> updateData = {
         'status': status,
         'responseDate': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'isClientNotified': false, // إضافة هذا الحقل للتتبع في واجهة العميل
       };
       
       // إضافة الرسالة الإضافية إذا كانت موجودة

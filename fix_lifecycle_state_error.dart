@@ -1,8 +1,6 @@
 // Fix for the _ElementLifecycle.defunct assertion error in directions_map_tracking.dart
 // This error occurs when we try to modify state or rebuild a widget after it has been disposed
 
-import 'dart:async';
-import 'package:flutter/material.dart';
 
 // The main fixes needed are:
 // 1. Add proper dispose() method to cancel timers, subscriptions and controllers

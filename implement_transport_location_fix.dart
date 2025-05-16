@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:bilink/firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:bilink/utils/location_helper.dart';
 
 void main() async {
   // Initialize Flutter and Firebase
@@ -46,7 +45,7 @@ Future<void> enhanceTransportLocationData() async {
         final requestData = requestDoc.data();
         totalProcessed++;
         
-        print("\nProcessing request $requestId (${totalProcessed}/${requestsSnapshot.docs.length})");
+        print("\nProcessing request $requestId ($totalProcessed/${requestsSnapshot.docs.length})");
         
         // Check if already has enhanced location data
         if (requestData.containsKey('locationData') && 

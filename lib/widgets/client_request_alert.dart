@@ -66,15 +66,14 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
     final userId = _auth.currentUser!.uid;
     
     // Cancel any existing subscription first
-    _requestSubscription?.cancel();
-    
-    // Listen to any client requests that were recently approved
+    _requestSubscription?.cancel();      // Listen to any client requests that were recently approved
     _requestSubscription = FirebaseFirestore.instance
         .collection('service_requests')
         .where('clientId', isEqualTo: userId)
         .where('status', isEqualTo: 'accepted')
+        .where('isClientNotified', isEqualTo: false) // Only show alerts for unnotified requests
         .orderBy('responseDate', descending: true)
-        .limit(1)
+        .limit(3) // Increased limit to show more recent requests if there are multiple
         .snapshots()
         .listen((snapshot) {
           // Check if widget is still mounted before proceeding
@@ -85,7 +84,7 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
           final latestDoc = snapshot.docs.first;
           final data = latestDoc.data();
           
-          // Check if this is a recent approval (last 10 minutes)
+          // Check if this is a recent approval (last 30 minutes)
           final responseDate = data['responseDate'] as Timestamp?;
           if (responseDate == null) return;
           
@@ -93,8 +92,8 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
           final now = DateTime.now();
           final difference = now.difference(responseDateTime);
           
-          // Only show alert for requests accepted in the last 10 minutes
-          if (difference.inMinutes <= 10) {
+          // Only show alert for requests accepted in the last 30 minutes
+          if (difference.inMinutes <= 30) {
             // Don't show the same alert multiple times
             if (_latestApprovedRequest != null && 
                 _latestApprovedRequest!['id'] == latestDoc.id) {
@@ -125,8 +124,22 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
           }
         });
   }
-  
-  void _dismissAlert() {
+    void _dismissAlert() {
+    // Mark the request as notified when alert is dismissed
+    if (_latestApprovedRequest != null) {
+      // Update the service_request document
+      FirebaseFirestore.instance
+          .collection('service_requests')
+          .doc(_latestApprovedRequest!['id'])
+          .update({'isClientNotified': true})
+          .then((_) {
+            print('تم تحديث حالة الإشعار للطلب: ${_latestApprovedRequest!['id']}');
+          })
+          .catchError((error) {
+            print('خطأ في تحديث حالة الإشعار: $error');
+          });
+    }
+    
     _animationController.reverse().then((_) {
       if (mounted) {
         setState(() {
@@ -135,11 +148,10 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
       }
     });
   }
-  
-  void _viewRequestDetails() {
+    void _viewRequestDetails() {
     // Navigate to the request details or mark as read
     if (_latestApprovedRequest != null) {
-      // Mark notification as read
+      // Mark notification as read in notifications collection
       FirebaseFirestore.instance
           .collection('notifications')
           .where('userId', isEqualTo: _auth.currentUser!.uid)
@@ -153,6 +165,20 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
             for (var doc in snapshot.docs) {
               _notificationService.markNotificationAsRead(doc.id);
             }
+          });
+        // Also mark the request as notified in service_requests collection
+      FirebaseFirestore.instance
+          .collection('service_requests')
+          .doc(_latestApprovedRequest!['id'])
+          .update({
+            'isClientNotified': true,
+            'notifiedAt': FieldValue.serverTimestamp()
+          })
+          .then((_) {
+            print('تم تحديث حالة الإشعار للطلب: ${_latestApprovedRequest!['id']}');
+          })
+          .catchError((error) {
+            print('خطأ في تحديث حالة الإشعار: $error');
           });
       
       // Hide alert after navigating
@@ -169,11 +195,15 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
     }
     
     final serviceName = _latestApprovedRequest!['serviceName'] ?? 'خدمة';
+    final serviceType = _latestApprovedRequest!['serviceType'] ?? 'تخزين';
     final responseDate = _latestApprovedRequest!['responseDate'] as Timestamp?;
     final formattedDate = responseDate != null 
         ? DateFormat.yMd('ar').add_jm().format(responseDate.toDate())
         : '';
-        
+    
+    // Count other unread request notifications to show in badge
+    final userId = _auth.currentUser?.uid ?? '';
+    
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
@@ -197,6 +227,12 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
                       offset: const Offset(0, 3),
                     ),
                   ],
+                  border: Border.all(
+                    color: serviceType == 'نقل'
+                        ? Colors.orange.withOpacity(0.3)
+                        : Colors.green.withOpacity(0.3),
+                    width: 1.5,
+                  ),
                 ),
                 child: Material(
                   color: Colors.transparent,
@@ -211,12 +247,18 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
                             width: 50,
                             height: 50,
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.2),
+                              color: serviceType == 'نقل'
+                                ? Colors.orange.withOpacity(0.2)
+                                : Colors.green.withOpacity(0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
+                            child: Icon(
+                              serviceType == 'نقل'
+                                ? Icons.local_shipping_outlined
+                                : Icons.check_circle,
+                              color: serviceType == 'نقل'
+                                ? Colors.orange.shade700
+                                : Colors.green,
                               size: 30,
                             ),
                           ),
@@ -243,19 +285,60 @@ class _ClientRequestAlertState extends State<ClientRequestAlert> with SingleTick
                                 ),
                                 const SizedBox(height: 3),
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color: Colors.grey[600],
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          formattedDate,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      formattedDate,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
+                                    
+                                    // Count badge for multiple requests
+                                    StreamBuilder<QuerySnapshot>(
+                                      stream: FirebaseFirestore.instance
+                                          .collection('service_requests')
+                                          .where('clientId', isEqualTo: userId)
+                                          .where('status', isEqualTo: 'accepted')
+                                          .where('isClientNotified', isEqualTo: false)
+                                          .snapshots(),
+                                      builder: (context, snapshot) {
+                                        int count = 0;
+                                        if (snapshot.hasData) {
+                                          count = snapshot.data!.docs.length;
+                                        }
+                                        
+                                        if (count <= 1) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            '+${count - 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),

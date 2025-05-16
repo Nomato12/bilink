@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bilink/services/notification_service.dart';
-import 'package:bilink/widgets/service_request_card.dart';
+import 'package:bilink/widgets/service_request_card.dart' show ServiceRequestCard;
 
 class RequestTabs extends StatefulWidget {
   const RequestTabs({super.key});
