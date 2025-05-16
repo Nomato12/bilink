@@ -23,32 +23,15 @@ class ServiceRequestCard extends StatelessWidget {
     required this.requestData,
     this.onRequestUpdated,
   });
+
   @override
-  Widget build(BuildContext context) {    // Extract data from the request
+  Widget build(BuildContext context) {
+    // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة';
     final String clientName = requestData['clientName'] ?? 'عميل';
     final String details = requestData['details'] ?? '';
-    
-    // التحقق من نوع الخدمة بشكل أكثر ذكاءً
-    String serviceType;
-    if (requestData['serviceType'] != null) {
-      // استخدام القيمة المخزنة إذا كانت موجودة
-      serviceType = requestData['serviceType'];
-    } else if (requestData['type'] != null) {
-      // استخدام حقل النوع البديل إذا كان موجودًا
-      serviceType = requestData['type'];
-    } else if (requestData['originLocation'] != null && requestData['destinationLocation'] != null) {
-      // استنتاج أنها خدمة نقل إذا كانت تحتوي على نقطة انطلاق ووجهة
-      serviceType = 'نقل';
-    } else if (requestData['vehicleType'] != null || requestData['distanceText'] != null) {
-      // استنتاج أنها خدمة نقل إذا كانت تحتوي على معلومات مركبة أو مسافة
-      serviceType = 'نقل';
-    } else {
-      // الافتراضي إلى خدمة تخزين
-      serviceType = 'تخزين';
-    }
-    
+    final String serviceType = requestData['serviceType'] ?? 'تخزين';
     final Timestamp? createdAt = requestData['createdAt'] as Timestamp?;
     // Transport-specific data
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
@@ -177,7 +160,8 @@ class ServiceRequestCard extends StatelessWidget {
                       // Show service type indicator
                       Container(
                         margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),                        decoration: BoxDecoration(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
                           color: serviceType == 'نقل'
                               ? Colors.blue.withOpacity(0.1)
                               : Colors.teal.withOpacity(0.1),
@@ -246,16 +230,15 @@ class ServiceRequestCard extends StatelessWidget {
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
                           ),
-                        ),
-                      ),
+                        ),                      ),
                       const SizedBox(width: 8),
-                      // Botón para buscar la ubicación del cliente y navegar
+                      // Botón para buscar la ubicación del cliente y navegar o mensaje para servicios de almacenamiento
                       if (status == 'accepted')
                         InkWell(
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ClientDetailsScreen( // Assuming this screen shows location options
+                              builder: (context) => ClientDetailsScreen(
                                 clientId: requestData['clientId'] ?? '',
                               ),
                             ),
@@ -263,21 +246,25 @@ class ServiceRequestCard extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: serviceType == 'نقل' ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green, width: 1),
+                              border: Border.all(color: serviceType == 'نقل' ? Colors.green : Colors.blue, width: 1),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.location_on, size: 14, color: Colors.green),
-                                SizedBox(width: 4),
+                                Icon(
+                                  serviceType == 'نقل' ? Icons.location_on : Icons.message,
+                                  size: 14,
+                                  color: serviceType == 'نقل' ? Colors.green : Colors.blue,
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'موقع العميل',
+                                  serviceType == 'نقل' ? 'موقع العميل' : 'مراسلة',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                                    color: serviceType == 'نقل' ? Colors.green : Colors.blue,
                                   ),
                                 ),
                               ],
@@ -510,27 +497,30 @@ class ServiceRequestCard extends StatelessWidget {
 
             // Show client location section for accepted requests
             if (status == 'accepted') ...[
-              const SizedBox(height: 16),
-              Container(
+              const SizedBox(height: 16),              Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: serviceType == 'نقل' ? Colors.green.shade50 : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: serviceType == 'نقل' ? Colors.green.shade200 : Colors.blue.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Section title
-                    const Row(
+                    // Section title with appropriate icon and text based on service type
+                    Row(
                       children: [
-                        Icon(Icons.location_on, color: Colors.green, size: 18),
-                        SizedBox(width: 8),
+                        Icon(
+                          serviceType == 'نقل' ? Icons.location_on : Icons.person_outline,
+                          color: serviceType == 'نقل' ? Colors.green : Colors.blue,
+                          size: 18
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          'موقع العميل',
+                          serviceType == 'نقل' ? 'موقع العميل' : 'معلومات العميل',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: serviceType == 'نقل' ? Colors.green : Colors.blue,
                             fontSize: 14,
                           ),
                         ),
@@ -590,6 +580,7 @@ class ServiceRequestCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
+                      // Show map for transport services only
                       GestureDetector(
                         onTap: () => _showClientLocationOnMap(context, clientLocation, clientName, data: requestData),
                         child: Container(
@@ -653,7 +644,7 @@ class ServiceRequestCard extends StatelessWidget {
                               icon: const Icon(Icons.map, size: 16),
                               label: const Text('عرض الخريطة', style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue, // Explicitly set foreground color
+                                foregroundColor: Colors.blue,
                               ),
                             ),
                           ),
@@ -664,7 +655,7 @@ class ServiceRequestCard extends StatelessWidget {
                               icon: const Icon(Icons.route, size: 16),
                               label: const Text('المسار', style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.purple, // Explicitly set foreground color
+                                foregroundColor: Colors.purple,
                               ),
                             ),
                           ),
@@ -688,39 +679,128 @@ class ServiceRequestCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       _buildRouteButton(context, clientLocation, clientName),
+                    ] else if (serviceType != 'نقل') ...[
+                      // Display client information for storage services
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade100),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.person, color: Colors.blue, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  clientName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (clientAddress.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.location_city, color: Colors.grey, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      clientAddress,
+                                      style: const TextStyle(fontSize: 13),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ClientDetailsScreen(
+                                          clientId: requestData['clientId'] ?? '',
+                                        ),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.info_outline, size: 16),
+                                    label: const Text('التفاصيل', style: TextStyle(fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ClientDetailsScreen(
+                                          clientId: requestData['clientId'] ?? '',
+                                        ),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.message, size: 16),
+                                    label: const Text('مراسلة', style: TextStyle(fontSize: 12)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ] else ...[
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            // عرض رسالة منبثقة في حالة عدم وجود موقع متاح
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('موقع العميل غير متوفر'),
-                                content: const Text('لم يتم العثور على بيانات موقع لهذا العميل.\nهل تريد طلب الموقع من العميل أو الانتقال لشاشة الخريطة؟'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('إلغاء'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      _sendLocationRequest(context, requestData['clientId'] ?? '', clientName);
-                                    },
-                                    child: const Text('طلب الموقع'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      // استخدام موقع النقل إذا كان متوفر، وإلا استخدام موقع افتراضي
-                                      GeoPoint locationToUse;
-                                      String locationTitle = 'موقع $clientName';
-                                      String addressToShow = 'العنوان غير متوفر';
+                            // عرض رسالة مختلفة بناءً على نوع الخدمة
+                            if (serviceType == 'نقل') {
+                              // For transport services - location request dialog
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('موقع العميل غير متوفر'),
+                                  content: const Text('لم يتم العثور على بيانات موقع لهذا العميل.\nهل تريد طلب الموقع من العميل أو الانتقال لشاشة الخريطة؟'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('إلغاء'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _sendLocationRequest(context, requestData['clientId'] ?? '', clientName);
+                                      },
+                                      child: const Text('طلب الموقع'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        // استخدام موقع النقل إذا كان متوفر، وإلا استخدام موقع افتراضي
+                                        GeoPoint locationToUse;
+                                        String locationTitle = 'موقع $clientName';
+                                        String addressToShow = 'العنوان غير متوفر';
 
-                                      // تحقق من توفر موقع الانطلاق أو الوجهة في حالة خدمة النقل
-                                      if (serviceType == 'نقل') {
+                                        // تحقق من توفر موقع الانطلاق أو الوجهة في حالة خدمة النقل
                                         if (originLocation != null) {
                                           locationToUse = originLocation;
                                           locationTitle = 'نقطة الانطلاق';
@@ -733,45 +813,59 @@ class ServiceRequestCard extends StatelessWidget {
                                           // موقع افتراضي إذا لم يكن هناك موقع
                                           locationToUse = const GeoPoint(36.716667, 3.000000); // Example: Algiers
                                         }
-                                      } else {
-                                        // في حالة خدمة غير النقل استخدم موقع افتراضي
-                                        locationToUse = const GeoPoint(36.716667, 3.000000); // Example: Algiers
-                                      }
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => RequestLocationMap(
-                                            location: locationToUse,
-                                            title: locationTitle,
-                                            address: addressToShow,
-                                            enableNavigation: true,
-                                            clientId: requestData['clientId'] ?? '',
-                                            showRouteToCurrent: true,
-                                            showLocationUnavailableMessage: true, // Show warning since this isn't the actual client location
+                                        
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => RequestLocationMap(
+                                              location: locationToUse,
+                                              title: locationTitle,
+                                              address: addressToShow,
+                                              enableNavigation: true,
+                                              clientId: requestData['clientId'] ?? '',
+                                              showRouteToCurrent: true,
+                                              showLocationUnavailableMessage: true, // Show warning since this isn't the actual client location
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('فتح الخريطة'),
                                     ),
-                                    child: const Text('فتح الخريطة'),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              // For storage services - navigate directly to client details
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ClientDetailsScreen(
+                                    clientId: requestData['clientId'] ?? '',
                                   ),
-                                ],
-                              ),
-                            );
+                                ),
+                              );
+                            }
                           },
-                          icon: const Icon(Icons.location_on, size: 16),
-                          label: const Text('عرض الموقع'),
+                          icon: Icon(
+                            serviceType == 'نقل' ? Icons.location_searching : Icons.person,
+                            size: 16
+                          ),
+                          label: Text(
+                            serviceType == 'نقل' ? 'طلب الموقع' : 'عرض معلومات العميل',
+                            style: const TextStyle(fontSize: 12)
+                          ),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: serviceType == 'نقل' ? Colors.amber : Colors.blue,
                             foregroundColor: Colors.white,
-                            backgroundColor: Colors.green.shade700,
                           ),
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -827,30 +921,14 @@ class ServiceRequestCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),            ] else if (status == 'accepted') ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      context: context,
-                      label: 'إكمال الطلب',
-                      icon: Icons.done_all,
-                      color: Colors.blue,
-                      onPressed: () => _updateRequestStatus(context, 'completed'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionButton(
-                      context: context,
-                      label: 'حذف الطلب',
-                      icon: Icons.delete,
-                      color: Colors.red,
-                      onPressed: () => _deleteRequest(context),
-                    ),
-                  ),
-                ],
+              ),
+            ] else if (status == 'accepted') ...[
+              _buildActionButton(
+                context: context,
+                label: 'إكمال الطلب',
+                icon: Icons.done_all,
+                color: Colors.blue,
+                onPressed: () => _updateRequestStatus(context, 'completed'),
               ),
             ],
           ],
@@ -923,7 +1001,8 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
       );
       return;
     }
-      String collectionName = docSnapshot.reference.parent.id;
+    
+    String collectionName = docSnapshot.reference.parent.id;
     Map<String, dynamic> updateData = {
       'status': newStatus,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -932,10 +1011,6 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
       updateData['responseDate'] = FieldValue.serverTimestamp();
       updateData['hasUnreadNotification'] = true;
       updateData['lastStatusChangeBy'] = FirebaseAuth.instance.currentUser?.uid ?? '';
-      
-      // تأكيد أن نوع الخدمة يتم حفظه بشكل صحيح عند قبول الطلب
-      final String serviceType = requestData['serviceType'] ?? (requestData['type'] ?? 'تخزين');
-      updateData['serviceType'] = serviceType;
     }
 
     await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update(updateData);
@@ -988,12 +1063,13 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
             'body': body,
             'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
-            'type': 'request_update',            'data': {
+            'type': 'request_update',
+            'data': {
               'requestId': requestId,
               'status': newStatus,
               'serviceId': serviceId,
               'serviceName': serviceNameData,
-              'serviceType': requestData['serviceType'] ?? (requestData['type'] ?? 'تخزين'),
+              'serviceType': requestData['serviceType'] ?? 'تخزين',
               'providerName': FirebaseAuth.instance.currentUser?.displayName ?? 'مزود الخدمة',
               'isForClient': true // Ensure this matches expected client-side logic
             },
@@ -1002,14 +1078,15 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
             userId: clientId,
             title: title,
             body: body,
-            data: {              'type': 'request_update',
+            data: {
+              'type': 'request_update',
               'requestId': requestId,
               'status': newStatus,
               'serviceId': serviceId,
-              'serviceType': requestData['serviceType'] ?? (requestData['type'] ?? 'تخزين'),
+              'serviceType': requestData['serviceType'] ?? 'تخزين',
               'targetScreen': 'client_interface', // Ensure this is handled by client
               'isForClient': 'true', // FCM data often stringifies booleans
-              'userId': clientId
+               'userId': clientId
             },
           );
           print('تم إرسال الإشعار اليدوي بنجاح');
@@ -1341,199 +1418,9 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
       ),
     );
   }
+
   // Add this method to handle direct route navigation from current to client location
   void _openRouteToClient(BuildContext context, GeoPoint? clientLocation, String clientName) {
     _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true, data: requestData);
-  }
-    // دالة حذف الطلب
-  void _deleteRequest(BuildContext context) async {
-    // Store the original BuildContext as a local variable
-    final BuildContext dialogContext = context;
-    
-    // عرض مربع حوار للتأكيد قبل الحذف
-    showDialog(
-      context: dialogContext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('تأكيد الحذف'),
-          content: const Text('هل أنت متأكد أنك تريد حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                // إغلاق مربع الحوار
-                Navigator.of(context).pop();
-                
-                // Create a variable to track if the loading dialog is showing
-                bool isLoadingDialogShowing = true;
-                  // عرض مؤشر التحميل
-                if (dialogContext.mounted) {
-                  // استخدام Future.microtask لتجنب مشاكل ترتيب تنفيذ العمليات
-                  Future.microtask(() {
-                    if (dialogContext.mounted) {
-                      showDialog(
-                        context: dialogContext,
-                        barrierDismissible: false,
-                        builder: (BuildContext loadingContext) {
-                          return WillPopScope(
-                            onWillPop: () async => false, // منع زر الرجوع من إغلاق الحوار
-                            child: const AlertDialog(
-                              backgroundColor: Colors.transparent,
-                              elevation: 0,
-                              content: Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          );
-                        },
-                      ).then((value) {
-                        // تحديث حالة الحوار عند إغلاقه
-                        isLoadingDialogShowing = false;
-                      });
-                    }
-                  });
-                }
-                  try {
-                  final String requestId = requestData['id'] ?? '';
-                  if (requestId.isEmpty) {
-                    if (dialogContext.mounted) {
-                      // تأكد من إغلاق مؤشر التحميل أولاً
-                      await Future.delayed(const Duration(milliseconds: 100));
-                      _dismissLoadingDialog(dialogContext, isLoadingDialogShowing);
-                      isLoadingDialogShowing = false;
-                      
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('خطأ: معرف الطلب غير موجود'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                    return;
-                  }
-                  
-                  // محاولة العثور على الطلب في المجموعات المختلفة
-                  final collections = ['service_requests', 'serviceRequests'];
-                  bool deleted = false;
-                  
-                  for (final collection in collections) {
-                    if (!dialogContext.mounted) {
-                      break; // إذا لم يعد السياق صالحًا، توقف عن المحاولة
-                    }
-                    
-                    try {
-                      // التحقق مما إذا كان المستند موجودًا قبل محاولة حذفه
-                      final docRef = FirebaseFirestore.instance.collection(collection).doc(requestId);
-                      final docSnapshot = await docRef.get();
-                      
-                      if (docSnapshot.exists) {
-                        // إضافة سجل في أرشيف الطلبات المحذوفة
-                        await FirebaseFirestore.instance.collection('deleted_requests').add({
-                          ...docSnapshot.data()!, // نسخ جميع بيانات الطلب
-                          'originalId': requestId,
-                          'deletedAt': FieldValue.serverTimestamp(),
-                          'deletedBy': FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
-                          'originalCollection': collection,
-                        });
-                        
-                        // حذف المستند
-                        await docRef.delete();
-                        deleted = true;
-                        break; // الخروج من الحلقة بمجرد العثور على المستند وحذفه
-                      }
-                    } catch (e) {
-                      print('خطأ أثناء محاولة حذف المستند من المجموعة $collection: $e');
-                    }
-                  }
-
-                  // تأكد من عدم إغلاق الحوار مرتين
-                  if (isLoadingDialogShowing && dialogContext.mounted) {
-                    // تأخير لحظي للتأكد من إغلاق الحوار بشكل سليم
-                    await Future.delayed(const Duration(milliseconds: 100));
-                    _dismissLoadingDialog(dialogContext, isLoadingDialogShowing);
-                    isLoadingDialogShowing = false;
-                  }
-                  
-                  if (deleted) {
-                    if (dialogContext.mounted) {
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم حذف الطلب بنجاح'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      
-                      // تنفيذ رد الاتصال لتحديث واجهة المستخدم
-                      if (onRequestUpdated != null) {
-                        onRequestUpdated!();
-                      }
-                    }
-                  } else {
-                    if (dialogContext.mounted) {
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('لم يتم العثور على الطلب المحدد أو تم حذفه بالفعل'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  print('خطأ في حذف الطلب: $e');
-                  
-                  // تأكد من إغلاق مؤشر التحميل حتى في حالة حدوث خطأ
-                  if (isLoadingDialogShowing && dialogContext.mounted) {
-                    await Future.delayed(const Duration(milliseconds: 100));
-                    _dismissLoadingDialog(dialogContext, isLoadingDialogShowing);
-                    isLoadingDialogShowing = false;
-                  }
-                  
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      SnackBar(
-                        content: Text('حدث خطأ أثناء حذف الطلب: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('تأكيد الحذف'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-    // Helper method to safely dismiss the loading dialog
-  void _dismissLoadingDialog(BuildContext context, bool isDialogShowing) {
-    if (isDialogShowing && context.mounted) {
-      try {
-        // استخدام rootNavigator للتأكد من إزالة الحوار من الجذر
-        if (Navigator.of(context, rootNavigator: true).canPop()) {
-          Navigator.of(context, rootNavigator: true).pop();
-          print('تم إغلاق مؤشر التحميل بنجاح');
-        } else {
-          print('لا يمكن إغلاق مؤشر التحميل - لا توجد نوافذ للإغلاق');
-        }
-      } catch (e) {
-        print('خطأ أثناء إغلاق مؤشر التحميل: $e');
-        // محاولة احتياطية لإغلاق الحوار
-        try {
-          Navigator.of(context).pop();
-        } catch (e2) {
-          print('فشلت المحاولة الاحتياطية لإغلاق الحوار: $e2');
-        }
-      }
-    } else {
-      print('تم تخطي إغلاق الحوار - إما أن الحوار ليس معروضًا أو السياق غير صالح');
-    }
   }
 }
