@@ -128,6 +128,17 @@ class ServiceRequestCard extends StatelessWidget {
       );
     }
 
+    // تحديد نوع الخدمة بشكل صريح ودقيق
+    String computedServiceType = serviceType;
+    if (computedServiceType.isEmpty || computedServiceType == 'تخزين') {
+      final bool hasOriginLocation = originLocation != null;
+      final bool hasDestinationLocation = destinationLocation != null;
+      final bool hasVehicleType = vehicleType.isNotEmpty;
+      if ((hasOriginLocation && hasDestinationLocation) || hasVehicleType) {
+        computedServiceType = 'نقل';
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
@@ -158,28 +169,29 @@ class ServiceRequestCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       // Show service type indicator
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: serviceType == 'نقل'
-                              ? Colors.blue.withOpacity(0.1)
-                              : Colors.teal.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
-                            width: 1,
+                      if (!(computedServiceType == 'نقل' && originLocation != null && destinationLocation != null))
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: computedServiceType == 'نقل'
+                                ? Colors.blue.withOpacity(0.1)
+                                : Colors.teal.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: computedServiceType == 'نقل' ? Colors.blue : Colors.teal,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            computedServiceType == 'نقل' ? 'خدمة نقل' : 'خدمة تخزين',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: computedServiceType == 'نقل' ? Colors.blue : Colors.teal,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          serviceType == 'نقل' ? 'خدمة نقل' : 'خدمة تخزين',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: serviceType == 'نقل' ? Colors.blue : Colors.teal,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -506,16 +518,16 @@ class ServiceRequestCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Section title
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.location_on, color: Colors.green, size: 18),
-                        SizedBox(width: 8),
+                        Icon(Icons.info_outline, color: Colors.blue, size: 28),
+                        SizedBox(width: 10),
                         Text(
-                          'موقع العميل',
+                          'معلومات العميل',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                            fontSize: 14,
+                            color: Colors.blue,
+                            fontSize: 18,
                           ),
                         ),
                       ],
@@ -677,77 +689,18 @@ class ServiceRequestCard extends StatelessWidget {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            // عرض رسالة منبثقة في حالة عدم وجود موقع متاح
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('موقع العميل غير متوفر'),
-                                content: const Text('لم يتم العثور على بيانات موقع لهذا العميل.\nهل تريد طلب الموقع من العميل أو الانتقال لشاشة الخريطة؟'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('إلغاء'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      _sendLocationRequest(context, requestData['clientId'] ?? '', clientName);
-                                    },
-                                    child: const Text('طلب الموقع'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      // استخدام موقع النقل إذا كان متوفر، وإلا استخدام موقع افتراضي
-                                      GeoPoint locationToUse;
-                                      String locationTitle = 'موقع $clientName';
-                                      String addressToShow = 'العنوان غير متوفر';
-
-                                      // تحقق من توفر موقع الانطلاق أو الوجهة في حالة خدمة النقل
-                                      if (serviceType == 'نقل') {
-                                        if (originLocation != null) {
-                                          locationToUse = originLocation;
-                                          locationTitle = 'نقطة الانطلاق';
-                                          addressToShow = originName.isNotEmpty ? originName : 'العنوان غير متوفر';
-                                        } else if (destinationLocation != null) {
-                                          locationToUse = destinationLocation;
-                                          locationTitle = 'نقطة الوصول';
-                                          addressToShow = destinationName.isNotEmpty ? destinationName : 'العنوان غير متوفر';
-                                        } else {
-                                          // موقع افتراضي إذا لم يكن هناك موقع
-                                          locationToUse = const GeoPoint(36.716667, 3.000000); // Example: Algiers
-                                        }
-                                      } else {
-                                        // في حالة خدمة غير النقل استخدم موقع افتراضي
-                                        locationToUse = const GeoPoint(36.716667, 3.000000); // Example: Algiers
-                                      }
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => RequestLocationMap(
-                                            location: locationToUse,
-                                            title: locationTitle,
-                                            address: addressToShow,
-                                            enableNavigation: true,
-                                            clientId: requestData['clientId'] ?? '',
-                                            showRouteToCurrent: true,
-                                            showLocationUnavailableMessage: true, // Show warning since this isn't the actual client location
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text('فتح الخريطة'),
-                                  ),
-                                ],
+                            // الانتقال إلى صفحة معلومات العميل
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ClientDetailsScreen(
+                                  clientId: requestData['clientId'] ?? '',
+                                ),
                               ),
                             );
                           },
-                          icon: const Icon(Icons.location_on, size: 16),
-                          label: const Text('عرض الموقع'),
+                          icon: const Icon(Icons.info_outline, size: 16),
+                          label: const Text('عرض معلومات العميل'),
                           style: ElevatedButton.styleFrom(
                             foregroundColor: Colors.white,
                             backgroundColor: Colors.green.shade700,
