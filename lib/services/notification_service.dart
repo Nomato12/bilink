@@ -303,13 +303,47 @@ class NotificationService {
       
       final userData = userDoc.data() as Map<String, dynamic>;
       
-      // Get additional client data if available
+      // Get additional client data if available      // تحسين استخراج بيانات العميل من مختلف الحقول المحتملة
+      String clientName = '';
+      String profilePicUrl = '';
+      
+      // استخراج الاسم من مختلف الحقول المحتملة
+      if (userData['displayName'] != null && userData['displayName'].toString().isNotEmpty) {
+        clientName = userData['displayName'].toString();
+      } else if (userData['name'] != null && userData['name'].toString().isNotEmpty) {
+        clientName = userData['name'].toString();
+      } else if (userData['fullName'] != null && userData['fullName'].toString().isNotEmpty) {
+        clientName = userData['fullName'].toString();
+      } else if (userData['firstName'] != null || userData['lastName'] != null) {
+        String firstName = userData['firstName']?.toString() ?? '';
+        String lastName = userData['lastName']?.toString() ?? '';
+        clientName = '$firstName $lastName'.trim();
+      } else {
+        clientName = 'عميل';
+      }
+      
+      // استخراج رابط الصورة الشخصية من مختلف الحقول المحتملة
+      // في BiLink، يتم استخدام profileImageUrl للصورة الشخصية
+      if (userData['profileImageUrl'] != null && userData['profileImageUrl'].toString().isNotEmpty) {
+        profilePicUrl = userData['profileImageUrl'].toString();
+      } else if (userData['profilePicture'] != null && userData['profilePicture'].toString().isNotEmpty) {
+        profilePicUrl = userData['profilePicture'].toString();
+      } else if (userData['photoURL'] != null && userData['photoURL'].toString().isNotEmpty) {
+        profilePicUrl = userData['photoURL'].toString();
+      } else if (userData['photo'] != null && userData['photo'].toString().isNotEmpty) {
+        profilePicUrl = userData['photo'].toString();
+      } else if (userData['profileImage'] != null && userData['profileImage'].toString().isNotEmpty) {
+        profilePicUrl = userData['profileImage'].toString();
+      }
+      
+      print('استخراج بيانات العميل: الاسم = $clientName، الصورة = ${profilePicUrl.isNotEmpty}، رابط الصورة = $profilePicUrl');
+      
       Map<String, dynamic> clientInfo = {
         'id': userDoc.id,
-        'name': userData['displayName'] ?? 'عميل',
+        'name': clientName,
         'email': userData['email'] ?? '',
-        'phone': userData['phoneNumber'] ?? '',
-        'profilePicture': userData['profilePicture'] ?? '',
+        'phone': userData['phoneNumber'] ?? userData['phone'] ?? '',
+        'profilePicture': profilePicUrl,
         'address': userData['address'] ?? '',
         'fcmToken': userData['fcmToken'] ?? '',
         'userRole': userData['role'] ?? 'client',

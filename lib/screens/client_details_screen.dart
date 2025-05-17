@@ -265,8 +265,7 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
         );
       }
     }
-  }
-  Future<void> _loadClientDetails() async {
+  }  Future<void> _loadClientDetails() async {
     try {
       setState(() {
         _isLoading = true;
@@ -277,6 +276,12 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
       final clientDetails = await _notificationService.getClientDetails(
         widget.clientId,
       );
+      
+      // تخزين بيانات العميل في متغير الحالة
+      setState(() {
+        _clientDetails = clientDetails;
+        print('تم تحميل بيانات العميل: ${_clientDetails['name']}, صورة الملف الشخصي: ${_clientDetails['profilePicture'] != null}');
+      });
       
       // استخدم دالة المساعدة للحصول على موقع العميل
       GeoPoint? clientGeoPoint = LocationHelper.getLocationFromData(clientDetails);
@@ -763,18 +768,53 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
     } else {
       print('❌ لا يمكن تحميل المسار: نقطة البداية (${startLocation?.latitude},${startLocation?.longitude}) أو نقطة الوجهة (${_destinationLocation?.latitude},${_destinationLocation?.longitude}) غير متوفرة');
     }
-  }
-
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
-    if (await canLaunchUrl(phoneUri)) {
-      await launchUrl(phoneUri);
-    } else {
+  }  Future<void> _makePhoneCall(String phoneNumber) async {
+    try {
+      // معالجة رقم الهاتف بطريقة مختلفة لمعالجة المشكلة
+      String formattedNumber = phoneNumber.trim();
+      
+      // حذف الأحرف الخاصة مثل المسافات والشرطات والأقواس
+      formattedNumber = formattedNumber.replaceAll(RegExp(r'[\s\-)(]+'), '');
+      
+      // طريقة أخرى لتشكيل رابط الاتصال بدون استخدام الشكل الكامل +213
+      final url = 'tel:$formattedNumber';
+      final uri = Uri.parse(url);
+      
+      // عرض رسالة للمستخدم
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('جاري الاتصال بالرقم $formattedNumber'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      
+      print('محاولة الاتصال بالرقم: $formattedNumber عبر الرابط: $url');
+      
+      // استخدام طريقة أخرى للاتصال مع تحديد وضع التطبيق
+      bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      
+      if (!launched) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('لا يمكن الاتصال بهذا الرقم، تأكد من وجود تطبيق اتصال على جهازك'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لا يمكن الاتصال بهذا الرقم'),
+          SnackBar(
+            content: Text('حدث خطأ أثناء محاولة الاتصال: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -920,12 +960,14 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
+    // استخدام اسم العميل في عنوان الصفحة إذا كان متاحًا
+    final String clientName = _clientDetails['name'] ?? 'معلومات العميل';
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('معلومات العميل'),
+        title: Text(clientName),
         backgroundColor: const Color(0xFF8B5CF6),
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -971,37 +1013,73 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
-                              children: [
-                                // Profile Picture
-                                CircleAvatar(
-                                  radius: 50,
-                                  backgroundColor: const Color(0xFFE9D5FF),
-                                  backgroundImage:
-                                      _clientDetails['profilePicture'] != null &&
-                                              _clientDetails['profilePicture']
-                                                  .isNotEmpty
-                                          ? NetworkImage(
-                                              _clientDetails['profilePicture'],
-                                            )
-                                          : null,
-                                  child:
-                                      _clientDetails['profilePicture'] == null ||
-                                              _clientDetails['profilePicture']
-                                                  .isEmpty
-                                          ? const Icon(
-                                              Icons.person,
-                                              size: 60,
-                                              color: Color(0xFF8B5CF6),
-                                            )
-                                          : null,
+                              children: [                                // Profile Picture with hero animation for smoother transitions and CachedNetworkImage
+                                Hero(
+                                  tag: 'client-profile-${widget.clientId}',
+                                  child: Container(
+                                    width: 100,
+                                    height: 100,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFFE9D5FF),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(50),
+                                      child: _clientDetails['profilePicture'] != null && 
+                                             _clientDetails['profilePicture'].toString().isNotEmpty
+                                        ? Image.network(
+                                            _clientDetails['profilePicture'],
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              print('Error loading profile image: $error');
+                                              return const Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Color(0xFF8B5CF6),
+                                              );
+                                            },
+                                          )
+                                        : const Icon(
+                                            Icons.person,
+                                            size: 60,
+                                            color: Color(0xFF8B5CF6),
+                                          ),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
-                                // Name
+                                // Name with improved styling
                                 Text(
                                   _clientDetails['name'] ?? 'عميل',
                                   style: const TextStyle(
-                                    fontSize: 22,
+                                    fontSize: 24,
                                     fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2D3748),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                // User role badge
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE9D5FF),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _clientDetails['userRole'] == 'provider' ? 'مزود خدمة' : 'عميل',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF8B5CF6),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1042,24 +1120,121 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                           ? () =>
                                               _sendEmail(_clientDetails['email'])
                                           : null,
-                                ),
-                                _buildContactTile(
-                                  icon: Icons.phone,
-                                  title: 'رقم الهاتف',
-                                  value: _clientDetails['phone'] ?? 'غير متوفر',
-                                  onTap:
-                                      _clientDetails['phone'] != null &&
-                                              _clientDetails['phone'].isNotEmpty
-                                          ? () => _makePhoneCall(
-                                                _clientDetails['phone'],
-                                              )
-                                          : null,
+                                ),                                // رقم الهاتف مع تنسيق مميز
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: InkWell(
+                                    onTap: _clientDetails['phone'] != null && _clientDetails['phone'].isNotEmpty
+                                        ? () => _makePhoneCall(_clientDetails['phone'])
+                                        : null,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.all(8),
+                                            child: const Icon(
+                                              Icons.phone_android,
+                                              color: Color(0xFF8B5CF6),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'رقم الهاتف',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[700],
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      _clientDetails['phone'] ?? 'غير متوفر',
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        color: Colors.grey[900],
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    if (_clientDetails['phone'] != null && _clientDetails['phone'].isNotEmpty)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.green.withOpacity(0.2),
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                        child: const Text(
+                                                          'اضغط للاتصال',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: Colors.green,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                                 _buildContactTile(
                                   icon: Icons.location_on,
                                   title: 'العنوان',
                                   value: _clientDetails['address'] ?? 'غير متوفر',
-                                ),
+                                ),                                const SizedBox(height: 16),
+                                if (_clientDetails['phone'] != null && _clientDetails['phone'].toString().isNotEmpty)
+                                  Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.green.withOpacity(0.3),
+                                          spreadRadius: 1,
+                                          blurRadius: 5,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _makePhoneCall(_clientDetails['phone']),
+                                      icon: const Icon(Icons.phone_in_talk, color: Colors.white, size: 24),
+                                      label: Text(
+                                        'اتصال بالرقم ${_clientDetails['phone']}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green.shade600,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                       ],
                             ),
                           ),
@@ -1636,20 +1811,18 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                               ),
                             ),
                       ],
-                      ],
-
-                        // Action Buttons for WhatsApp and Chat
+                      ],                        // Action Buttons for Call and Chat
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            // WhatsApp Button
+                            // Call Button
                             if (_clientDetails.containsKey('phone') &&
                                 _clientDetails['phone'] != null &&
                                 _clientDetails['phone'].isNotEmpty)
                               Expanded(
                                 child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF25D366), // WhatsApp color
+                                    backgroundColor: const Color(0xFF4CAF50), // اللون الأخضر للإتصال
                                     foregroundColor: Colors.white,
                                     minimumSize: Size(double.infinity, 50),
                                     shape: RoundedRectangleBorder(
@@ -1657,12 +1830,13 @@ class _ClientDetailsScreenState extends State<ClientDetailsScreen> {
                                     ),
                                   ),
                                   onPressed: () =>
-                                      _openWhatsApp(_clientDetails['phone']),
-                                  icon: const Icon(Icons.message),
-                                  label: const Text(
-                                    'واتساب',
-                                    style: TextStyle(
+                                      _makePhoneCall(_clientDetails['phone']),
+                                  icon: const Icon(Icons.call),
+                                  label: Text(
+                                    'اتصل (${_clientDetails['phone']})',
+                                    style: const TextStyle(
                                         fontSize: 16, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),

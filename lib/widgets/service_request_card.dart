@@ -244,42 +244,7 @@ class ServiceRequestCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Botón para buscar la ubicación del cliente y navegar
-                      if (status == 'accepted')
-                        InkWell(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ClientDetailsScreen( // Assuming this screen shows location options
-                                clientId: requestData['clientId'] ?? '',
-                              ),
-                            ),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green, width: 1),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.location_on, size: 14, color: Colors.green),
-                                SizedBox(width: 4),
-                                Text(
-                                  'موقع العميل',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 8),                      // Removed client location button as requested
                     ],
                   ),
                 ),
@@ -516,8 +481,7 @@ class ServiceRequestCard extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Section title
+                  children: [              // Section title with info icon
                     Row(
                       children: [
                         Icon(Icons.info_outline, color: Colors.blue, size: 28),
@@ -687,8 +651,7 @@ class ServiceRequestCard extends StatelessWidget {
                     ] else ...[
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
+                        child: ElevatedButton.icon(                          onPressed: () {
                             // الانتقال إلى صفحة معلومات العميل
                             Navigator.push(
                               context,
@@ -700,10 +663,10 @@ class ServiceRequestCard extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.info_outline, size: 16),
-                          label: const Text('عرض معلومات العميل'),
+                          label: const Text('معلومات العميل'),
                           style: ElevatedButton.styleFrom(
                             foregroundColor: Colors.white,
-                            backgroundColor: Colors.green.shade700,
+                            backgroundColor: Colors.blue.shade700,
                           ),
                         ),
                       ),
@@ -764,14 +727,31 @@ class ServiceRequestCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ] else if (status == 'accepted') ...[
-              _buildActionButton(
-                context: context,
-                label: 'إكمال الطلب',
-                icon: Icons.done_all,
-                color: Colors.blue,
-                onPressed: () => _updateRequestStatus(context, 'completed'),
+              ),            ] else if (status == 'accepted') ...[
+              Column(
+                children: [
+                  _buildActionButton(
+                    context: context,
+                    label: 'إكمال الطلب',
+                    icon: Icons.done_all,
+                    color: Colors.blue,
+                    onPressed: () => _updateRequestStatus(context, 'completed'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          context: context,
+                          label: 'حذف الطلب',
+                          icon: Icons.delete_forever,
+                          color: Colors.red,
+                          onPressed: () => _deleteRequest(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ],
@@ -1265,5 +1245,117 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
   // Add this method to handle direct route navigation from current to client location
   void _openRouteToClient(BuildContext context, GeoPoint? clientLocation, String clientName) {
     _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true, data: requestData);
+  }
+
+  // حذف الطلب
+  Future<void> _deleteRequest(BuildContext context) async {
+    // Store the context reference before any async operations
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    
+    // عرض مربع حوار تأكيد قبل الحذف
+    bool confirmDelete = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'تأكيد الحذف',
+          style: TextStyle(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.right,
+        ),
+        content: const Text(
+          'هل أنت متأكد من أنك تريد حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+        actionsAlignment: MainAxisAlignment.start,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      ),
+    ) ?? false;
+
+    if (!confirmDelete) return;
+
+    if (!context.mounted) return;
+    
+    // عرض مؤشر التحميل
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {      final String requestId = requestData['id'] ?? '';
+      if (requestId.isEmpty) {
+        if (!context.mounted) return;
+        
+        Navigator.of(context).pop(); // إغلاق مؤشر التحميل
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطأ: لا يمكن حذف الطلب، معرف الطلب غير موجود'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // التحقق من وجود الطلب في أي من المجموعات
+      DocumentSnapshot? docSnapshot;
+      docSnapshot = await FirebaseFirestore.instance.collection('serviceRequests').doc(requestId).get();
+      if (!docSnapshot.exists) {
+        docSnapshot = await FirebaseFirestore.instance.collection('service_requests').doc(requestId).get();
+      }      if (!docSnapshot.exists) {
+        if (!context.mounted) return;
+        
+        Navigator.of(context).pop(); // إغلاق مؤشر التحميل
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطأ: الطلب غير موجود أو تم حذفه مسبقاً'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      // حذف الطلب من قاعدة البيانات
+      String collectionName = docSnapshot.reference.parent.id;
+      await FirebaseFirestore.instance.collection(collectionName).doc(requestId).delete();
+
+      // إغلاق مؤشر التحميل وإظهار رسالة نجاح
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حذف الطلب بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // إخطار الشاشة الأم بتحديث القائمة
+        if (onRequestUpdated != null) {
+          onRequestUpdated!();
+        }
+      }
+      
+    } catch (error) {
+      print('Error deleting request: $error');
+      if (context.mounted) {
+        Navigator.of(context).pop(); // إغلاق مؤشر التحميل عند حدوث خطأ
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء حذف الطلب: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
