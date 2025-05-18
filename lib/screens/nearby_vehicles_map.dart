@@ -21,6 +21,7 @@ class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
   final double? routeDuration;
   final String? distanceText;
   final String? durationText;
+  final String? calculatedPrice; // Added price parameter
 
   const NearbyVehiclesMap({
     super.key,
@@ -33,6 +34,7 @@ class NearbyVehiclesMap extends StatefulWidget {  final LatLng originLocation;
     this.routeDuration,
     this.distanceText,
     this.durationText,
+    this.calculatedPrice, // Added price parameter
   });
 
   @override
@@ -389,12 +391,11 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
               
               String vehicleImage = vehicleImages.isNotEmpty 
                   ? vehicleImages.first 
-                  : _getDefaultVehicleImage(actualVehicleType);
-                // إضافة المركبة إلى القائمة
+                  : _getDefaultVehicleImage(actualVehicleType);                // إضافة المركبة إلى القائمة
               vehicles.add({                'id': serviceId,
                 'type': actualVehicleType,
                 'company': companyName,                'rating': serviceDetails['rating']?.toString() ?? '4.0',
-                'price': _calculatePrice(_routeDistanceKm > 0 ? _routeDistanceKm : (widget.routeDistance ?? 0), actualVehicleType),
+                'price': widget.calculatedPrice ?? _calculatePrice(_routeDistanceKm > 0 ? _routeDistanceKm : (widget.routeDistance ?? 0), actualVehicleType),
                 'arrivalTime': '${_calculateArrivalTime(distanceFromClient)} دقيقة',
                 'image': vehicleImage,
                 'providerImage': providerPhotoUrl,
@@ -962,8 +963,7 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
+                  children: [                    Text(
                       'السعر الإجمالي:',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -971,7 +971,7 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
                       ),
                     ),
                     Text(
-                      '${((widget.routeDistance ?? 0) * (vehicle['pricePerKm'] ?? 60)).toInt()} دج',
+                      vehicle['price'] ?? widget.calculatedPrice ?? '${((widget.routeDistance ?? 0) * (vehicle['pricePerKm'] ?? 60)).toInt()} دج',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -1122,11 +1122,24 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
       ),
     );
     
-    try {
-      // حساب السعر النهائي للرحلة
+    try {      // الحصول على السعر النهائي للرحلة
       double distance = widget.routeDistance ?? 0;
       double duration = widget.routeDuration ?? 0;
-      double price = distance * (vehicle['pricePerKm'] ?? 60); // افتراضي 60 دج للكيلومتر
+      
+      // استخدام السعر المحسوب مسبقًا إذا كان متوفرًا
+      double price;
+      if (widget.calculatedPrice != null) {
+        // استخراج الرقم فقط من النص المنسق "XXX دج"
+        String priceStr = widget.calculatedPrice!.replaceAll(' دج', '').trim();
+        price = double.tryParse(priceStr) ?? (distance * 60); // افتراضي 60 دج للكيلومتر
+      } else if (vehicle['price'] != null && vehicle['price'].toString().isNotEmpty) {
+        // استخراج الرقم من سعر المركبة إذا كان موجودًا
+        String priceStr = vehicle['price'].toString().replaceAll(' دج', '').trim();
+        price = double.tryParse(priceStr) ?? (distance * 60);
+      } else {
+        // حساب السعر إذا لم يكن موجودًا
+        price = distance * (vehicle['pricePerKm'] ?? 60); // افتراضي 60 دج للكيلومتر
+      }
       
       if (vehicle['isRealProvider'] == true && vehicle['providerId'] != null) {
         // إنشاء طلب نقل في قاعدة البيانات

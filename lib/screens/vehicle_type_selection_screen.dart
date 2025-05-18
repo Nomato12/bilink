@@ -437,9 +437,18 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
                           _isSavingLocation = false;
                         });
                       }
-                      
-                      // الانتقال إلى شاشة البحث عن المركبات
+                        // الانتقال إلى شاشة البحث عن المركبات
                       if (context.mounted) {
+                        // العثور على خيار المركبة المحدد
+                        VehicleTypeOption selectedVehicle = _vehicleTypes.firstWhere(
+                          (vehicle) => vehicle.name == _selectedVehicleType,
+                          orElse: () => _vehicleTypes.first,
+                        );
+                        
+                        // حساب السعر
+                        double numericPrice = _getNumericPrice(selectedVehicle);
+                        String formattedPrice = '${numericPrice.toInt()} دج';
+                        
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -453,6 +462,7 @@ class _VehicleTypeSelectionScreenState extends State<VehicleTypeSelectionScreen>
                               routeDuration: widget.routeDuration,
                               distanceText: widget.distanceText,
                               durationText: widget.durationText,
+                              calculatedPrice: formattedPrice, // تمرير السعر المحسوب
                             ),
                           ),
                         );
