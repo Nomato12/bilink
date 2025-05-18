@@ -70,6 +70,12 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     'endAddress': '',
   };
 
+  // Additional variables for enhanced navigation
+  double _remainingDistanceKm = 0.0;
+  String _currentInstruction = '';
+  bool _showRealtimePanel = false;
+  final double _arrowSize = 40.0;
+
   @override
   void initState() {
     super.initState();
@@ -398,7 +404,7 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         // إزالة علامة الموقع الحالي إذا كانت موجودة
         _markers.removeWhere((marker) => marker.markerId.value == 'current_location');
         
-        // إضافة علامة جديدة للموقع الحالي
+        // إضافة علامة جديدة للموقع الحالي مع سهم لإظهار الاتجاه
         _markers.add(
           Marker(
             markerId: const MarkerId('current_location'),
@@ -410,7 +416,25 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
             zIndex: 2,
           ),
         );
+        
+        // تحديث المسافة المتبقية للوجهة
+        if (_destinationPosition != null) {
+          _remainingDistanceKm = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            _destinationPosition!.latitude,
+            _destinationPosition!.longitude,
+          ) / 1000; // تحويل من متر إلى كيلومتر
+          
+          // تحديث التعليمات الحالية بناءً على الخطوة الحالية
+          if (_directionSteps.isNotEmpty && _currentStepIndex < _directionSteps.length) {
+            _currentInstruction = _directionSteps[_currentStepIndex]['html_instructions'] ?? 'اتجه نحو الوجهة';
+          }
+        }
       });
+      
+      // عرض لوحة التتبع في الوقت الفعلي
+      _showRealtimePanel = true;
     } catch (e) {
       print('Error updating location marker: $e');
       // If there's an error during setState, it might indicate a lifecycle issue
@@ -1011,6 +1035,177 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     }
   }
 
+  // Build navigation direction arrow based on current maneuver
+  Widget _buildDirectionArrow() {
+    IconData arrowIcon = Icons.arrow_upward;
+    Color arrowColor = Colors.blue;
+    
+    // Get maneuver type from current step
+    if (_directionSteps.isNotEmpty && _currentStepIndex < _directionSteps.length) {
+      final String maneuver = _directionSteps[_currentStepIndex]['maneuver'] ?? 'straight';
+      
+      // Determine arrow direction based on maneuver
+      switch (maneuver) {
+        case 'turn-right':
+          arrowIcon = Icons.arrow_forward;
+          arrowColor = Colors.blue;
+          break;
+        case 'turn-sharp-right':
+          arrowIcon = Icons.turn_right;
+          arrowColor = Colors.blue;
+          break;
+        case 'turn-slight-right':
+          arrowIcon = Icons.turn_slight_right;
+          arrowColor = Colors.blue;
+          break;
+        case 'turn-left':
+          arrowIcon = Icons.arrow_back;
+          arrowColor = Colors.blue;
+          break;
+        case 'turn-sharp-left':
+          arrowIcon = Icons.turn_left;
+          arrowColor = Colors.blue;
+          break;
+        case 'turn-slight-left':
+          arrowIcon = Icons.turn_slight_left;
+          arrowColor = Colors.blue;
+          break;
+        case 'uturn-right':
+        case 'uturn-left':
+          arrowIcon = Icons.u_turn_left;
+          arrowColor = Colors.orange;
+          break;
+        case 'straight':
+        default:
+          arrowIcon = Icons.arrow_upward;
+          arrowColor = Colors.green;
+          break;
+      }
+    }
+    
+    return Container(
+      width: _arrowSize,
+      height: _arrowSize,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(
+        arrowIcon,
+        color: arrowColor,
+        size: _arrowSize * 0.6,
+      ),
+    );
+  }
+  
+  // Build real-time navigation panel showing current instruction and progress
+  Widget _buildRealtimeNavigationPanel() {
+    // Only show if we're tracking and have started navigation
+    if (!_isTracking || !_showRealtimePanel) return const SizedBox.shrink();
+    
+    return Positioned(
+      top: 16.0,
+      left: 16.0,
+      right: 16.0,
+      child: Card(
+        elevation: 4.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              // Top section with direction arrow and instruction
+              Row(
+                children: [
+                  _buildDirectionArrow(),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _stripHtmlTags(_currentInstruction),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'المسافة المتبقية: ${_remainingDistanceKm.toStringAsFixed(1)} كم',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Progress bar showing route completion
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: _progressPercentage,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    _progressPercentage > 0.9 ? Colors.green : Colors.blue,
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Timer & ETA
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'الوقت المتبقي: ${(_remainingTimeInSeconds / 60).ceil()} دقيقة',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  Text(
+                    'الوصول: ${_calculateETA()}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // Calculate estimated time of arrival based on remaining time
+  String _calculateETA() {
+    final DateTime now = DateTime.now();
+    final DateTime eta = now.add(Duration(seconds: _remainingTimeInSeconds));
+    
+    // Format time as HH:MM
+    final String hour = eta.hour.toString().padLeft(2, '0');
+    final String minute = eta.minute.toString().padLeft(2, '0');
+    
+    return '$hour:$minute';
+  }
+  
+  // Strip HTML tags from instruction text
+  String _stripHtmlTags(String htmlText) {
+    // Remove HTML tags
+    final RegExp exp = RegExp(r"<[^>]*>", multiLine: true);
+    return htmlText.replaceAll(exp, ' ').replaceAll('&nbsp;', ' ').trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1059,71 +1254,109 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
               _controller.complete(controller);
             },
             onTap: (position) {
-              if (_originPosition == null) {
-                // إذا لم يتم تحديد موقع البداية, فإن النقرة تحدد موقع البداية
-                setState(() {
-                  _originPosition = position;
-                });
-                _getAddressFromLatLng(position).then((address) {
-                  setState(() {
-                    _originAddress = address;
-                  });
-                  
-                  _addMarker(
-                    position,
-                    'origin',
-                    BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueViolet,
-                    ),
-                    address.isEmpty ? 'موقعك الحالي' : address,
-                  );
-                  
-                  if (_destinationPosition != null) {
-                    _calculateAndDisplayRoute();
-                  }
-                });
-              } else if (_destinationPosition == null) {
-                // إذا تم تحديد موقع البداية بالفعل ولكن ليس الوجهة، فإن النقرة تحدد الوجهة
-                setState(() {
-                  _destinationPosition = position;
-                });
-                
-                _getAddressFromLatLng(position).then((address) {
-                  setState(() {
-                    _destinationAddress = address;
-                  });
-                  
-                  _addMarker(
-                    position,
-                    'destination',
-                    BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueRed,
-                    ),
-                    address.isEmpty ? 'الوجهة' : address,
-                  );
-                  
-                  _calculateAndDisplayRoute();
-                });
-              }
+              // تنفيذ إجراء عند النقر على الخريطة
             },
           ),
 
-          // شريط تقدم التتبع
-          if (_isTracking)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: _buildTrackingProgressBar(),
-            ),
+          // لوحة الملاحة في الوقت الفعلي
+          _buildRealtimeNavigationPanel(),
 
           // لوحة الاتجاهات
-          if (_showDirectionsPanel && _directionSteps.isNotEmpty && !_isTracking)
+          if (_showDirectionsPanel && _directionSteps.isNotEmpty)
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              child: _buildDirectionsPanel(),
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // معلومات الرحلة (المسافة والوقت)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'المسافة: ${_tripInfo['distance'] ?? ''}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'الوقت: ${_tripInfo['duration'] ?? ''}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    // قائمة الخطوات
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _directionSteps.length,
+                        itemBuilder: (context, index) {
+                          final step = _directionSteps[index];
+                          final isCurrentStep = index == _currentStepIndex;
+                          
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isCurrentStep ? Colors.blue : Colors.grey.shade300,
+                              child: Icon(
+                                _getIconForManeuver(step['maneuver']),
+                                color: isCurrentStep ? Colors.white : Colors.black54,
+                                size: 18,
+                              ),
+                            ),
+                            title: Text(
+                              _stripHtmlTags(step['html_instructions'] ?? ''),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: isCurrentStep ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            subtitle: Text('${step['distance'] ?? ''} • ${step['duration'] ?? ''}'),
+                          );
+                        },
+                      ),
+                    ),
+                    
+                    // Button to toggle directions panel
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ElevatedButton.icon(
+                        onPressed: _isTracking ? _stopTracking : _startTracking,
+                        icon: Icon(_isTracking ? Icons.stop : Icons.navigation),
+                        label: Text(_isTracking ? 'إيقاف التتبع' : 'بدء التتبع'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isTracking ? Colors.red : Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
 
           // مؤشر التحميل
@@ -1134,66 +1367,100 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
             ),
         ],
       ),
+
       // أزرار تحكم الخريطة
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            // زر بدء أو إيقاف التتبع
-            Container(
-              margin: const EdgeInsets.only(bottom: 30),
-              child: FloatingActionButton.extended(
-                onPressed: _isTracking ? _stopTracking : _startTracking,
-                icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
-                label: Text(_isTracking ? 'إيقاف التتبع' : 'بدء التتبع'),
-                backgroundColor: _isTracking ? Colors.red : Colors.green,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                heroTag: 'toggle_tracking',
-              ),
-            ),
-            
-            // أزرار التحكم بالخريطة
-            FloatingActionButton.small(
-              onPressed: () async {
-                final GoogleMapController controller = await _controller.future;
-                controller.animateCamera(CameraUpdate.zoomIn());
-              },
-              heroTag: 'zoom_in',
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              child: const Icon(Icons.add),
-            ),
-            const SizedBox(height: 8),
-            FloatingActionButton.small(
-              onPressed: () async {
-                final GoogleMapController controller = await _controller.future;
-                controller.animateCamera(CameraUpdate.zoomOut());
-              },
-              heroTag: 'zoom_out',
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              child: const Icon(Icons.remove),
-            ),
-            const SizedBox(height: 8),
-            FloatingActionButton(
-              onPressed: () async {
-                if (_isTracking && _currentNavigationPosition != null) {
-                  _animateToPosition(_currentNavigationPosition!);
-                } else if (_originPosition != null) {
-                  _animateToPosition(_originPosition!);
-                }
-              },
-              heroTag: 'my_location',
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.blue,
-              child: const Icon(Icons.my_location),
-            ),
-          ],
-        ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Toggle directions panel button
+          FloatingActionButton(
+            onPressed: () {
+              setState(() {
+                _showDirectionsPanel = !_showDirectionsPanel;
+              });
+            },
+            heroTag: 'toggle_directions',
+            backgroundColor: _showDirectionsPanel ? Colors.blue : Colors.white,
+            foregroundColor: _showDirectionsPanel ? Colors.white : Colors.blue,
+            child: Icon(_showDirectionsPanel ? Icons.list : Icons.directions),
+          ),
+          const SizedBox(height: 16),
+          
+          // Zoom controls
+          FloatingActionButton.small(
+            onPressed: () async {
+              final GoogleMapController controller = await _controller.future;
+              controller.animateCamera(CameraUpdate.zoomIn());
+            },
+            heroTag: 'zoom_in',
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.small(
+            onPressed: () async {
+              final GoogleMapController controller = await _controller.future;
+              controller.animateCamera(CameraUpdate.zoomOut());
+            },
+            heroTag: 'zoom_out',
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            child: const Icon(Icons.remove),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            onPressed: () async {
+              if (_isTracking && _currentNavigationPosition != null) {
+                _animateToPosition(_currentNavigationPosition!);
+              } else if (_originPosition != null) {
+                _animateToPosition(_originPosition!);
+              }
+            },
+            heroTag: 'my_location',
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.blue,
+            child: const Icon(Icons.my_location),
+          ),
+        ],
       ),
     );
+  }
+  
+  // Get icon for the maneuver type
+  IconData _getIconForManeuver(String? maneuver) {
+    switch (maneuver) {
+      case 'turn-right':
+        return Icons.turn_right;
+      case 'turn-sharp-right':
+        return Icons.turn_sharp_right;
+      case 'turn-slight-right':
+        return Icons.turn_slight_right;
+      case 'turn-left':
+        return Icons.turn_left;
+      case 'turn-sharp-left':
+        return Icons.turn_sharp_left;
+      case 'turn-slight-left':
+        return Icons.turn_slight_left;
+      case 'uturn-right':
+      case 'uturn-left':
+        return Icons.u_turn_left;
+      case 'straight':
+        return Icons.arrow_upward;
+      case 'ramp-right':
+        return Icons.ramp_right;
+      case 'ramp-left':
+        return Icons.ramp_left;
+      case 'roundabout-right':
+      case 'roundabout-left':
+        return Icons.roundabout_left;
+      case 'merge':
+        return Icons.merge;
+      case 'fork-right':
+      case 'fork-left':
+        return Icons.fork_right;
+      default:
+        return Icons.directions;
+    }
   }
 }

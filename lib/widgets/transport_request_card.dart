@@ -8,6 +8,7 @@ import 'package:bilink/screens/client_details_screen.dart';
 import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/services/fcm_service.dart';
 import 'package:bilink/screens/request_location_map.dart';
+import 'package:bilink/screens/directions_map_tracking.dart';
 import 'package:bilink/utils/location_helper.dart';
 import 'package:bilink/services/service_vehicles_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -118,21 +119,23 @@ class TransportRequestCard extends StatelessWidget {
           math.max(originLocation.longitude, destinationLocation.longitude),
         ),
       );
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    }    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 15,
             spreadRadius: 2,
-            offset: const Offset(0, 3),
+            offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(
+          color: statusColor.withOpacity(0.4),
+          width: 1.5,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -141,23 +144,29 @@ class TransportRequestCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: () => _showRequestDetails(context),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            padding: const EdgeInsets.all(16),            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with service name and status
+                // Enhanced header with service name and status
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.local_shipping_rounded,
-                            color: Color(0xFF8B5CF6),
-                            size: 22,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.local_shipping_rounded,
+                              color: Color(0xFF8B5CF6),
+                              size: 20,
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               serviceName,
@@ -165,6 +174,7 @@ class TransportRequestCard extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 color: Color(0xFF1F2937),
+                                letterSpacing: 0.3,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -173,10 +183,14 @@ class TransportRequestCard extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        color: statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: statusColor.withOpacity(0.3),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         statusText,
@@ -189,20 +203,22 @@ class TransportRequestCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),                // Enhanced price section with calculation details
+                const SizedBox(height: 12),
+                // Enhanced price section with calculation details                
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.3),
-                        blurRadius: 8,
+                        color: const Color(0xFF8B5CF6).withOpacity(0.35),
+                        blurRadius: 10,
+                        spreadRadius: 1,
                         offset: const Offset(0, 3),
                       ),
                     ],
@@ -212,13 +228,30 @@ class TransportRequestCard extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'سعر الخدمة:',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.attach_money_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'سعر الخدمة:',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                           Row(
                             children: [
@@ -227,7 +260,7 @@ class TransportRequestCard extends StatelessWidget {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 22,
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -241,36 +274,7 @@ class TransportRequestCard extends StatelessWidget {
                             ],
                           ),
                         ],
-                      ),
-                      // Add price details
-                      if (vehicleType.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'سعر/كم: ${ServiceVehiclesHelper.basePricesPerKm[vehicleType] ?? ServiceVehiclesHelper.basePricesPerKm['default']} دج',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                              Text(
-                                'الحد الأدنى: ${ServiceVehiclesHelper.minimumPrices[vehicleType] ?? ServiceVehiclesHelper.minimumPrices['default']} دج',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      ),// Price details section removed
                     ],
                   ),
                 ),
@@ -436,11 +440,11 @@ class TransportRequestCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                const SizedBox(height: 16),
-
-                // Action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                const SizedBox(height: 16),                // Action buttons
+                Wrap(
+                  alignment: WrapAlignment.spaceEvenly,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     // Client details button
                     _buildActionButton(
@@ -457,6 +461,15 @@ class TransportRequestCard extends StatelessWidget {
                         icon: Icons.map,
                         label: 'عرض الخريطة',
                         onPressed: () => _viewOnMap(context),
+                      ),
+                    
+                    // New navigation button with turn-by-turn directions
+                    if (originLocation != null && destinationLocation != null)
+                      _buildActionButton(
+                        context,
+                        icon: Icons.navigation,
+                        label: 'ملاحة بالإرشادات',
+                        onPressed: () => _navigateWithDirections(context),
                       ),
                     
                     // Call client button
@@ -575,12 +588,38 @@ class TransportRequestCard extends StatelessWidget {
             location: originLocation,
             title: requestData['originName'] ?? 'نقطة الانطلاق',
             destinationLocation: destinationLocation,
-            destinationName: requestData['destinationName'] ?? 'نقطة الوصول',
+            destinationName: requestData['destinationName'] ?? 'الوجهة',
+            address: requestData['originAddress'] ?? '',
+            enableNavigation: true,
+            showRouteToCurrent: true,
+            requestId: requestData['id'],
           ),
         ),
       );
     } else {
       _showErrorSnackBar(context, 'معلومات الموقع غير متوفرة');
+    }
+  }
+
+  // Navigate with turn-by-turn directions
+  void _navigateWithDirections(BuildContext context) {
+    final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
+    final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
+    
+    if (originLocation != null && destinationLocation != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LiveTrackingMapScreen(
+            originLocation: LatLng(originLocation.latitude, originLocation.longitude),
+            originName: requestData['originName'] ?? 'نقطة الانطلاق',
+            destinationLocation: LatLng(destinationLocation.latitude, destinationLocation.longitude),
+            destinationName: requestData['destinationName'] ?? 'الوجهة',
+          ),
+        ),
+      );
+    } else {
+      _showErrorSnackBar(context, 'معلومات الموقع غير متوفرة للملاحة');
     }
   }
 
@@ -705,17 +744,10 @@ class TransportRequestCard extends StatelessWidget {
                             child: Column(
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     Text(
                                       'نوع المركبة: $detailVehicleType',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      'سعر/كم: ${ServiceVehiclesHelper.basePricesPerKm[detailVehicleType] ?? ServiceVehiclesHelper.basePricesPerKm['default']} دج',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.9),
                                         fontSize: 12,
@@ -725,17 +757,10 @@ class TransportRequestCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     Text(
                                       'المسافة: ${requestData['distanceText'] ?? ''}',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      'الحد الأدنى: ${ServiceVehiclesHelper.minimumPrices[detailVehicleType] ?? ServiceVehiclesHelper.minimumPrices['default']} دج',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.9),
                                         fontSize: 12,
