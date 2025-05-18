@@ -27,6 +27,7 @@ class ServiceRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة';
@@ -71,19 +72,27 @@ class ServiceRequestCard extends StatelessWidget {
     // Define colors based on status
     Color statusColor;
     String statusText;
+    IconData statusIcon;
 
     switch (status) {
       case 'accepted':
-        statusColor = Colors.green;
+        statusColor = Colors.green.shade600;
         statusText = 'تم القبول';
-        break;
-      case 'rejected':
-        statusColor = Colors.red;
+        statusIcon = Icons.check_circle_outline_rounded;
+        break;      case 'rejected':
+        statusColor = Colors.red.shade600;
         statusText = 'تم الرفض';
+        statusIcon = Icons.cancel_outlined;
+        break;
+      case 'completed':
+        statusColor = Colors.blue.shade600;
+        statusText = 'مكتمل';
+        statusIcon = Icons.task_alt_rounded;
         break;
       default:
-        statusColor = Colors.orange;
+        statusColor = Colors.orange.shade600;
         statusText = 'قيد الانتظار';
+        statusIcon = Icons.hourglass_empty_rounded;
     }
 
     // Create map markers if location data is available
@@ -127,14 +136,27 @@ class ServiceRequestCard extends StatelessWidget {
         target: LatLng(avgLat, avgLng),
         zoom: zoom,
       );
-    }    // نستخدم serviceType مباشرة بدون حساب إضافي
+    }
+    IconData serviceTypeIcon = serviceType == 'نقل' ? Icons.local_shipping_rounded : Icons.inventory_2_rounded;
+    Color serviceTypeColor = serviceType == 'نقل' ? Colors.blue.shade700 : Colors.teal.shade700;
      
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: statusColor.withOpacity(0.5), width: 1.5),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: statusColor.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -144,80 +166,87 @@ class ServiceRequestCard extends StatelessWidget {
             // Service name and status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        serviceName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: serviceTypeColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: Icon(serviceTypeIcon, color: serviceTypeColor, size: 22),
                       ),
-                      // Badge: partial transport or storage
-                      if (serviceType == 'نقل' && (originLocation == null || destinationLocation == null))
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue, width: 1),
-                          ),
-                          child: const Text(
-                            'خدمة نقل',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              serviceName,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.bodyLarge?.color,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        )
-                      else if (serviceType != 'نقل')
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.teal, width: 1),
-                          ),
-                          child: const Text(
-                            'خدمة تخزين',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
+                            const SizedBox(height: 4),
+                            // Badge: service type
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: serviceTypeColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: serviceTypeColor.withOpacity(0.3), width: 1),
+                              ),
+                              child: Text(
+                                serviceType == 'نقل' ? 'خدمة نقل' : 'خدمة تخزين',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: serviceTypeColor,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
                 // Status chip
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: statusColor, width: 1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: statusColor.withOpacity(0.4), width: 1),
                   ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey.shade300, height: 1),
+            const SizedBox(height: 16),
 
             // Client name and creation date
             Row(
@@ -226,7 +255,7 @@ class ServiceRequestCard extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.person, size: 18, color: Colors.grey),
+                      Icon(Icons.person_outline_rounded, size: 18, color: Colors.grey.shade700),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
@@ -241,24 +270,24 @@ class ServiceRequestCard extends StatelessWidget {
                         },
                         child: Text(
                           clientName,
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.w500,
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),                      // Removed client location button as requested
                     ],
                   ),
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.date_range, size: 18, color: Colors.grey),
+                    Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
                       formattedCreatedAt,
                       style: TextStyle(
-                        color: Colors.grey[700],
+                        color: Colors.grey.shade700,
                         fontSize: 12,
                       ),
                     ),
@@ -274,7 +303,7 @@ class ServiceRequestCard extends StatelessWidget {
               GestureDetector(
                 onTap: () => _showFullMap(context),
                 child: Container(
-                  height: 150,
+                  height: 160,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade300),
@@ -300,51 +329,34 @@ class ServiceRequestCard extends StatelessWidget {
                           left: 0,
                           right: 0,
                           child: Container(
-                            color: Colors.black.withOpacity(0.6),
-                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.7)],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                InkWell(
-                                  onTap: () => _openLocationInMaps(context, originLocation, 'نقطة الانطلاق: $originName'),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.trip_origin, color: Colors.white, size: 16),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'ملاحة للانطلاق',
-                                        style: TextStyle(color: Colors.white, fontSize: 11),
-                                      ),
-                                    ],
-                                  ),
+                                _buildMapOverlayButton(
+                                  context,
+                                  icon: Icons.near_me_rounded,
+                                  label: 'للانطلاق',
+                                  onPressed: () => _openLocationInMaps(context, originLocation, 'نقطة الانطلاق: $originName'),
                                 ),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  onTap: () => _openLocationInMaps(context, destinationLocation, 'الوجهة: $destinationName'),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.location_on, color: Colors.white, size: 16),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'ملاحة للوجهة',
-                                        style: TextStyle(color: Colors.white, fontSize: 11),
-                                      ),
-                                    ],
-                                  ),
+                                _buildMapOverlayButton(
+                                  context,
+                                  icon: Icons.pin_drop_rounded,
+                                  label: 'للوجهة',
+                                  onPressed: () => _openLocationInMaps(context, destinationLocation, 'الوجهة: $destinationName'),
                                 ),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  onTap: () => _openDirectionsInMaps(context, originLocation, destinationLocation, originName, destinationName),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.directions, color: Colors.white, size: 16),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'مسار كامل',
-                                        style: TextStyle(color: Colors.white, fontSize: 11),
-                                      ),
-                                    ],
-                                  ),
+                                _buildMapOverlayButton(
+                                  context,
+                                  icon: Icons.directions_rounded,
+                                  label: 'مسار كامل',
+                                  onPressed: () => _openDirectionsInMaps(context, originLocation, destinationLocation, originName, destinationName),
                                 ),
                               ],
                             ),
@@ -356,15 +368,16 @@ class ServiceRequestCard extends StatelessWidget {
                           child: Tooltip(
                             message: 'فتح الخريطة بشكل كامل',
                             child: Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(4),
+                                color: theme.cardColor.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]
                               ),
-                              child: const Icon(
-                                Icons.fullscreen,
-                                color: Colors.blue,
-                                size: 20,
+                              child: Icon(
+                                Icons.fullscreen_rounded,
+                                color: theme.colorScheme.primary,
+                                size: 22,
                               ),
                             ),
                           ),
@@ -375,95 +388,53 @@ class ServiceRequestCard extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               // Transport details
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
-                    // Origin and destination
-                    Row(
-                      children: [
-                        const Icon(Icons.trip_origin, size: 16, color: Colors.green),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'من: $originName',
-                            style: const TextStyle(fontSize: 13),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 16, color: Colors.red),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'إلى: $destinationName',
-                            style: const TextStyle(fontSize: 13),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Distance, duration and price
+                    _buildDetailRow(context, Icons.trip_origin_rounded, 'من:', originName, color: Colors.green.shade700),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(context, Icons.location_on_rounded, 'إلى:', destinationName, color: Colors.red.shade700),
+                    const SizedBox(height: 12),
+                    Divider(color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.route, size: 16, color: Colors.blue),
-                            const SizedBox(width: 4),
-                            Text(distanceText, style: const TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 16, color: Colors.orange),
-                            const SizedBox(width: 4),
-                            Text(durationText, style: const TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.local_shipping, size: 16, color: Colors.purple),
-                            const SizedBox(width: 4),
-                            Text(vehicleType, style: const TextStyle(fontSize: 12)),
-                          ],
-                        ),
+                        _buildInfoChip(context, Icons.route_rounded, distanceText, Colors.blue.shade700),
+                        _buildInfoChip(context, Icons.access_time_rounded, durationText, Colors.orange.shade700),
+                        _buildInfoChip(context, Icons.local_shipping_rounded, vehicleType, Colors.purple.shade700),
                       ],
                     ),
-                    const SizedBox(height: 8),
-
+                    const SizedBox(height: 16),
                     // Price
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        const Text(
+                        Text(
                           'السعر: ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          '$price دج',
-                          style: const TextStyle(
+                          '$price',
+                          style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                            fontSize: 16,
+                            color: theme.colorScheme.primary,
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'دج',
+                           style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),
                         ),
                       ],
                     ),
@@ -476,7 +447,7 @@ class ServiceRequestCard extends StatelessWidget {
             if (status == 'accepted') ...[
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(12),
@@ -484,58 +455,48 @@ class ServiceRequestCard extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [              // Section title with info icon
+                  children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue, size: 28),
-                        SizedBox(width: 10),
+                        Icon(Icons.info_outline_rounded, color: Colors.green.shade700, size: 24),
+                        const SizedBox(width: 10),
                         Text(
                           'معلومات العميل',
-                          style: TextStyle(
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                            fontSize: 18,
+                            color: Colors.green.shade800,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     if (clientLocation != null) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (clientAddress.isNotEmpty)
+                      if (clientAddress.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.location_city_rounded, color: Colors.grey.shade600, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.location_city, color: Colors.grey, size: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      clientAddress,
-                                      style: const TextStyle(fontSize: 13),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                clientAddress,
+                                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade800),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          if (isLiveLocation) ...[
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message: 'موقع مباشر',
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            if (isLiveLocation) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: Colors.green.shade600,
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.gps_fixed, color: Colors.white, size: 12),
+                                    Icon(Icons.gps_fixed_rounded, color: Colors.white, size: 12),
                                     SizedBox(width: 4),
                                     Text(
                                       'مباشر',
@@ -548,28 +509,27 @@ class ServiceRequestCard extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                        ),
+                      const SizedBox(height: 12),
                       GestureDetector(
                         onTap: () => _showClientLocationOnMap(context, clientLocation, clientName, data: requestData),
                         child: Container(
-                          height: 100,
+                          height: 120,
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: Colors.green.shade300),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             child: Stack(
                               children: [
                                 GoogleMap(
                                   initialCameraPosition: CameraPosition(
                                     target: LatLng(clientLocation.latitude, clientLocation.longitude),
-                                    zoom: 14.0,
+                                    zoom: 14.5,
                                   ),
                                   markers: {
                                     Marker(
@@ -592,11 +552,11 @@ class ServiceRequestCard extends StatelessWidget {
                                   left: 0,
                                   right: 0,
                                   child: Container(
-                                    color: Colors.black.withOpacity(0.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                    color: Colors.black.withOpacity(0.6),
+                                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                     child: const Text(
-                                      'انقر لفتح الخريطة',
-                                      style: TextStyle(color: Colors.white, fontSize: 10),
+                                      'انقر لفتح الخريطة والتتبع',
+                                      style: TextStyle(color: Colors.white, fontSize: 11),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
@@ -606,17 +566,18 @@ class ServiceRequestCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () => _showClientLocationOnMap(context, clientLocation, clientName, data: requestData),
-                              icon: const Icon(Icons.map, size: 16),
-                              label: const Text('عرض الخريطة', style: TextStyle(fontSize: 12)),
+                              icon: const Icon(Icons.map_outlined, size: 18),
+                              label: const Text('الخريطة'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue, // Explicitly set foreground color
+                                foregroundColor: Colors.blue.shade700,
+                                side: BorderSide(color: Colors.blue.shade700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                           ),
@@ -624,26 +585,12 @@ class ServiceRequestCard extends StatelessWidget {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () => _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true, data: requestData),
-                              icon: const Icon(Icons.route, size: 16),
-                              label: const Text('المسار', style: TextStyle(fontSize: 12)),
+                              icon: const Icon(Icons.route_outlined, size: 18),
+                              label: const Text('المسار'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.purple, // Explicitly set foreground color
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _openLocationInMaps(
-                                context,
-                                clientLocation,
-                                'موقع $clientName - ${clientAddress.isNotEmpty ? clientAddress : ''}',
-                              ),
-                              icon: const Icon(Icons.directions, size: 16),
-                              label: const Text('تتبع', style: TextStyle(fontSize: 12)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
+                                foregroundColor: Colors.purple.shade700,
+                                side: BorderSide(color: Colors.purple.shade700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                           ),
@@ -654,8 +601,8 @@ class ServiceRequestCard extends StatelessWidget {
                     ] else ...[
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(                          onPressed: () {
-                            // الانتقال إلى صفحة معلومات العميل
+                        child: ElevatedButton.icon(
+                          onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -665,11 +612,13 @@ class ServiceRequestCard extends StatelessWidget {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.info_outline, size: 16),
-                          label: const Text('معلومات العميل'),
+                          icon: const Icon(Icons.info_outline_rounded, size: 18),
+                          label: const Text('عرض معلومات العميل'),
                           style: ElevatedButton.styleFrom(
                             foregroundColor: Colors.white,
                             backgroundColor: Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -686,79 +635,171 @@ class ServiceRequestCard extends StatelessWidget {
               if (details.isNotEmpty) ...[
                 Text(
                   'التفاصيل:',
-                  style: TextStyle(
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
+                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  details,
-                  style: TextStyle(
-                    color: Colors.grey[600],
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    details,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.9),
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ],
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             // Action buttons based on status
             if (status == 'pending') ...[
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Expanded(
                     child: _buildActionButton(
                       context: context,
                       label: 'قبول',
-                      icon: Icons.check_circle,
-                      color: Colors.green,
+                      icon: Icons.check_circle_outline_rounded,
+                      backgroundColor: Colors.green.shade600,
+                      textColor: Colors.white,
                       onPressed: () => _updateRequestStatus(context, 'accepted'),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionButton(
+                  Expanded(                    child: _buildActionButton(
                       context: context,
                       label: 'رفض',
-                      icon: Icons.cancel,
-                      color: Colors.red,
+                      icon: Icons.cancel_outlined,
+                      backgroundColor: Colors.red.shade600,
+                      textColor: Colors.white,
                       onPressed: () => _updateRequestStatus(context, 'rejected'),
                     ),
                   ),
                 ],
-              ),            ] else if (status == 'accepted') ...[
+              ),
+            ] else if (status == 'accepted') ...[
               Column(
                 children: [
                   _buildActionButton(
                     context: context,
                     label: 'إكمال الطلب',
-                    icon: Icons.done_all,
-                    color: Colors.blue,
+                    icon: Icons.task_alt_rounded,
+                    backgroundColor: Colors.blue.shade600,
+                    textColor: Colors.white,
+                    isFullWidth: true,
                     onPressed: () => _updateRequestStatus(context, 'completed'),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildActionButton(
-                          context: context,
-                          label: 'حذف الطلب',
-                          icon: Icons.delete_forever,
-                          color: Colors.red,
-                          onPressed: () => _deleteRequest(context),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 10),
+                  _buildActionButton(
+                    context: context,
+                    label: 'حذف الطلب',
+                    icon: Icons.delete_forever_rounded,
+                    backgroundColor: Colors.transparent,
+                    textColor: Colors.red.shade600,
+                    borderColor: Colors.red.shade300,
+                    isFullWidth: true,
+                    onPressed: () => _deleteRequest(context),
                   ),
                 ],
               ),
+            ] else if (status == 'completed' || status == 'rejected') ...[
+               _buildActionButton(
+                    context: context,
+                    label: 'حذف الطلب',
+                    icon: Icons.delete_outline_rounded,
+                    backgroundColor: Colors.grey.shade200,
+                    textColor: Colors.red.shade700,
+                    borderColor: Colors.grey.shade400,
+                    isFullWidth: true,
+                    onPressed: () => _deleteRequest(context),
+                  ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMapOverlayButton(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value, {Color? color}) {
+    final ThemeData theme = Theme.of(context);
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: color ?? theme.colorScheme.primary),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: theme.textTheme.bodySmall?.color),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodyLarge?.copyWith(color: theme.textTheme.bodyMedium?.color),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoChip(BuildContext context, IconData icon, String text, Color color) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
@@ -767,24 +808,38 @@ class ServiceRequestCard extends StatelessWidget {
     required BuildContext context,
     required String label,
     required IconData icon,
-    required Color color,
+    required Color backgroundColor,
+    required Color textColor,
+    Color? borderColor,
+    bool isFullWidth = false,
     required VoidCallback onPressed,
   }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        foregroundColor: color,
-        backgroundColor: color.withOpacity(0.1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: color.withOpacity(0.5)),
-        ),
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+    final buttonStyle = ElevatedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: textColor,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: borderColor != null ? BorderSide(color: borderColor) : BorderSide.none,
       ),
+      elevation: backgroundColor == Colors.transparent ? 0 : 2,
+      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)
     );
+
+    Widget button = ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: buttonStyle,
+    );
+
+    if (isFullWidth) {
+      return SizedBox(
+        width: double.infinity,
+        child: button,
+      );
+    }
+    return button;
   }
 
 void _updateRequestStatus(BuildContext context, String newStatus) async {
@@ -1230,16 +1285,17 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
 
   // Add a button to directly show the route to bottom of card when client location is available
   Widget _buildRouteButton(BuildContext context, GeoPoint? clientLocation, String clientName) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+    return SizedBox(
+      width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () => _openRouteToClient(context, clientLocation, clientName),
-        icon: const Icon(Icons.route, size: 16),
-        label: const Text('عرض المسار من موقعك', style: TextStyle(fontSize: 13)),
+        icon: const Icon(Icons.directions_car_rounded, size: 18),
+        label: const Text('تتبع المسار إلى العميل', style: TextStyle(fontSize: 13)),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.purple,
+          backgroundColor: Colors.green.shade600,
           foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 36), // Make button full width
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );

@@ -136,10 +136,12 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         ),
       );
     }
-  }
-  // Get the provider's current location
+  }  // Get the provider's current location
   Future<void> _getProviderCurrentLocation() async {
     try {
+      // تحقق من أن الـ widget لا يزال مثبتًا في بداية العملية
+      if (!mounted) return;
+      
       // Request location permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -158,43 +160,48 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         desiredAccuracy: LocationAccuracy.high,
       );
       
-      if (mounted) {
+      // تحقق من أن الـ widget لا يزال مثبتًا بعد الحصول على الموقع
+      if (!mounted) return;
+      
+      setState(() {
+        _providerLocation = GeoPoint(position.latitude, position.longitude);
+        _updateMarker();
+      });
+      
+      // التحقق مما إذا كان السائق قد وصل إلى العميل
+      if (_hasReachedClient() && _destinationLocation != null && !_showDestination) {
         setState(() {
-          _providerLocation = GeoPoint(position.latitude, position.longitude);
-          _updateMarker();
+          _showDestination = true;
+          _updateMarker(); // تحديث العلامات لإظهار علامة الوجهة
         });
         
-        // التحقق مما إذا كان السائق قد وصل إلى العميل
-        if (_hasReachedClient() && _destinationLocation != null && !_showDestination) {
-          setState(() {
-            _showDestination = true;
-            _updateMarker(); // تحديث العلامات لإظهار علامة الوجهة
-          });
-          
-          // عرض رسالة إشعار بالوصول للعميل
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('تم الوصول إلى العميل! استخدم زر التتبع لعرض الوجهة النهائية'),
-              backgroundColor: Colors.blue,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        // تحقق مرة أخرى من أن الـ widget لا يزال مثبتًا قبل عرض الرسالة
+        if (!mounted) return;
         
-        // Create route if needed
-        if (widget.showRouteToCurrent) {
-          _createRoute();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
+        // عرض رسالة إشعار بالوصول للعميل
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ في الحصول على الموقع: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text('تم الوصول إلى العميل! استخدم زر التتبع لعرض الوجهة النهائية'),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
+      
+      // Create route if needed
+      if (widget.showRouteToCurrent && mounted) {
+        _createRoute();
+      }
+    } catch (e) {
+      // تحقق من أن الـ widget لا يزال مثبتًا قبل عرض رسالة الخطأ
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('خطأ في الحصول على الموقع: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
       print('Error getting location: $e');
     }
   }// Create route between provider and client locations
@@ -536,7 +543,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on, color: Colors.green, size: 18),
+                            Icon(Icons.location_on, color: Colors.blue[700], size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -662,7 +669,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
+                              backgroundColor: Colors.blue[800], // Updated color
                               foregroundColor: Colors.white,
                               minimumSize: const Size(double.infinity, 40),
                               elevation: 3,
@@ -692,7 +699,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('تم إنشاء المسار إلى وجهة العميل: ${_destinationName ?? "الوجهة"}'),
-                                      backgroundColor: Colors.deepPurple,
+                                      backgroundColor: Colors.blue[700], // Consistent with button
                                       duration: const Duration(seconds: 3),
                                     ),
                                   );
@@ -712,7 +719,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         onPressed: _openLocationInMaps,
         icon: const Icon(Icons.navigation),
         label: const Text('تتبع'),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.blue[700], // Updated color
       ) : null,
     );
   }
@@ -788,6 +795,9 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     }
   }  void _openLocationInMaps() async {
     try {
+      // تحقق من أن الـ widget لا يزال مثبتًا قبل بدء العملية
+      if (!mounted) return;
+      
       // قم بإظهار الخريطة داخل التطبيق بدلاً من فتح تطبيق خارجي
       // إظهار مؤشر التحميل
       showDialog(
@@ -805,6 +815,10 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         if (_providerLocation == null) {
           await _getProviderCurrentLocation();
         }
+        
+        // تحقق من أن الـ widget لا يزال مثبتًا بعد العملية غير المتزامنة
+        if (!mounted) return;
+        
         if (_providerLocation != null) {
           // التحقق مما إذا وصل السائق إلى العميل وهناك وجهة نهائية
           if (_hasReachedClient() && _destinationLocation != null && !_showDestination) {
@@ -815,25 +829,28 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
             // إنشاء مسار إلى الوجهة النهائية بدلاً من العميل
             await _createRouteToDestination();
             // إغلاق مؤشر التحميل
-            if (context.mounted) {
-              Navigator.pop(context);
-              // عرض رسالة وصول للعميل وإظهار الوجهة النهائية
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('تم الوصول إلى العميل! جاري عرض الوجهة النهائية: ${_destinationName ?? "الوجهة"}'),
-                  backgroundColor: Colors.blue,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
+            if (!mounted) return;
+            
+            Navigator.pop(context);
+            // عرض رسالة وصول للعميل وإظهار الوجهة النهائية
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('تم الوصول إلى العميل! جاري عرض الوجهة النهائية: ${_destinationName ?? "الوجهة"}'),
+                backgroundColor: Colors.blue,
+                duration: const Duration(seconds: 3),
+              ),
+            );
             return;
           } else {
             // إنشاء المسار العادي إلى العميل
             await _createRoute();
+            
+            // تحقق من أن الـ widget لا يزال مثبتًا بعد العملية غير المتزامنة
+            if (!mounted) return;
           }
         } else {
           // إذا تعذر الحصول على موقع المزود، ركز على موقع العميل فقط
-          if (_mapInitialized) {
+          if (_mapInitialized && mounted) {
             _mapController.animateCamera(
               CameraUpdate.newLatLngZoom(
                 LatLng(_currentLocation.latitude, _currentLocation.longitude),
@@ -844,13 +861,18 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         }
       }
       // إغلاق مؤشر التحميل
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+      
+      Navigator.pop(context);
+      
       // إذا كانت ميزة التتبع متاحة ولم تكن مفعلة، قم بتفعيلها
       if (_showTrackingOptions && !_isTracking) {
         _startTracking();
       }
+      
+      // تحقق من أن الـ widget لا يزال مثبتًا قبل عرض الرسالة
+      if (!mounted) return;
+      
       // عرض رسالة نجاح
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -861,16 +883,17 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       );
     } catch (e) {
       // إغلاق مؤشر التحميل
-      if (context.mounted) {
+      if (mounted) {
         Navigator.pop(context);
+        
+        // عرض رسالة خطأ
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء محاولة تتبع الموقع: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      // عرض رسالة خطأ
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء محاولة تتبع الموقع: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
       print('Error opening in-app maps: $e');
     }
   }

@@ -25,6 +25,11 @@ class TransportRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Define a primary color for consistent theming
+    final Color primaryColor = const Color(0xFF7B1FA2); // Vibrant Purple
+    final Color darkerPrimaryShade = const Color(0xFF4A148C); // Darker Purple for accents/text
+    final Color lightPrimaryColor = primaryColor.withOpacity(0.1);
+
     // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة نقل';
@@ -36,7 +41,8 @@ class TransportRequestCard extends StatelessWidget {
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
     final String originName = requestData['originName'] ?? '';
-    final String destinationName = requestData['destinationName'] ?? '';    final String distanceText = requestData['distanceText'] ?? '';
+    final String destinationName = requestData['destinationName'] ?? '';
+    final String distanceText = requestData['distanceText'] ?? '';
     final String durationText = requestData['durationText'] ?? '';
     final String vehicleType = requestData['vehicleType'] ?? '';
     
@@ -61,25 +67,29 @@ class TransportRequestCard extends StatelessWidget {
 
     // Format date
     final String formattedCreatedAt = createdAt != null
-        ? DateFormat('yyyy/MM/dd hh:mm a').format(createdAt.toDate())
+        ? DateFormat('yyyy/MM/dd hh:mm a', 'ar').format(createdAt.toDate())
         : 'غير معروف';
 
     // Define colors based on status
     Color statusColor;
     String statusText;
+    IconData statusIcon;
 
     switch (status) {
       case 'accepted':
-        statusColor = Colors.green;
+        statusColor = Colors.green.shade600;
         statusText = 'تم القبول';
+        statusIcon = Icons.check_circle_rounded;
         break;
       case 'rejected':
-        statusColor = Colors.red;
+        statusColor = Colors.red.shade600;
         statusText = 'تم الرفض';
+        statusIcon = Icons.cancel_rounded;
         break;
       default:
-        statusColor = Colors.orange;
+        statusColor = Colors.orange.shade600;
         statusText = 'قيد الانتظار';
+        statusIcon = Icons.hourglass_top_rounded;
     }
 
     // Create map markers if location data is available
@@ -126,14 +136,14 @@ class TransportRequestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
+            color: primaryColor.withOpacity(0.2), // Updated shadow
+            blurRadius: 12,
+            spreadRadius: 1,
+            offset: const Offset(0, 5), // Slightly adjusted offset
           ),
         ],
         border: Border.all(
-          color: statusColor.withOpacity(0.4),
+          color: statusColor.withOpacity(0.7), // Updated border opacity
           width: 1.5,
         ),
       ),
@@ -142,38 +152,40 @@ class TransportRequestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showRequestDetails(context),
+          onTap: () => _showRequestDetails(context, primaryColor, darkerPrimaryShade), // Pass darker shade
           child: Padding(
-            padding: const EdgeInsets.all(16),            child: Column(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Enhanced header with service name and status
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                              color: lightPrimaryColor, // Updated
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.local_shipping_rounded,
-                              color: Color(0xFF8B5CF6),
-                              size: 20,
+                            child: Icon(
+                              Icons.local_shipping_rounded, // Updated icon
+                              color: primaryColor, // Updated
+                              size: 24, // Slightly larger icon
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               serviceName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF1F2937),
+                                fontSize: 18, // Increased font size
+                                color: darkerPrimaryShade, // Updated color
                                 letterSpacing: 0.3,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -183,43 +195,46 @@ class TransportRequestCard extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: statusColor.withOpacity(0.3),
-                          width: 1,
-                        ),
                       ),
-                      child: Text(
-                        statusText,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(statusIcon, color: statusColor, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                // Enhanced price section with calculation details                
+                const SizedBox(height: 16),
+                // Enhanced price section
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                    gradient: LinearGradient(
+                      colors: [primaryColor, darkerPrimaryShade], // Updated gradient
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.35),
+                        color: primaryColor.withOpacity(0.4), // Updated shadow
                         blurRadius: 10,
                         spreadRadius: 1,
-                        offset: const Offset(0, 3),
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -231,95 +246,101 @@ class TransportRequestCard extends StatelessWidget {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.white.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(
-                                  Icons.attach_money_rounded,
-                                  color: Colors.white,
-                                  size: 16,
+                                child: Icon(
+                                  Icons.account_balance_wallet_rounded,
+                                  color: Colors.white.withOpacity(0.85), // Updated icon color
+                                  size: 18,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              const Text(
+                              const SizedBox(width: 10),
+                              Text(
                                 'سعر الخدمة:',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.white.withOpacity(0.9), // Updated text color
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 15,
                                 ),
                               ),
                             ],
                           ),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                ServiceVehiclesHelper.formatPrice(price).split(' ')[0], // Get just the number part
-                                style: const TextStyle(
+                                ServiceVehiclesHelper.formatPrice(price).split(' ')[0],
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 22,
+                                  fontSize: 26, // Increased font size
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Text(                                'دج',
+                              const Text(
+                                'دج',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w500,
-                                  fontSize: 14,
+                                  fontSize: 15,
                                 ),
                               ),
                             ],
                           ),
                         ],
-                      ),// Price details section removed
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
                 // Client name and time
                 Row(
                   children: [
-                    const Icon(
-                      Icons.person_outline,
-                      size: 16,
-                      color: Color(0xFF6B7280),
+                    Icon(
+                      Icons.person_rounded,
+                      size: 18,
+                      color: primaryColor.withOpacity(0.8), // Updated color
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'العميل: $clientName',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF6B7280),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'العميل: $clientName',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade900, // Darker text
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: Color(0xFF6B7280),
+                    const SizedBox(width: 10),
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 18,
+                      color: primaryColor.withOpacity(0.8), // Updated color
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Text(
                       formattedCreatedAt,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF6B7280),
+                        color: Colors.grey.shade900, // Darker text
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
                 // Transport route info
                 if (originName.isNotEmpty || destinationName.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: primaryColor.withOpacity(0.06), // Updated background
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -327,27 +348,28 @@ class TransportRequestCard extends StatelessWidget {
                       children: [
                         // Origin
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.2),
+                                color: Colors.green.withOpacity(0.15),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.trip_origin,
-                                size: 14,
-                                color: Colors.green,
+                              child: Icon(
+                                Icons.my_location_rounded, // Updated icon
+                                size: 16,
+                                color: Colors.green.shade700,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 originName.isNotEmpty ? originName : 'نقطة الانطلاق',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFF374151),
+                                  color: Colors.grey.shade800,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -355,36 +377,37 @@ class TransportRequestCard extends StatelessWidget {
                         ),
                         if (originName.isNotEmpty && destinationName.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.only(right: 12, top: 4, bottom: 4),
                             child: CustomPaint(
-                              size: const Size(2, 24),
-                              painter: _DashedLinePainter(),
+                              size: const Size(2, 20),
+                              painter: _DashedLinePainter(color: primaryColor.withOpacity(0.5)), // Updated color
                             ),
                           ),
                         // Destination
                         if (destinationName.isNotEmpty)
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.2),
+                                  color: Colors.red.withOpacity(0.15),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.location_on,
-                                  size: 14,
-                                  color: Colors.red,
+                                child: Icon(
+                                  Icons.location_on_rounded, // Updated icon
+                                  size: 16,
+                                  color: Colors.red.shade700,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   destinationName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
-                                    color: Color(0xFF374151),
+                                    color: Colors.grey.shade800,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -393,44 +416,48 @@ class TransportRequestCard extends StatelessWidget {
                         // Distance and duration info
                         if (distanceText.isNotEmpty || durationText.isNotEmpty)
                           Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                            margin: const EdgeInsets.only(top: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: primaryColor.withOpacity(0.3)) // Updated border
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (distanceText.isNotEmpty) ...[
-                                  const Icon(
-                                    Icons.straighten,
-                                    size: 14,
-                                    color: Color(0xFF6B7280),
+                                  Icon(
+                                    Icons.linear_scale_rounded,
+                                    size: 16,
+                                    color: primaryColor, // Updated color
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 5),
                                   Text(
                                     distanceText,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B7280),
+                                      color: primaryColor, // Updated color
                                     ),
                                   ),
                                   if (durationText.isNotEmpty)
-                                    const SizedBox(width: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                      child: Text("•", style: TextStyle(color: primaryColor.withOpacity(0.5))), // Updated color
+                                    ),
                                 ],
                                 if (durationText.isNotEmpty) ...[
-                                  const Icon(
-                                    Icons.timer_outlined,
-                                    size: 14,
-                                    color: Color(0xFF6B7280),
+                                  Icon(
+                                    Icons.timer_rounded,
+                                    size: 16,
+                                    color: primaryColor, // Updated color
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 5),
                                   Text(
                                     durationText,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B7280),
+                                      color: primaryColor, // Updated color
                                     ),
                                   ),
                                 ],
@@ -440,16 +467,18 @@ class TransportRequestCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                const SizedBox(height: 16),                // Action buttons
+                const SizedBox(height: 20),
+                // Action buttons
                 Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  spacing: 8,
-                  runSpacing: 8,
+                  alignment: WrapAlignment.center, // Center align buttons
+                  spacing: 10, // Spacing between buttons
+                  runSpacing: 10, // Spacing between rows of buttons
                   children: [
                     // Client details button
                     _buildActionButton(
                       context,
-                      icon: Icons.person,
+                      primaryColor: primaryColor,
+                      icon: Icons.account_circle_rounded, // Updated icon
                       label: 'بيانات العميل',
                       onPressed: () => _viewClientDetails(context),
                     ),
@@ -458,7 +487,8 @@ class TransportRequestCard extends StatelessWidget {
                     if (originLocation != null && destinationLocation != null)
                       _buildActionButton(
                         context,
-                        icon: Icons.map,
+                        primaryColor: primaryColor,
+                        icon: Icons.map_rounded, // Updated icon
                         label: 'عرض الخريطة',
                         onPressed: () => _viewOnMap(context),
                       ),
@@ -467,15 +497,17 @@ class TransportRequestCard extends StatelessWidget {
                     if (originLocation != null && destinationLocation != null)
                       _buildActionButton(
                         context,
-                        icon: Icons.navigation,
-                        label: 'ملاحة بالإرشادات',
+                        primaryColor: primaryColor,
+                        icon: Icons.navigation_rounded, // Updated icon
+                        label: 'ملاحة', // Shortened label
                         onPressed: () => _navigateWithDirections(context),
                       ),
                     
                     // Call client button
                     _buildActionButton(
                       context,
-                      icon: Icons.phone,
+                      primaryColor: primaryColor,
+                      icon: Icons.phone_rounded, // Updated icon
                       label: 'اتصال',
                       onPressed: () => _callClient(),
                     ),
@@ -530,33 +562,30 @@ class TransportRequestCard extends StatelessWidget {
 
   // Helper method to build action buttons
   Widget _buildActionButton(BuildContext context, {
+    required Color primaryColor,
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
   }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(10),
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18, color: primaryColor), // Updated
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: primaryColor, // Updated
+          fontWeight: FontWeight.w600,
         ),
-        child: Column(
-          children: [
-            Icon(icon, size: 20, color: const Color(0xFF8B5CF6)),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF4B5563),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryColor.withOpacity(0.1), // Updated
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), // Adjusted padding
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
+        side: BorderSide(color: primaryColor.withOpacity(0.4)), // Updated
       ),
     );
   }
@@ -631,12 +660,20 @@ class TransportRequestCard extends StatelessWidget {
         scheme: 'tel',
         path: clientPhone,
       );
-      if (await canLaunchUrl(phoneUri)) {
-        await launchUrl(phoneUri);
+      try {
+        if (await canLaunchUrl(phoneUri)) {
+          await launchUrl(phoneUri);
+        } else {
+          // Consider showing a snackbar if tel scheme is not supported
+        }
+      } catch (e) {
+        // Handle error, e.g., show a snackbar
       }
     }
-  }  // Show request details
-  void _showRequestDetails(BuildContext context) {
+  }
+
+  // Show request details
+  void _showRequestDetails(BuildContext context, Color primaryColor, Color darkerPrimaryShade) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -645,8 +682,18 @@ class TransportRequestCard extends StatelessWidget {
         // Extract necessary data within the builder scope
         final String detailVehicleType = requestData['vehicleType'] ?? '';
         final double detailPrice = (requestData['price'] ?? 0).toDouble();
+        final String detailServiceName = requestData['serviceName'] ?? 'خدمة نقل';
+        final String detailClientName = requestData['clientName'] ?? 'عميل';
+        final String detailClientPhone = requestData['clientPhone'] ?? '';
+        final String detailOriginName = requestData['originName'] ?? '';
+        final String detailDestinationName = requestData['destinationName'] ?? '';
+        final String detailDistanceText = requestData['distanceText'] ?? '';
+        final String detailDurationText = requestData['durationText'] ?? '';
+        final String detailRequestDetails = requestData['details'] ?? '';
+
         return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
+          height: MediaQuery.of(context).size.height * 0.85, // Increased height
+          padding: const EdgeInsets.only(top: 12),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -654,237 +701,263 @@ class TransportRequestCard extends StatelessWidget {
               topRight: Radius.circular(24),
             ),
           ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with close button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'تفاصيل الطلب',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
+          child: Column(
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 5,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const Divider(height: 24),
-                
-                // Price section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'سعر الخدمة',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [                          Text(
-                            ServiceVehiclesHelper.formatPrice(detailPrice).split(' ')[0], // Get just the number part
-                            style: const TextStyle(
-                              color: Colors.white,
+                      // Header with close button
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                           Text(
+                            'تفاصيل الطلب',
+                            style: TextStyle(
+                              fontSize: 24, // Increased size
                               fontWeight: FontWeight.bold,
-                              fontSize: 28,
+                              color: darkerPrimaryShade, // Updated color
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'دج',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 16,
-                            ),
+                          IconButton(
+                            icon: Icon(Icons.close_rounded, color: Colors.grey.shade600, size: 28), // Updated icon
+                            onPressed: () => Navigator.pop(context),
                           ),
                         ],
-                      ),                      // Price calculation details
-                      if (detailVehicleType.isNotEmpty) 
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
+                      ),
+                      const Divider(height: 24, thickness: 0.8),
+                      
+                      // Price section
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [primaryColor, darkerPrimaryShade], // Updated gradient
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryColor.withOpacity(0.4), // Updated shadow
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                            child: Column(
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'السعر الإجمالي للخدمة',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9), // Updated text color
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'نوع المركبة: $detailVehicleType',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  ServiceVehiclesHelper.formatPrice(detailPrice).split(' ')[0],
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 36, // Increased size
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'المسافة: ${requestData['distanceText'] ?? ''}',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  'دج',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 18, // Increased size
+                                  ),
                                 ),
                               ],
                             ),
+                            if (detailVehicleType.isNotEmpty || detailDistanceText.isNotEmpty) 
+                              Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15), // Updated background
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (detailVehicleType.isNotEmpty)
+                                        Row(
+                                          children: [
+                                            Icon(Icons.directions_car_rounded, color: Colors.white.withOpacity(0.85), size: 14), // Updated color
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'نوع المركبة: $detailVehicleType',
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(0.85), // Updated color
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      if (detailVehicleType.isNotEmpty && detailDistanceText.isNotEmpty) const SizedBox(height: 6),
+                                      if (detailDistanceText.isNotEmpty)
+                                        Row(
+                                          children: [
+                                            Icon(Icons.linear_scale_rounded, color: Colors.white.withOpacity(0.85), size: 14), // Updated color
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'المسافة: $detailDistanceText',
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(0.85), // Updated color
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Service and client details
+                      _buildDetailItem('اسم الخدمة:', detailServiceName, icon: Icons.info_outline_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      _buildDetailItem('نوع الخدمة:', 'نقل', icon: Icons.category_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      _buildDetailItem('اسم العميل:', detailClientName, icon: Icons.person_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      _buildDetailItem('هاتف العميل:', detailClientPhone, icon: Icons.phone_rounded, isPhoneNumber: true, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      
+                      // Trip details section
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 16),
+                        child: Text(
+                          'تفاصيل الرحلة',
+                          style: TextStyle(
+                            fontSize: 20, // Increased size
+                            fontWeight: FontWeight.bold,
+                            color: darkerPrimaryShade, // Updated color
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                
-                // Service and client details
-                _buildDetailItem('اسم الخدمة:', requestData['serviceName'] ?? ''),
-                _buildDetailItem('نوع الخدمة:', 'نقل'),
-                _buildDetailItem('اسم العميل:', requestData['clientName'] ?? ''),
-                _buildDetailItem('هاتف العميل:', requestData['clientPhone'] ?? ''),
-                
-                // Trip details section
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'تفاصيل الرحلة',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                ),
-                
-                // Origin and destination details
-                _buildLocationItem(
-                  'نقطة الانطلاق:',
-                  requestData['originName'] ?? '',
-                  Icons.trip_origin,
-                  Colors.green,
-                ),
-                _buildLocationItem(
-                  'نقطة الوصول:',
-                  requestData['destinationName'] ?? '',
-                  Icons.location_on,
-                  Colors.red,
-                ),
-                _buildDetailItem('المسافة:', requestData['distanceText'] ?? ''),
-                _buildDetailItem('الوقت التقريبي:', requestData['durationText'] ?? ''),
-                _buildDetailItem('نوع المركبة:', requestData['vehicleType'] ?? ''),
+                      ),
+                      
+                      // Origin and destination details
+                      _buildLocationItem(
+                        'نقطة الانطلاق:',
+                        detailOriginName,
+                        Icons.my_location_rounded,
+                        Colors.green.shade600,
+                        darkerPrimaryShade: darkerPrimaryShade,
+                      ),
+                      _buildLocationItem(
+                        'نقطة الوصول:',
+                        detailDestinationName,
+                        Icons.location_on_rounded,
+                        Colors.red.shade600,
+                        darkerPrimaryShade: darkerPrimaryShade,
+                      ),
+                      _buildDetailItem('المسافة:', detailDistanceText, icon: Icons.linear_scale_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      _buildDetailItem('الوقت التقريبي:', detailDurationText, icon: Icons.timer_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
+                      _buildDetailItem('نوع المركبة:', detailVehicleType, icon: Icons.directions_car_filled_rounded, primaryColor: primaryColor, darkerPrimaryShade: darkerPrimaryShade),
 
-                // Request description
-                if (requestData['details']?.isNotEmpty ?? false) ...[
-                  const Padding(
-                    padding: EdgeInsets.only(top: 16, bottom: 8),
-                    child: Text(
-                      'وصف الطلب',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      requestData['details'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF4B5563),
-                      ),
-                    ),
-                  ),
-                ],
-                
-                const SizedBox(height: 24),
-                
-                // Action buttons
-                if (requestData['status'] == 'pending')
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _acceptRequest(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      // Request description
+                      if (detailRequestDetails.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16, bottom: 8),
+                          child: Text(
+                            'وصف الطلب',
+                            style: TextStyle(
+                              fontSize: 18, // Increased size
+                              fontWeight: FontWeight.bold,
+                              color: darkerPrimaryShade, // Updated color
                             ),
                           ),
-                          child: const Text('قبول الطلب', style: TextStyle(fontSize: 16, color: Colors.white)),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _rejectRequest(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.05), // Updated background
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            detailRequestDetails,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade900, // Darker text
+                              height: 1.5,
                             ),
                           ),
-                          child: const Text('رفض الطلب', style: TextStyle(fontSize: 16, color: Colors.white)),
                         ),
-                      ),
+                      ],
+                      
+                      const SizedBox(height: 28), // Increased spacing
+                      
+                      // Action buttons
+                      if (requestData['status'] == 'pending')
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _acceptRequest(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('قبول الطلب', style: TextStyle(fontSize: 16, color: Colors.white)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _rejectRequest(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('رفض الطلب', style: TextStyle(fontSize: 16, color: Colors.white)),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -892,30 +965,40 @@ class TransportRequestCard extends StatelessWidget {
   }
 
   // Build detail item helper
-  Widget _buildDetailItem(String label, String value) {
+  Widget _buildDetailItem(String label, String value, {IconData? icon, bool isPhoneNumber = false, required Color primaryColor, required Color darkerPrimaryShade}) {
     if (value.isEmpty) return const SizedBox.shrink();
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF4B5563),
-            ),
-          ),
-          const SizedBox(width: 8),
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: primaryColor), // Updated icon color
+            const SizedBox(width: 12),
+          ],
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF1F2937),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600, // Kept for contrast
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: isPhoneNumber ? Colors.blueAccent.shade700 : darkerPrimaryShade.withOpacity(0.85), // Updated value color
+                    fontWeight: isPhoneNumber ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -924,24 +1007,24 @@ class TransportRequestCard extends StatelessWidget {
   }
 
   // Build location item helper
-  Widget _buildLocationItem(String label, String value, IconData icon, Color color) {
+  Widget _buildLocationItem(String label, String value, IconData icon, Color color, {required Color darkerPrimaryShade}) {
     if (value.isEmpty) return const SizedBox.shrink();
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
-            margin: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.only(left: 4, right: 8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withOpacity(0.15), // Adjusted opacity
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 14,
+              size: 18,
               color: color,
             ),
           ),
@@ -951,18 +1034,18 @@ class TransportRequestCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4B5563),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600, // Kept for contrast
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1F2937),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: darkerPrimaryShade.withOpacity(0.85), // Updated value color
                   ),
                 ),
               ],
@@ -1082,10 +1165,13 @@ class TransportRequestCard extends StatelessWidget {
 
 // Custom painter for dashed line
 class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  _DashedLinePainter({this.color = const Color(0xFF9CA3AF)}); // Default color updated in usage
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF9CA3AF)
+      ..color = color // Use provided color
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
     
@@ -1105,4 +1191,92 @@ class _DashedLinePainter extends CustomPainter {
   
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// Animation controller for card hover effect
+class TransportCardAnimationController {
+  final AnimationController controller;
+  final Animation<double> scaleAnimation;
+  final Animation<double> shadowAnimation;
+
+  TransportCardAnimationController({required this.controller}) :
+    scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: controller, curve: Curves.easeInOut)
+    ),
+    shadowAnimation = Tween<double>(begin: 2.0, end: 15.0).animate(
+      CurvedAnimation(parent: controller, curve: Curves.easeInOut)
+    );
+
+  void dispose() {
+    controller.dispose();
+  }
+}
+
+// Enhanced path painter for route visualization
+class _RoutePathPainter extends CustomPainter {
+  final Color color;
+  
+  _RoutePathPainter({this.color = const Color(0xFF9CA3AF)});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    
+    final path = Path();
+    path.moveTo(0, 0);
+    path.lineTo(0, size.height);
+    
+    // Draw path with dash effect
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    double distance = 0.0;
+    final pathMetrics = path.computeMetrics().single;
+    
+    while (distance < pathMetrics.length) {
+      final extractPath = pathMetrics.extractPath(
+        distance,
+        distance + dashWidth,
+      );
+      canvas.drawPath(extractPath, paint);
+      distance += dashWidth + dashSpace;
+    }
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+// Animated shimmer effect for loading states
+class ShimmerPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  
+  ShimmerPainter({required this.progress, this.color = Colors.white});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradient = LinearGradient(
+      colors: [
+        color.withOpacity(0.0),
+        color.withOpacity(0.5),
+        color.withOpacity(0.0),
+      ],
+      stops: const [0.0, 0.5, 1.0],
+      begin: Alignment(progress - 1.5, 0.0),
+      end: Alignment(progress, 0.0),
+    );
+    
+    final paint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant ShimmerPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
 }
