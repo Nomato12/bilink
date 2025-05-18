@@ -580,9 +580,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   ],
                 ),
               )
-              : _buildServiceDetails(),
-      floatingActionButton:
-          _serviceData != null
+              : _buildServiceDetails(),      floatingActionButton:
+          _serviceData != null && _serviceData!['type'] != 'نقل'  // Mostrar el botón sólo si NO es un servicio de transporte
               ? FloatingActionButton.extended(
                 onPressed: () => _showRequestServiceDialog(),
                 backgroundColor: Color(0xFF8B5CF6),
@@ -1541,10 +1540,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     if (!formattedNumber.startsWith('+')) {
       // إذا بدأ بـ 0، حذف الصفر وإضافة رمز الدولة
       if (formattedNumber.startsWith('0')) {
-        formattedNumber = '+213' + formattedNumber.substring(1);
+        formattedNumber = '+213${formattedNumber.substring(1)}';
       } else {
         // وإلا أضف رمز الدولة مباشرة
-        formattedNumber = '+213' + formattedNumber;
+        formattedNumber = '+213$formattedNumber';
       }
     }
     
@@ -1570,7 +1569,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         // حذف الرمز الدولي إذا كان موجوداً (+213)
         String localNumber = formattedNumber;
         if (formattedNumber.startsWith('+213')) {
-          localNumber = '0' + formattedNumber.substring(4); // استبدال +213 بـ 0
+          localNumber = '0${formattedNumber.substring(4)}'; // استبدال +213 بـ 0
         }
         
         final String localTel = 'tel:$localNumber';

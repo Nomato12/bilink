@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/widgets/service_request_card.dart' show ServiceRequestCard;
+import 'package:bilink/widgets/transport_request_card.dart' show TransportRequestCard;
 
 class RequestTabs extends StatefulWidget {
   const RequestTabs({super.key});
@@ -115,9 +116,7 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                         style: const TextStyle(fontSize: 16),
                       ),
                     );
-                  }
-
-                  final requests = snapshot.data;
+                  }                  final requests = snapshot.data;
                   if (requests == null || requests.isEmpty) {
                     return _buildEmptyState('لا توجد طلبات قيد الانتظار', Icons.hourglass_empty);
                   }
@@ -135,6 +134,19 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                           ...requestDoc.data() as Map<String, dynamic>,
                           'id': requestDoc.id,
                         };
+                        
+                        // Use TransportRequestCard for transport service requests
+                        final String serviceType = requestData['serviceType'] ?? '';
+                        if (serviceType == 'نقل') {
+                          return TransportRequestCard(
+                            requestData: requestData,
+                            onRequestUpdated: () {
+                              setState(() {});
+                            },
+                          );
+                        }
+                        
+                        // Use regular ServiceRequestCard for all other request types
                         return ServiceRequestCard(
                           requestData: requestData,
                           onRequestUpdated: () {
@@ -162,9 +174,7 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                         style: const TextStyle(fontSize: 16),
                       ),
                     );
-                  }
-
-                  final requests = snapshot.data;
+                  }                  final requests = snapshot.data;
                   if (requests == null || requests.isEmpty) {
                     return _buildEmptyState('لا توجد طلبات مقبولة', Icons.check_circle_outline);
                   }
@@ -182,6 +192,19 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                           ...requestDoc.data() as Map<String, dynamic>,
                           'id': requestDoc.id,
                         };
+                        
+                        // Use TransportRequestCard for transport service requests
+                        final String serviceType = requestData['serviceType'] ?? '';
+                        if (serviceType == 'نقل') {
+                          return TransportRequestCard(
+                            requestData: requestData,
+                            onRequestUpdated: () {
+                              setState(() {});
+                            },
+                          );
+                        }
+                        
+                        // Use regular ServiceRequestCard for all other request types
                         return ServiceRequestCard(
                           requestData: requestData,
                           onRequestUpdated: () {
