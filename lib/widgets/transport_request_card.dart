@@ -9,6 +9,7 @@ import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/services/fcm_service.dart';
 import 'package:bilink/screens/request_location_map.dart';
 import 'package:bilink/utils/location_helper.dart';
+import 'package:bilink/services/service_vehicles_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TransportRequestCard extends StatelessWidget {
@@ -34,11 +35,28 @@ class TransportRequestCard extends StatelessWidget {
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
     final String originName = requestData['originName'] ?? '';
-    final String destinationName = requestData['destinationName'] ?? '';
-    final String distanceText = requestData['distanceText'] ?? '';
+    final String destinationName = requestData['destinationName'] ?? '';    final String distanceText = requestData['distanceText'] ?? '';
     final String durationText = requestData['durationText'] ?? '';
     final String vehicleType = requestData['vehicleType'] ?? '';
-    final double price = (requestData['price'] ?? 0).toDouble();
+    
+    // Get price from request data or calculate it if we have distance and vehicle type
+    double price = (requestData['price'] ?? 0).toDouble();
+    double? distanceValue = requestData['distance'] != null ? (requestData['distance'] as num).toDouble() : null;
+    
+    // If we have origin and destination location but no price, calculate it
+    if (price <= 0 && originLocation != null && destinationLocation != null && vehicleType.isNotEmpty) {
+      if (distanceValue != null && distanceValue > 0) {
+        // Calculate using the stored distance
+        price = ServiceVehiclesHelper.calculatePrice(vehicleType: vehicleType, distanceInKm: distanceValue);
+      } else {
+        // Calculate using the coordinates
+        price = ServiceVehiclesHelper.calculatePriceFromCoordinates(
+          vehicleType: vehicleType,
+          originLocation: LatLng(originLocation.latitude, originLocation.longitude),
+          destinationLocation: LatLng(destinationLocation.latitude, destinationLocation.longitude),
+        );
+      }
+    }
 
     // Format date
     final String formattedCreatedAt = createdAt != null
@@ -171,9 +189,7 @@ class TransportRequestCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-
-                // Price section with beautiful styling
+                const SizedBox(height: 12),                // Enhanced price section with calculation details
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -191,38 +207,70 @@ class TransportRequestCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
                     children: [
-                      const Text(
-                        'سعر الخدمة:',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            NumberFormat('#,###.##').format(price),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
                           const Text(
-                            'دج',
+                            'سعر الخدمة:',
                             style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
                           ),
+                          Row(
+                            children: [
+                              Text(
+                                ServiceVehiclesHelper.formatPrice(price).split(' ')[0], // Get just the number part
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(                                'دج',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
+                      // Add price details
+                      if (vehicleType.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'سعر/كم: ${ServiceVehiclesHelper.basePricesPerKm[vehicleType] ?? ServiceVehiclesHelper.basePricesPerKm['default']} دج',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                              Text(
+                                'الحد الأدنى: ${ServiceVehiclesHelper.minimumPrices[vehicleType] ?? ServiceVehiclesHelper.minimumPrices['default']} دج',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -548,15 +596,16 @@ class TransportRequestCard extends StatelessWidget {
         await launchUrl(phoneUri);
       }
     }
-  }
-
-  // Show request details
+  }  // Show request details
   void _showRequestDetails(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        // Extract necessary data within the builder scope
+        final String detailVehicleType = requestData['vehicleType'] ?? '';
+        final double detailPrice = (requestData['price'] ?? 0).toDouble();
         return Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: const BoxDecoration(
@@ -621,14 +670,12 @@ class TransportRequestCard extends StatelessWidget {
                           fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
+                      const SizedBox(height: 8),                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            NumberFormat('#,###.##').format(requestData['price'] ?? 0),
+                        children: [                          Text(
+                            ServiceVehiclesHelper.formatPrice(detailPrice).split(' ')[0], // Get just the number part
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -645,7 +692,61 @@ class TransportRequestCard extends StatelessWidget {
                             ),
                           ),
                         ],
-                      ),
+                      ),                      // Price calculation details
+                      if (detailVehicleType.isNotEmpty) 
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'نوع المركبة: $detailVehicleType',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      'سعر/كم: ${ServiceVehiclesHelper.basePricesPerKm[detailVehicleType] ?? ServiceVehiclesHelper.basePricesPerKm['default']} دج',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'المسافة: ${requestData['distanceText'] ?? ''}',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      'الحد الأدنى: ${ServiceVehiclesHelper.minimumPrices[detailVehicleType] ?? ServiceVehiclesHelper.minimumPrices['default']} دج',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

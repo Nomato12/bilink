@@ -32,6 +32,7 @@ class NotificationService {
     // Client location information
     GeoPoint? clientLocation,
     String? clientAddress,
+    String? serviceType, // <--- أضف هذا السطر
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -39,17 +40,19 @@ class NotificationService {
         throw Exception('User not authenticated');
       }
       
-      // Retrieve service type from the service document
-      String serviceType = 'تخزين'; // Default to storage service
-      try {
-        final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
-        if (serviceDoc.exists) {
-          final serviceData = serviceDoc.data() as Map<String, dynamic>;
-          serviceType = serviceData['type'] ?? serviceData['serviceType'] ?? 'تخزين';
+      // استخدم serviceType إذا تم تمريره، وإلا جلبه من مستند الخدمة
+      String finalServiceType = serviceType ?? 'تخزين';
+      if (serviceType == null) {
+        try {
+          final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            final serviceData = serviceDoc.data() as Map<String, dynamic>;
+            finalServiceType = serviceData['type'] ?? serviceData['serviceType'] ?? 'تخزين';
+          }
+        } catch (e) {
+          print('Error retrieving service type: $e');
+          // Continue with default service type
         }
-      } catch (e) {
-        print('Error retrieving service type: $e');
-        // Continue with default service type
       }
 
       // Create the request data map
@@ -62,11 +65,11 @@ class NotificationService {
         'details': details,
         'requestDate': requestDate,
         'status': 'pending', // pending, accepted, rejected
-        'serviceType': serviceType, // Add service type to the request
+        'serviceType': finalServiceType, // استخدم النوع النهائي
         'createdAt': FieldValue.serverTimestamp(),
       };
         // Add transport-specific data if this is a transport service
-      if (serviceType == 'نقل') {
+      if (finalServiceType == 'نقل') {
         if (originLocation != null) requestData['originLocation'] = originLocation;
         if (originName != null && originName.isNotEmpty) requestData['originName'] = originName;
         if (destinationLocation != null) requestData['destinationLocation'] = destinationLocation;
@@ -88,13 +91,13 @@ class NotificationService {
       await _notificationsCollection.add({
         'userId': providerId,
         'title': 'طلب خدمة جديد',
-        'body': 'لديك طلب ${serviceType == 'نقل' ? 'نقل' : 'تخزين'} جديد للخدمة: $serviceName',
+        'body': 'لديك طلب ${finalServiceType == 'نقل' ? 'نقل' : 'تخزين'} جديد للخدمة: $serviceName',
         'type': 'service_request',
         'data': {
           'requestId': requestDoc.id,
           'serviceId': serviceId,
           'clientId': currentUser.uid,
-          'serviceType': serviceType, // Add service type to notification data
+          'serviceType': finalServiceType, // Add service type to notification data
         },
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),

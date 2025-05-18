@@ -1141,12 +1141,11 @@ class _NearbyVehiclesMapState extends State<NearbyVehiclesMap> {
         price = distance * (vehicle['pricePerKm'] ?? 60); // افتراضي 60 دج للكيلومتر
       }
       
-      if (vehicle['isRealProvider'] == true && vehicle['providerId'] != null) {
-        // إنشاء طلب نقل في قاعدة البيانات
+      if (vehicle['isRealProvider'] == true && vehicle['providerId'] != null) {        // إنشاء طلب نقل في قاعدة البيانات
         final transportRequestService = TransportRequestService();
         await transportRequestService.createTransportRequest(
           providerId: vehicle['providerId'],
-          providerName: vehicle['name'] ?? vehicle['providerName'] ?? 'مزود خدمة',
+          providerName: vehicle['company'] ?? vehicle['name'] ?? 'مزود خدمة', // Use company name first
           vehicleType: widget.selectedVehicleType,
           originLocation: widget.originLocation,
           originName: widget.originName,

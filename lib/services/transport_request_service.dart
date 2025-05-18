@@ -126,18 +126,18 @@ class TransportRequestService {
         providerId: providerId,
         serviceName: 'خدمة نقل',
         details: 'طلب خدمة نقل من $originName إلى $destinationName باستخدام $vehicleType',
-        requestDate: DateTime.now(),
-        // Pass transport-specific data
-        originLocation: GeoPoint(originLocation.latitude, originLocation.longitude),
-        originName: originName,
-        destinationLocation: GeoPoint(destinationLocation.latitude, destinationLocation.longitude),
-        destinationName: destinationName,
-        distanceText: distanceText,
-        durationText: durationText,
-        vehicleType: vehicleType,
-        price: price,
-        clientLocation: clientLocation, // Include client location
-        clientAddress: clientAddress, // Include client address
+        requestDate: DateTime.now(),      // Pass transport-specific data
+      originLocation: GeoPoint(originLocation.latitude, originLocation.longitude),
+      originName: originName,
+      destinationLocation: GeoPoint(destinationLocation.latitude, destinationLocation.longitude),
+      destinationName: destinationName,
+      distanceText: distanceText,
+      durationText: durationText,
+      vehicleType: vehicleType,
+      price: price,
+      clientLocation: clientLocation, // Include client location
+      clientAddress: clientAddress, // Include client address
+      serviceType: 'نقل', // <-- أضف هذا السطر
       );      // Also save client location in the service_requests collection directly
       await _firestore.collection('service_requests').doc(requestId).update({
         'clientLocation': clientLocation,

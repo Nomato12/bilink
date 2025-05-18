@@ -135,9 +135,11 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                           'id': requestDoc.id,
                         };
                         
-                        // Use TransportRequestCard for transport service requests
+                        // Use TransportRequestCard only when it's a transport request with full location data
                         final String serviceType = requestData['serviceType'] ?? '';
-                        if (serviceType == 'نقل') {
+                        final originLocation = requestData['originLocation'];
+                        final destinationLocation = requestData['destinationLocation'];
+                        if (serviceType.trim() == 'نقل' && originLocation != null && destinationLocation != null) {
                           return TransportRequestCard(
                             requestData: requestData,
                             onRequestUpdated: () {
@@ -145,9 +147,9 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                             },
                           );
                         }
-                        
-                        // Use regular ServiceRequestCard for all other request types
-                        return ServiceRequestCard(
+
+                         // Use regular ServiceRequestCard for all other request types
+                         return ServiceRequestCard(
                           requestData: requestData,
                           onRequestUpdated: () {
                             setState(() {});
@@ -193,9 +195,16 @@ class _RequestTabsState extends State<RequestTabs> with SingleTickerProviderStat
                           'id': requestDoc.id,
                         };
                         
-                        // Use TransportRequestCard for transport service requests
+                        // Determine transport based on data
                         final String serviceType = requestData['serviceType'] ?? '';
-                        if (serviceType == 'نقل') {
+                        final originLocation = requestData['originLocation'];
+                        final destinationLocation = requestData['destinationLocation'];
+                        final String vehicleType = requestData['vehicleType'] ?? '';
+                        final bool hasTransportData = originLocation != null && destinationLocation != null;
+                        final bool hasVehicleType = vehicleType.isNotEmpty;
+                        final bool isTransport = serviceType.trim() == 'نقل' || hasTransportData || hasVehicleType;
+                        // Show TransportRequestCard only if definite transport with location data
+                        if (isTransport && hasTransportData) {
                           return TransportRequestCard(
                             requestData: requestData,
                             onRequestUpdated: () {

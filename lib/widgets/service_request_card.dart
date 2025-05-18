@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:bilink/screens/full_screen_map.dart';
 import 'package:bilink/screens/client_location_map.dart';
 import 'package:bilink/utils/location_helper.dart';
+import 'package:bilink/services/service_vehicles_helper.dart';
 
 // Import request_location_map.dart
 import 'package:bilink/screens/request_location_map.dart';
@@ -25,23 +27,62 @@ class ServiceRequestCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Extract data from the request
+  Widget build(BuildContext context) {    // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة';
     final String clientName = requestData['clientName'] ?? 'عميل';
     final String details = requestData['details'] ?? '';
-    final String serviceType = requestData['serviceType'] ?? 'تخزين';
+    
+    // Determine service type more accurately
+    String serviceType;
+    if (requestData['serviceType'] != null) {
+      // If serviceType is explicitly set in the data, use it
+      serviceType = requestData['serviceType'];
+    } else if (requestData['originLocation'] != null && requestData['destinationLocation'] != null) {
+      // If we have origin and destination locations, it's definitely a transport service
+      serviceType = 'نقل';
+    } else if (details.contains('نقل')) {
+      // Check if details mention transport
+      serviceType = 'نقل';
+    } else {
+      // Default to storage
+      serviceType = 'تخزين';
+    }
+    
     final Timestamp? createdAt = requestData['createdAt'] as Timestamp?;
     // Transport-specific data
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
     final String originName = requestData['originName'] ?? '';
-    final String destinationName = requestData['destinationName'] ?? '';
-    final String distanceText = requestData['distanceText'] ?? '';
+    final String destinationName = requestData['destinationName'] ?? '';    final String distanceText = requestData['distanceText'] ?? '';
     final String durationText = requestData['durationText'] ?? '';
     final String vehicleType = requestData['vehicleType'] ?? '';
-    final double price = (requestData['price'] ?? 0).toDouble();
+      // Get price from request data or calculate it if we have distance and vehicle type
+    double price = (requestData['price'] ?? 0).toDouble();
+    double? distanceValue = requestData['distance'] != null ? (requestData['distance'] as num).toDouble() : null;
+    
+    // If we have origin and destination location but no price, calculate it
+    if ((price <= 0 || price.isNaN) && serviceType == 'نقل' && originLocation != null && 
+        destinationLocation != null && vehicleType.isNotEmpty) {
+      if (distanceValue != null && distanceValue > 0) {
+        // Calculate using the stored distance
+        price = ServiceVehiclesHelper.calculatePrice(vehicleType: vehicleType, distanceInKm: distanceValue);
+        
+        // Update the price in the UI even if it's stored as 0
+        if (price > 0) {
+          // Only update the display, not the actual data
+          print('Calculated price for service request: ${price.toStringAsFixed(0)} دج');
+        }
+      } else {
+        // Calculate using the coordinates
+        price = ServiceVehiclesHelper.calculatePriceFromCoordinates(
+          vehicleType: vehicleType,
+          originLocation: LatLng(originLocation.latitude, originLocation.longitude),
+          destinationLocation: LatLng(destinationLocation.latitude, destinationLocation.longitude),
+        );
+      }
+    }
+    
     // Get client location using helper
     GeoPoint? clientLocation = LocationHelper.getLocationFromData(requestData);
     String clientAddress = LocationHelper.getAddressFromData(requestData);
@@ -126,19 +167,8 @@ class ServiceRequestCard extends StatelessWidget {
         target: LatLng(avgLat, avgLng),
         zoom: zoom,
       );
-    }
-
-    // تحديد نوع الخدمة بشكل صريح ودقيق
-    String computedServiceType = serviceType;
-    if (computedServiceType.isEmpty || computedServiceType == 'تخزين') {
-      final bool hasOriginLocation = originLocation != null;
-      final bool hasDestinationLocation = destinationLocation != null;
-      final bool hasVehicleType = vehicleType.isNotEmpty;
-      if ((hasOriginLocation && hasDestinationLocation) || hasVehicleType) {
-        computedServiceType = 'نقل';
-      }
-    }
-
+    }    // نستخدم serviceType مباشرة بدون حساب إضافي
+     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
@@ -168,27 +198,40 @@ class ServiceRequestCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      // Show service type indicator
-                      if (!(computedServiceType == 'نقل' && originLocation != null && destinationLocation != null))
+                      // Badge: partial transport or storage
+                      if (serviceType == 'نقل' && (originLocation == null || destinationLocation == null))
                         Container(
                           margin: const EdgeInsets.only(top: 4),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: computedServiceType == 'نقل'
-                                ? Colors.blue.withOpacity(0.1)
-                                : Colors.teal.withOpacity(0.1),
+                            color: Colors.blue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: computedServiceType == 'نقل' ? Colors.blue : Colors.teal,
-                              width: 1,
-                            ),
+                            border: Border.all(color: Colors.blue, width: 1),
                           ),
-                          child: Text(
-                            computedServiceType == 'نقل' ? 'خدمة نقل' : 'خدمة تخزين',
+                          child: const Text(
+                            'خدمة نقل',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: computedServiceType == 'نقل' ? Colors.blue : Colors.teal,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        )
+                      else if (serviceType != 'نقل')
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.teal, width: 1),
+                          ),
+                          child: const Text(
+                            'خدمة تخزين',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal,
                             ),
                           ),
                         ),
@@ -441,28 +484,80 @@ class ServiceRequestCard extends StatelessWidget {
                           ],
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Price
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'السعر: ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                    ),                    const SizedBox(height: 16),
+                    
+                    // Price information in a separate container with distinct styling
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Price header
+                          const Center(
+                            child: Text(
+                              'معلومات السعر',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.blue,
+                              ),
+                            ),
                           ),
-                        ),
-                        Text(
-                          '$price دج',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                            fontSize: 16,
+                          const Divider(height: 12, thickness: 1, color: Colors.blue),
+                          
+                          // Price details for transport service
+                          if (serviceType == 'نقل' && vehicleType.isNotEmpty) ...[
+                            // Price per km and minimum price
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'سعر الكم: ${ServiceVehiclesHelper.basePricesPerKm[vehicleType] ?? ServiceVehiclesHelper.basePricesPerKm['default']} دج',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  'الحد الأدنى: ${ServiceVehiclesHelper.minimumPrices[vehicleType] ?? ServiceVehiclesHelper.minimumPrices['default']} دج',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          
+                          // Final price display (consistent for all services)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'السعر النهائي: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              Text(
+                                ServiceVehiclesHelper.formatPrice(price),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
