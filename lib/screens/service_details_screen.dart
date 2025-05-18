@@ -1445,17 +1445,15 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     ],
                     SizedBox(height: 8),
                     Row(
-                      children: [
-                        // زر الاتصال
+                      children: [                        // زر الاتصال
                         InkWell(
                           onTap: () {
-                            // التحقق من وجود رقم هاتف لمزود الخدمة
-                            if (providerInfo != null &&
-                                providerInfo['phoneNumber'] != null &&
-                                providerInfo['phoneNumber']
-                                    .toString()
-                                    .isNotEmpty) {
-                              _callProvider(providerInfo['phoneNumber']);
+                            // التحقق من وجود رقم هاتف لمزود الخدمة - البحث في كلا الحقلين phoneNumber و phone
+                            final phoneNumber = providerInfo?['phoneNumber']?.toString() ?? 
+                                               providerInfo?['phone']?.toString() ?? '';
+                            
+                            if (phoneNumber.isNotEmpty) {
+                              _callProvider(phoneNumber);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('رقم الهاتف غير متوفر')),
@@ -1531,88 +1529,120 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         ),
       ],
     );
-  }  // دالة للاتصال بمزود الخدمة  
+  }  
+  
+  // دالة للاتصال بمزود الخدمة
   Future<void> _callProvider(String phoneNumber) async {
-    // تأكد من أن رقم الهاتف يحتوي على بادئة الدولة
-    if (!phoneNumber.startsWith('+')) {
-      // إذا لم يبدأ الرقم بعلامة +، نفترض أنه رقم جزائري ونضيف البادئة
-      phoneNumber = '+213' + phoneNumber.trimLeft();
-      // إذا بدأ الرقم بـ 0، نحذفه بعد إضافة البادئة
-      if (phoneNumber.contains('+2130')) {
-        phoneNumber = phoneNumber.replaceFirst('+2130', '+213');
+    // تنسيق رقم الهاتف بشكل صحيح
+    // 1. إزالة المسافات والأحرف الخاصة
+    String formattedNumber = phoneNumber.trim().replaceAll(RegExp(r'[\s\-)(]+'), '');
+    
+    // 2. تنسيق البادئة بشكل صحيح
+    if (!formattedNumber.startsWith('+')) {
+      // إذا بدأ بـ 0، حذف الصفر وإضافة رمز الدولة
+      if (formattedNumber.startsWith('0')) {
+        formattedNumber = '+213' + formattedNumber.substring(1);
+      } else {
+        // وإلا أضف رمز الدولة مباشرة
+        formattedNumber = '+213' + formattedNumber;
       }
     }
     
-    // طباعة الرقم للتصحيح
-    print('محاولة الاتصال بالرقم: $phoneNumber');
+    // طباعة الرقم المنسق للتصحيح
+    print('محاولة الاتصال بالرقم المنسق: $formattedNumber');
     
-    // جرب عدة طرق للاتصال
     try {
-      // الطريقة 1: استخدام المخطط tel: مع وضع إعادة التوجيه
-      final Uri telUri = Uri(scheme: 'tel', path: phoneNumber);
-      print('محاولة فتح URI: $telUri');
+      // طريقة 1: استخدام URI مباشر بدون مخطط
+      final String directTel = 'tel:$formattedNumber';
+      print('محاولة استخدام Tel URI البسيط: $directTel');
+      bool launched = false;
       
-      if (await canLaunchUrl(telUri)) {
-        await launchUrl(
-          telUri,
-          mode: LaunchMode.externalApplication,
-        );
-        return;
-      } else {
-        print('لا يمكن فتح $telUri، جار تجربة طريقة أخرى');
+      // محاولة مباشرة بدون فحص
+      try {
+        launched = await launchUrl(Uri.parse(directTel), mode: LaunchMode.externalNonBrowserApplication);
+      } catch (e) {
+        print('خطأ في المحاولة الأولى: $e');
       }
       
-      // الطريقة 2: استخدام مخطط tel: مع النص المباشر
-      final String telString = 'tel:$phoneNumber';
-      final Uri telUri2 = Uri.parse(telString);
-      print('محاولة فتح URI: $telUri2');
-      
-      if (await canLaunchUrl(telUri2)) {
-        await launchUrl(
-          telUri2,
-          mode: LaunchMode.platformDefault,
-        );
-        return;
-      } else {
-        print('لا يمكن فتح تطبيق الهاتف للرقم $phoneNumber');
+      // طريقة 2: إذا فشلت الطريقة الأولى، جرب فقط رقم الهاتف بدون الرمز الدولي
+      if (!launched) {
+        print('المحاولة الأولى فشلت، جار تجربة الرقم المحلي');
+        // حذف الرمز الدولي إذا كان موجوداً (+213)
+        String localNumber = formattedNumber;
+        if (formattedNumber.startsWith('+213')) {
+          localNumber = '0' + formattedNumber.substring(4); // استبدال +213 بـ 0
+        }
         
-        // عرض رسالة للمستخدم
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('لا يمكن فتح تطبيق الاتصال. الرقم: $phoneNumber'),
-            duration: Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'نسخ الرقم',
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: phoneNumber));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('تم نسخ الرقم إلى الحافظة'))
-                );
-              },
-            ),
-          )
-        );
+        final String localTel = 'tel:$localNumber';
+        print('محاولة استخدام الرقم المحلي: $localTel');
+        
+        try {
+          launched = await launchUrl(Uri.parse(localTel), mode: LaunchMode.externalNonBrowserApplication);
+        } catch (e) {
+          print('خطأ في المحاولة الثانية: $e');
+        }
       }
+      
+      // إذا نجح الاتصال
+      if (launched) {
+        print('تم فتح تطبيق الاتصال بنجاح');
+        return;
+      }
+      
+      // إذا فشلت كل المحاولات، اعرض خيار النسخ للمستخدم
+      print('كل المحاولات فشلت، عرض خيار النسخ للمستخدم');
+      _showCopyNumberDialog(formattedNumber);
+      
     } catch (e) {
       print('خطأ في الاتصال: $e');
-      
-      // عرض رسالة خطأ مع خيار نسخ الرقم
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء محاولة الاتصال بالرقم $phoneNumber'),
-          duration: Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'نسخ الرقم',
+      _showCopyNumberDialog(formattedNumber);
+    }
+  }
+  
+  // دالة مساعدة لعرض مربع حوار لنسخ الرقم
+  void _showCopyNumberDialog(String phoneNumber) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.phone_disabled, color: Colors.red),
+            SizedBox(width: 10),
+            Text('تعذر الاتصال'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('لم نتمكن من فتح تطبيق الاتصال بشكل مباشر.'),
+            SizedBox(height: 10),
+            Text('الرقم: $phoneNumber', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: phoneNumber));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('تم نسخ الرقم إلى الحافظة'))
               );
+              Navigator.pop(context);
             },
+            icon: Icon(Icons.copy),
+            label: Text('نسخ الرقم'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF10B981),
+              foregroundColor: Colors.white,
+            ),
           ),
-        )
-      );
-    }
+        ],
+      ),
+    );
   }
 
   // دالة لبدء محادثة مع مزود الخدمة
@@ -2136,18 +2166,18 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             ],
           ),
 
-          const SizedBox(height: 20),
-
-          // Contact buttons with modern design
+          const SizedBox(height: 20),          // Contact buttons with modern design
           Row(
-            children: [              Expanded(
+            children: [
+              Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    if (providerInfo != null &&
-                        providerInfo['phoneNumber'] != null &&
-                        providerInfo['phoneNumber'].toString().isNotEmpty) {
+                    final phoneNumber = providerInfo?['phoneNumber']?.toString() ?? 
+                                       providerInfo?['phone']?.toString() ?? '';
+                    
+                    if (phoneNumber.isNotEmpty) {
                       // مباشرة اتصل برقم الهاتف
-                      _callProvider(providerInfo['phoneNumber']);
+                      _callProvider(phoneNumber);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('رقم الهاتف غير متوفر')),
@@ -2157,10 +2187,10 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   icon: const Icon(Icons.phone, size: 16),
                   // عرض رقم الهاتف في زر الاتصال إذا كان متاحًا
                   label: Text(
-                    providerInfo != null && 
-                    providerInfo['phoneNumber'] != null && 
-                    providerInfo['phoneNumber'].toString().isNotEmpty
-                        ? 'اتصال (${providerInfo['phoneNumber']})'
+                    providerInfo != null &&
+                    (providerInfo['phoneNumber']?.toString().isNotEmpty == true || 
+                     providerInfo['phone']?.toString().isNotEmpty == true)
+                        ? 'اتصال (${providerInfo['phoneNumber'] ?? providerInfo['phone']})'
                         : 'اتصال',
                     style: TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
