@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // إضافة استيراد للوصول إلى Clipboard
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -597,13 +598,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   }
 
   Widget _buildServiceDetails() {
-    final type = _serviceData!['type'] ?? 'غير محدد';
-    final region = _serviceData!['region'] ?? 'غير محدد';
+    final type = _serviceData!['type'] ?? 'غير محدد';    final region = _serviceData!['region'] ?? 'غير محدد';
     final description = _serviceData!['description'] ?? '';
     final price = (_serviceData!['price'] as num?)?.toDouble() ?? 0.0;
     final currency = _serviceData!['currency'] ?? 'دينار جزائري';
+    final storageDurationType = _serviceData!['storageDurationType']; // استرجاع نوع مدة التخزين
     final rating = (_serviceData!['rating'] as num?)?.toDouble() ?? 0.0;
-    final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;    // جمع جميع الصور المتاحة للخدمة
+    final reviewCount = (_serviceData!['reviewCount'] as num?)?.toInt() ?? 0;// جمع جميع الصور المتاحة للخدمة
     List<String> imageUrls = [];    try {
       // إضافة الصور الرئيسية للخدمة
       if (_serviceData!['imageUrls'] != null && _serviceData!['imageUrls'] is List) {
@@ -667,9 +668,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
       print('Error processing image URLs: $e');
       // في حالة حدوث أي خطأ، نحتفظ بقائمة فارغة
       imageUrls = [];
-    }
-
-    // Extract location and vehicle information
+    }    // Extract location and vehicle information
     final Map<String, dynamic>? locationInfo =
         _serviceData!.containsKey('location')
             ? _serviceData!['location'] as Map<String, dynamic>?
@@ -678,6 +677,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     final Map<String, dynamic>? vehicleInfo =
         type == 'نقل' && _serviceData!.containsKey('vehicle')
             ? _serviceData!['vehicle'] as Map<String, dynamic>?
+            : null;
+            
+    // Create storage info map for storage type services
+    final Map<String, dynamic>? storageInfo = 
+        type == 'تخزين' 
+            ? {'storageDurationType': storageDurationType} 
             : null;
 
     // Extract provider information
@@ -875,20 +880,33 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Icon(
+                        const SizedBox(width: 16),                        Icon(
                           Icons.attach_money,
                           size: 16,
                           color: Colors.white.withOpacity(0.9),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$price $currency',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const SizedBox(width: 4),                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$price $currency',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (type == 'تخزين' && storageDurationType != null) ...[
+                              const SizedBox(width: 2),
+                              Text(
+                                '/$storageDurationType',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -1513,23 +1531,87 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         ),
       ],
     );
-  }
-
-  // دالة للاتصال بمزود الخدمة
+  }  // دالة للاتصال بمزود الخدمة  
   Future<void> _callProvider(String phoneNumber) async {
-    final url = 'tel:$phoneNumber';
+    // تأكد من أن رقم الهاتف يحتوي على بادئة الدولة
+    if (!phoneNumber.startsWith('+')) {
+      // إذا لم يبدأ الرقم بعلامة +، نفترض أنه رقم جزائري ونضيف البادئة
+      phoneNumber = '+213' + phoneNumber.trimLeft();
+      // إذا بدأ الرقم بـ 0، نحذفه بعد إضافة البادئة
+      if (phoneNumber.contains('+2130')) {
+        phoneNumber = phoneNumber.replaceFirst('+2130', '+213');
+      }
+    }
+    
+    // طباعة الرقم للتصحيح
+    print('محاولة الاتصال بالرقم: $phoneNumber');
+    
+    // جرب عدة طرق للاتصال
     try {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
+      // الطريقة 1: استخدام المخطط tel: مع وضع إعادة التوجيه
+      final Uri telUri = Uri(scheme: 'tel', path: phoneNumber);
+      print('محاولة فتح URI: $telUri');
+      
+      if (await canLaunchUrl(telUri)) {
+        await launchUrl(
+          telUri,
+          mode: LaunchMode.externalApplication,
+        );
+        return;
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('لا يمكن الاتصال بالرقم')));
+        print('لا يمكن فتح $telUri، جار تجربة طريقة أخرى');
+      }
+      
+      // الطريقة 2: استخدام مخطط tel: مع النص المباشر
+      final String telString = 'tel:$phoneNumber';
+      final Uri telUri2 = Uri.parse(telString);
+      print('محاولة فتح URI: $telUri2');
+      
+      if (await canLaunchUrl(telUri2)) {
+        await launchUrl(
+          telUri2,
+          mode: LaunchMode.platformDefault,
+        );
+        return;
+      } else {
+        print('لا يمكن فتح تطبيق الهاتف للرقم $phoneNumber');
+        
+        // عرض رسالة للمستخدم
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('لا يمكن فتح تطبيق الاتصال. الرقم: $phoneNumber'),
+            duration: Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'نسخ الرقم',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: phoneNumber));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('تم نسخ الرقم إلى الحافظة'))
+                );
+              },
+            ),
+          )
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء محاولة الاتصال')));
+      print('خطأ في الاتصال: $e');
+      
+      // عرض رسالة خطأ مع خيار نسخ الرقم
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء محاولة الاتصال بالرقم $phoneNumber'),
+          duration: Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'نسخ الرقم',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: phoneNumber));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تم نسخ الرقم إلى الحافظة'))
+              );
+            },
+          ),
+        )
+      );
     }
   }
 
@@ -2058,13 +2140,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
           // Contact buttons with modern design
           Row(
-            children: [
-              Expanded(
+            children: [              Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
                     if (providerInfo != null &&
                         providerInfo['phoneNumber'] != null &&
                         providerInfo['phoneNumber'].toString().isNotEmpty) {
+                      // مباشرة اتصل برقم الهاتف
                       _callProvider(providerInfo['phoneNumber']);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -2073,7 +2155,16 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     }
                   },
                   icon: const Icon(Icons.phone, size: 16),
-                  label: const Text('اتصال', style: TextStyle(fontSize: 14)),
+                  // عرض رقم الهاتف في زر الاتصال إذا كان متاحًا
+                  label: Text(
+                    providerInfo != null && 
+                    providerInfo['phoneNumber'] != null && 
+                    providerInfo['phoneNumber'].toString().isNotEmpty
+                        ? 'اتصال (${providerInfo['phoneNumber']})'
+                        : 'اتصال',
+                    style: TextStyle(fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Color(0xFF10B981),
@@ -2247,9 +2338,39 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 ],
               ),
             ),
+          ],          const SizedBox(height: 20),          // Add storage duration type information
+          if (_serviceData != null && _serviceData!['type'] == 'تخزين' && _serviceData!.containsKey('storageDurationType')) ...[
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 18, color: Color(0xFF8B5CF6)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'نوع المدة: ',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF555555),
+                          ),
+                        ),
+                        TextSpan(
+                          text: _serviceData!['storageDurationType'].toString(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF555555),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
           ],
-
-          const SizedBox(height: 20),
 
           // Storage features if available
           if (_serviceData!.containsKey('storageFeatures')) ...[
@@ -2307,7 +2428,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ],
             ),
             SizedBox(height: 16),
-
             Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2496,8 +2616,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                         fit: BoxFit.cover,
                         placeholder:
                             (context, url) => Container(
+
                               color: Colors.grey[300],
-                              child: const Center(
+                              child: Center(
                                 child: CircularProgressIndicator(
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color(0xFF8B5CF6),
@@ -2517,7 +2638,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                                     size: 24,
                                   ),
                                   const SizedBox(height: 4),
-                                  const Text(
+                                  Text(
                                     'خطأ',
                                     style: TextStyle(
                                       color: Colors.grey,

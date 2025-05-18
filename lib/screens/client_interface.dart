@@ -1747,8 +1747,7 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center, // Align items vertically
                       children: [
-                        Flexible(child: _buildInfoChip(Icons.location_on_outlined, region, _accentColor)), // Wrapped with Flexible
-                        const SizedBox(width: 8), // Space between chips
+                        Flexible(child: _buildInfoChip(Icons.location_on_outlined, region, _accentColor)), // Wrapped with Flexible                        const SizedBox(width: 8), // Space between chips
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), // Adjusted padding
                           decoration: BoxDecoration(
@@ -1765,15 +1764,33 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                               ),
                             ],
                           ),
-                          child: Text(
-                            '${price.toStringAsFixed(0)} ${service["currency"] ?? "دج"}', // Simplified price, currency added
-                            style: GoogleFonts.cairo(
-                              textStyle: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14.5, // Adjusted size
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${price.toStringAsFixed(0)} ${service["currency"] ?? "دج"}', // Simplified price, currency added
+                                style: GoogleFonts.cairo(
+                                  textStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14.5, // Adjusted size
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (isStorage && service.containsKey('storageDurationType')) ...[
+                                const SizedBox(width: 2),
+                                Text(
+                                  '/${service["storageDurationType"] ?? "شهري"}',
+                                  style: GoogleFonts.cairo(
+                                    textStyle: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12, // Smaller than price
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

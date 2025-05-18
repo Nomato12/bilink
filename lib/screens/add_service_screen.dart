@@ -500,6 +500,11 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         'rating': 0.0,
         'reviewCount': 0,
       };
+      
+      // إضافة معلومات نوع المدة للتخزين
+      if (_selectedServiceType == 'تخزين') {
+        serviceData['storageDurationType'] = _storageDurationType;
+      }
 
       // إضافة بيانات الموقع إذا كانت متوفرة - تم تحسين التعامل مع الموقع
       if (_locationLatitude != null && _locationLongitude != null) {
