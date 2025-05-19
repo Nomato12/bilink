@@ -112,7 +112,7 @@ String _removeSecondMapSection(String content) {
       final prefix = content.substring(0, startIndex);
       final suffix = content.substring(endPosition);
       
-      return prefix + "                                  // تم إزالة قسم خريطة المسار\n" + suffix;
+      return "$prefix                                  // تم إزالة قسم خريطة المسار\n$suffix";
     }
   }
   

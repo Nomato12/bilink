@@ -68,7 +68,8 @@ class NotificationService {
         'serviceType': finalServiceType, // استخدم النوع النهائي
         'createdAt': FieldValue.serverTimestamp(),
       };
-        // Add transport-specific data if this is a transport service
+        
+      // Add transport-specific data if this is a transport service
       if (finalServiceType == 'نقل') {
         if (originLocation != null) requestData['originLocation'] = originLocation;
         if (originName != null && originName.isNotEmpty) requestData['originName'] = originName;
@@ -78,11 +79,38 @@ class NotificationService {
         if (durationText != null && durationText.isNotEmpty) requestData['durationText'] = durationText;
         if (vehicleType != null && vehicleType.isNotEmpty) requestData['vehicleType'] = vehicleType;
         if (price != null) requestData['price'] = price;
-        
-        // Add client location information
-        if (clientLocation != null) requestData['clientLocation'] = clientLocation;
-        if (clientAddress != null && clientAddress.isNotEmpty) requestData['clientAddress'] = clientAddress;
       }
+      // Add storage-specific data if this is a storage service
+      else if (finalServiceType == 'تخزين') {
+        // Get price and other storage details from service document
+        try {
+          final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            final serviceData = serviceDoc.data() as Map<String, dynamic>;
+            
+            // Add price from service document
+            if (serviceData['price'] != null) {
+              requestData['price'] = serviceData['price'];
+            }
+            
+            // Add storage duration type
+            if (serviceData['storageDurationType'] != null) {
+              requestData['durationType'] = serviceData['storageDurationType'];
+            }
+          }
+        } catch (e) {
+          print('Error retrieving storage service details: $e');
+        }
+        
+        // Use provided price if available
+        if (price != null) {
+          requestData['price'] = price;
+        }
+      }
+        
+      // Add client location information
+      if (clientLocation != null) requestData['clientLocation'] = clientLocation;
+      if (clientAddress != null && clientAddress.isNotEmpty) requestData['clientAddress'] = clientAddress;
 
       // Create the request document
       final requestDoc = await _requestsCollection.add(requestData);
@@ -107,7 +135,8 @@ class NotificationService {
     } catch (e) {
       print('Error sending service request: $e');
       throw Exception('Failed to send service request');
-    }  }
+    }
+  }
 
   // Send a notification to a specific user
   Future<void> sendNotification({
@@ -284,8 +313,7 @@ class NotificationService {
         .snapshots()
         .map((snapshot) => snapshot.docs);
   }
-  
-  // Get accepted requests for a provider
+    // Get accepted requests for a provider
   Stream<List<DocumentSnapshot>> getProviderAcceptedRequests(String providerId) {
     return _requestsCollection
         .where('providerId', isEqualTo: providerId)
@@ -294,6 +322,16 @@ class NotificationService {
         .snapshots()
         .map((snapshot) => snapshot.docs);
   }
+  
+  // Get pending service requests count for a provider
+  Stream<int> getPendingRequestsCount(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+  
   // Get client details for an accepted request
     // Get client details for an accepted request
   Future<Map<String, dynamic>> getClientDetails(String clientId) async {

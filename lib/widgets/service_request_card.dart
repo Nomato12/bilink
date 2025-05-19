@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +6,7 @@ import 'package:bilink/screens/client_details_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bilink/services/fcm_service.dart';
 import 'package:bilink/services/notification_service.dart';
+import 'package:bilink/services/provider_statistics_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:bilink/screens/full_screen_map.dart';
 import 'package:bilink/screens/client_location_map.dart';
@@ -394,7 +394,7 @@ class ServiceRequestCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -645,7 +645,7 @@ class ServiceRequestCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -892,9 +892,68 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
       updateData['responseDate'] = FieldValue.serverTimestamp();
       updateData['hasUnreadNotification'] = true;
       updateData['lastStatusChangeBy'] = FirebaseAuth.instance.currentUser?.uid ?? '';
+    }    await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update(updateData);    // Update statistics if request is accepted or completed
+    if (newStatus == 'accepted' || newStatus == 'completed') {
+      try {
+        final String serviceType = requestData['serviceType'] ?? 'تخزين';
+        final double? price = requestData['price'] != null 
+            ? (requestData['price'] is num ? (requestData['price'] as num).toDouble() : 0.0) 
+            : 0.0;
+            
+        print('بدء تحديث إحصائيات الطلب $requestId');
+        print('نوع الخدمة: $serviceType');
+        print('السعر في بيانات الطلب: $price');
+        
+        final providerStatisticsService = ProviderStatisticsService();
+        final bool statsUpdated = await providerStatisticsService.registerServiceEarnings(
+          requestId,
+          newStatus,
+        );
+        
+        if (statsUpdated) {
+          print('تم تحديث الإحصائيات بنجاح للطلب $requestId');
+        } else {
+          print('فشل تحديث الإحصائيات للطلب $requestId');
+          
+          // If statistics update failed, try to update price in request and retry
+          if (serviceType == 'تخزين' && price == 0.0) {
+            print('محاولة تحديث سعر طلب التخزين وإعادة المحاولة...');
+            try {
+              // Try to get service price from the service document
+              final String serviceId = requestData['serviceId'] ?? '';
+              if (serviceId.isNotEmpty) {
+                final serviceDoc = await FirebaseFirestore.instance.collection('services').doc(serviceId).get();
+                if (serviceDoc.exists) {
+                  final serviceData = serviceDoc.data();
+                  if (serviceData != null && serviceData['price'] != null) {
+                    final double servicePrice = serviceData['price'] is num ? (serviceData['price'] as num).toDouble() : 0.0;
+                    if (servicePrice > 0) {
+                      // Update price in the request document
+                      await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update({
+                        'price': servicePrice
+                      });
+                      print('تم تحديث سعر الطلب إلى $servicePrice');
+                      
+                      // Try updating statistics again
+                      final bool retryUpdate = await providerStatisticsService.registerServiceEarnings(
+                        requestId,
+                        newStatus,
+                      );
+                      
+                      print('نتيجة إعادة المحاولة: ${retryUpdate ? 'نجاح' : 'فشل'}');
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              print('فشل في إعادة المحاولة لتحديث الإحصائيات: $e');
+            }
+          }
+        }
+      } catch (e) {
+        print('خطأ في تحديث الإحصائيات: $e');
+      }
     }
-
-    await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update(updateData);
 
     // Notification Logic
     final String clientId = requestData['clientId'] ?? '';

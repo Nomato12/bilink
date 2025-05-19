@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // إضافة استيراد للوصول إلى Clipboard
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart' show CachedNetworkImage, CachedNetworkImageProvider;
+import 'package:cached_network_image/cached_network_image.dart' show CachedNetworkImageProvider;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -878,35 +879,39 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 16,
                           ),
-                        ),
-                        const SizedBox(width: 16),                        Icon(
-                          Icons.attach_money,
-                          size: 16,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                        const SizedBox(width: 4),                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$price $currency',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (type == 'تخزين' && storageDurationType != null) ...[
-                              const SizedBox(width: 2),
+                        ),                        const SizedBox(width: 16),
+                        // Only display price for storage services, not for transport
+                        if (type != 'نقل') ...[
+                          Icon(
+                            Icons.attach_money,
+                            size: 16,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                          const SizedBox(width: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Text(
-                                '/$storageDurationType',
+                                '$price $currency',
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              if (type == 'تخزين' && storageDurationType != null) ...[
+                                const SizedBox(width: 2),
+                                Text(
+                                  '/$storageDurationType',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -1403,19 +1408,51 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
+          child: Row(            children: [
               // صورة مزود الخدمة
               Container(
                 width: 60,
-                height: 60,
-                decoration: BoxDecoration(
+                height: 60,                decoration: BoxDecoration(
                   color: Color(0xFF9B59B6).withOpacity(0.1),
                   shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(Icons.person, size: 30, color: Color(0xFF9B59B6)),
-                ),
+                  // Add border and shadow to the container
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 5,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),child: providerInfo != null && 
+                       ((providerInfo['profileImageUrl'] != null && 
+                         providerInfo['profileImageUrl'].toString().isNotEmpty) ||
+                        (providerInfo['profileImage'] != null && 
+                         providerInfo['profileImage'].toString().isNotEmpty))
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: CachedNetworkImage(
+                          imageUrl: providerInfo['profileImageUrl']?.toString() ?? 
+                                   providerInfo['profileImage']?.toString() ?? '',
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF9B59B6),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Center(
+                            child: Icon(Icons.person, size: 30, color: Color(0xFF9B59B6)),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(Icons.person, size: 30, color: Color(0xFF9B59B6)),
+                      ),
               ),
               SizedBox(width: 16),
 
@@ -1970,15 +2007,18 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     );
 
                     // Crear instancia del servicio de notificaciones
-                    final notificationService = NotificationService();
-
-                    // Enviar la solicitud y notificación al proveedor
+                    final notificationService = NotificationService();                    // Enviar la solicitud y notificación al proveedor
                     await notificationService.sendServiceRequest(
                       serviceId: widget.serviceId,
                       providerId: _serviceData!['providerId'],
                       serviceName: _serviceData!['title'] ?? 'خدمة',
                       details: detailsController.text,
                       requestDate: selectedDate!,
+                      // Pass service type and price for storage services
+                      serviceType: _serviceData!['type'] ?? 'تخزين',
+                      price: _serviceData!['type'] == 'تخزين' && _serviceData!['price'] != null
+                          ? (_serviceData!['price'] is num ? (_serviceData!['price'] as num).toDouble() : null)
+                          : null,
                     );
 
                     // Cerrar el diálogo de carga y el formulario
@@ -2092,11 +2132,34 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF8B5CF6).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: CircleAvatar(
                   radius: 30,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 36, color: Color(0xFF8B5CF6)),
+                  backgroundImage: providerInfo != null && 
+                                  ((providerInfo['profileImageUrl'] != null && 
+                                    providerInfo['profileImageUrl'].toString().isNotEmpty) ||
+                                   (providerInfo['profileImage'] != null && 
+                                    providerInfo['profileImage'].toString().isNotEmpty))
+                      ? CachedNetworkImageProvider(
+                          providerInfo['profileImageUrl']?.toString() ?? 
+                          providerInfo['profileImage']?.toString() ?? '',
+                        )
+                      : null,
+                  child: providerInfo == null || 
+                      ((providerInfo['profileImageUrl'] == null || 
+                        providerInfo['profileImageUrl'].toString().isEmpty) &&
+                       (providerInfo['profileImage'] == null || 
+                        providerInfo['profileImage'].toString().isEmpty))
+                      ? Icon(Icons.person, size: 36, color: Color(0xFF8B5CF6))
+                      : null,
                 ),
               ),
               const SizedBox(width: 16),
@@ -2165,7 +2228,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
             ],
           ),
 
-          const SizedBox(height: 20),          // Contact buttons with modern design
+          const SizedBox(height: 20),
+          // Contact buttons with modern design
           Row(
             children: [
               Expanded(
@@ -2634,8 +2698,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 scrollDirection: Axis.horizontal,
                 itemCount: (vehicleInfo['imageUrls'] as List).length,
                 itemBuilder: (context, index) {
-                  final url = (vehicleInfo['imageUrls'] as List)[index];
-                  return Container(
+                  final url = (vehicleInfo['imageUrls'] as List)[index];                  return Container(
                     width: 160,
                     margin: const EdgeInsets.only(right: 12),
                     child: ClipRRect(
@@ -2643,9 +2706,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                       child: CachedNetworkImage(
                         imageUrl: url,
                         fit: BoxFit.cover,
-                        placeholder:
-                            (context, url) => Container(
-
+                        placeholder: (context, url) => Container(
                               color: Colors.grey[300],
                               child: Center(
                                 child: CircularProgressIndicator(
@@ -2655,8 +2716,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                                 ),
                               ),
                             ),
-                        errorWidget:
-                            (context, url, error) => Container(
+                        errorWidget: (context, url, error) => Container(
                               color: Colors.grey[300],
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,

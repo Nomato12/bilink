@@ -42,6 +42,11 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         _selectedServiceType = _tabController.index == 0 ? 'تخزين' : 'نقل';
         // إعادة تعيين الخطوة الحالية عند تغيير نوع الخدمة
         _currentStep = 0;
+        
+        // إذا كانت خدمة نقل، قم بمسح حقل السعر لأنه غير مطلوب
+        if (_selectedServiceType == 'نقل') {
+          _priceController.clear();
+        }
       });
     }
   }
@@ -194,21 +199,26 @@ class _AddServiceScreenState extends State<AddServiceScreen>
   // التحقق من الخطوة الحالية
   bool _validateCurrentStep() {
     if (_currentStep == 0) {
-      // التحقق من معلومات الخدمة الأساسية
-      if (_titleController.text.isEmpty ||
-          _descriptionController.text.isEmpty ||
-          _priceController.text.isEmpty) {
+      // التحقق من معلومات الخدمة الأساسية بناءً على نوع الخدمة
+      if (_titleController.text.isEmpty || _descriptionController.text.isEmpty) {
         return false;
       }
-
-      // التحقق من صحة السعر
-      try {
-        final double price = double.parse(_priceController.text);
-        if (price <= 0) {
+      
+      // في حالة "تخزين" فقط نتحقق من السعر
+      if (_selectedServiceType == 'تخزين') {
+        if (_priceController.text.isEmpty) {
           return false;
         }
-      } catch (e) {
-        return false;
+        
+        // التحقق من صحة السعر
+        try {
+          final double price = double.parse(_priceController.text);
+          if (price <= 0) {
+            return false;
+          }
+        } catch (e) {
+          return false;
+        }
       }
 
       return true;
@@ -487,7 +497,6 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         'providerId': user.uid,
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'price': double.parse(_priceController.text),
         'currency': _currency,
         'region': _selectedRegion,
         'type': _selectedServiceType,
@@ -500,6 +509,14 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         'rating': 0.0,
         'reviewCount': 0,
       };
+      
+      // إضافة السعر فقط لخدمات التخزين
+      if (_selectedServiceType == 'تخزين') {
+        serviceData['price'] = double.parse(_priceController.text);
+      } else {
+        // لخدمات النقل، نستخدم قيمة 0 كقيمة إفتراضية، سيتم حساب السعر لاحقًا بناءً على المسافة ونوع المركبة
+        serviceData['price'] = 0.0;
+      }
       
       // إضافة معلومات نوع المدة للتخزين
       if (_selectedServiceType == 'تخزين') {
@@ -1148,11 +1165,13 @@ class _AddServiceScreenState extends State<AddServiceScreen>
         ),
         SizedBox(height: 24),
 
-        // السعر
-        _buildSectionTitle('السعر', Icons.monetization_on, serviceColor),
-        SizedBox(height: 10),
-        _buildPriceField(serviceColor),
-        SizedBox(height: 24),
+        // السعر - فقط لخدمات التخزين
+        if (_selectedServiceType == 'تخزين') ...[
+          _buildSectionTitle('السعر', Icons.monetization_on, serviceColor),
+          SizedBox(height: 10),
+          _buildPriceField(serviceColor),
+          SizedBox(height: 24),
+        ],
 
         // المنطقة
         _buildSectionTitle('المنطقة', Icons.location_city, serviceColor),
@@ -1204,6 +1223,12 @@ class _AddServiceScreenState extends State<AddServiceScreen>
 
   // حقل السعر المحسن
   Widget _buildPriceField(Color serviceColor) {
+    // إذا كانت خدمة نقل، قم بإخفاء حقل السعر
+    if (_selectedServiceType == 'نقل') {
+      return SizedBox.shrink(); // لا تعرض أي شيء
+    }
+    
+    // عرض حقل السعر فقط لخدمات التخزين
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1228,9 +1253,7 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _selectedServiceType == 'تخزين'
-                        ? 'أدخل سعر التخزين'
-                        : 'أدخل سعر خدمة النقل',
+                    'أدخل سعر التخزين',
                     style: TextStyle(
                       color: _primaryColor,
                       fontWeight: FontWeight.w500,
@@ -1239,30 +1262,28 @@ class _AddServiceScreenState extends State<AddServiceScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (_selectedServiceType == 'تخزين') ...[
-                  SizedBox(width: 8),
-                  SizedBox(
-                    width: 90,
-                    child: DropdownButton<String>(
-                      value: _storageDurationType,
-                      items: [
-                        DropdownMenuItem(value: 'شهري', child: Text('شهري')),
-                        DropdownMenuItem(value: 'سنوي', child: Text('سنوي')),
-                        DropdownMenuItem(value: 'يومي', child: Text('يومي')),
-                      ],
-                      onChanged: (val) {
-                        setState(() => _storageDurationType = val!);
-                      },
-                      underline: SizedBox(),
-                      isExpanded: true,
-                      style: TextStyle(
-                        color: serviceColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                SizedBox(width: 8),
+                SizedBox(
+                  width: 90,
+                  child: DropdownButton<String>(
+                    value: _storageDurationType,
+                    items: [
+                      DropdownMenuItem(value: 'شهري', child: Text('شهري')),
+                      DropdownMenuItem(value: 'سنوي', child: Text('سنوي')),
+                      DropdownMenuItem(value: 'يومي', child: Text('يومي')),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _storageDurationType = val!);
+                    },
+                    underline: SizedBox(),
+                    isExpanded: true,
+                    style: TextStyle(
+                      color: serviceColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),

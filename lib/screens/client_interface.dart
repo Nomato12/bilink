@@ -1742,13 +1742,13 @@ class _ClientHomePageState extends State<ClientHomePage> with SingleTickerProvid
                 padding: const EdgeInsets.all(16), // Consistent padding, was 18
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row( // Region and Price row
+                  children: [                    Row( // Region and Price row
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center, // Align items vertically
                       children: [
                         Flexible(child: _buildInfoChip(Icons.location_on_outlined, region, _accentColor)), // Wrapped with Flexible                        const SizedBox(width: 8), // Space between chips
-                        Container(
+                        // Only show price for storage services, not for transport
+                        if (type != 'نقل') Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), // Adjusted padding
                           decoration: BoxDecoration(
                             gradient: LinearGradient(

@@ -1139,27 +1139,29 @@ class TransportRequestCard extends StatelessWidget {
       _showErrorSnackBar(context, 'حدث خطأ أثناء رفض الطلب');
     }
   }
-
   // Show error snackbar
   void _showErrorSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
-
   // Show success snackbar
   void _showSuccessSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 
@@ -1216,7 +1218,7 @@ class TransportCardAnimationController {
 class _RoutePathPainter extends CustomPainter {
   final Color color;
   
-  _RoutePathPainter({this.color = const Color(0xFF9CA3AF)});
+  _RoutePathPainter({this.color = Colors.blue}); // Initialize with default blue color
   
   @override
   void paint(Canvas canvas, Size size) {

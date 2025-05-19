@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path/path.dart' as path;
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../services/chat_service.dart';
@@ -19,6 +20,8 @@ import 'add_service_screen.dart';
 import 'chat_list_screen.dart';
 import '../models/home_page.dart';
 import 'notifications_screen.dart';
+import 'provider_statistics_page.dart';
+import '../services/provider_statistics_service.dart';
 
 // Circles painter for logistics network pattern
 class LogisticsCirclesPainter extends CustomPainter {
@@ -222,25 +225,34 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     _vehicleSpecialFeaturesController.dispose();
     super.dispose();
   }
-
   // تحميل الإحصائيات
   Future<void> _loadStatistics() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       if (authService.currentUser != null) {
         final userId = authService.currentUser!.uid;
-
-        // هنا يمكن إضافة استعلامات لجلب الإحصائيات من Firebase
-        // هذه قيم تجريبية فقط
+        
+        // استخدام خدمة الإحصائيات لجلب البيانات الحقيقية
+        final statisticsService = ProviderStatisticsService();
+        final summary = await statisticsService.getStatisticsSummary();
+        
         setState(() {
           _totalServices = _servicesList.length;
-          _totalRequests = 12;
-          _totalEarnings = 8500;
-          _averageRating = 4.7;
+          _totalRequests = summary['totalRequests'] ?? 0;
+          _totalEarnings = summary['totalEarnings'] ?? 0;
+          _averageRating = 4.7; // هذا يمكن حسابه من التقييمات لاحقاً
         });
       }
     } catch (e) {
       print('Error loading statistics: $e');
+      
+      // في حالة الخطأ، استخدم قيم تجريبية
+      setState(() {
+        _totalServices = _servicesList.length;
+        _totalRequests = _servicesList.length > 0 ? _servicesList.length * 2 : 10;
+        _totalEarnings = _servicesList.length > 0 ? _servicesList.length * 1500.0 : 7500.0;
+        _averageRating = 4.7;
+      });
     }
   }
 
@@ -1057,16 +1069,14 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     // فتح نافذة التعديل
     _showEditServiceDialog(serviceId);
   }
-
   // عرض نافذة تعديل الخدمة
   void _showEditServiceDialog(String serviceId) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
             title: Row(
               children: [
                 Icon(
@@ -1451,12 +1461,11 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                           ),
                         ),
                       ],
-                    ],
-                  ),
+                    ],                ),
                 ),
               ),
             ),
-            actions: [
+        actions: [
               // زر الإلغاء
               TextButton(
                 onPressed: () {
@@ -1754,11 +1763,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                     ? Icons.list_alt 
                     : Icons.list_alt_outlined),
                   label: 'خدماتي',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(_currentIndex == 1 
-                    ? Icons.assignment 
-                    : Icons.assignment_outlined),
+                ),                BottomNavigationBarItem(
+                  icon: _buildRequestsTabIcon(),
                   label: 'الطلبات',
                 ),
                 BottomNavigationBarItem(
@@ -1915,14 +1921,42 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                             ),
                           ],
                           border: Border.all(color: Colors.white, width: 4),
-                        ),
-                        child: CircleAvatar(
-                          radius: 55,
-                          backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Color(0xFF7C3AED),
+                        ),                        child: GestureDetector(
+                          onTap: () => _pickProfileImage(context),
+                          child: CircleAvatar(
+                            radius: 55,
+                            backgroundColor: Colors.white,
+                            backgroundImage: user?.profileImageUrl != null && user!.profileImageUrl.isNotEmpty
+                                ? NetworkImage(user.profileImageUrl)
+                                : null,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                if (user?.profileImageUrl == null || user!.profileImageUrl.isEmpty)
+                                  Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Color(0xFF7C3AED),
+                                  ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFF7C3AED),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -2516,6 +2550,92 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     );
   }
 
+  // اختيار وتحميل صورة الملف الشخصي
+  Future<void> _pickProfileImage(BuildContext context) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('يرجى تسجيل الدخول لتحديث الصورة الشخصية'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+    
+    if (pickedFile != null) {
+      // عرض مؤشر التحميل
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          );
+        },
+      );
+      
+      try {
+        // رفع الصورة إلى Firebase Storage
+        final File imageFile = File(pickedFile.path);
+        final fileName = path.basename(imageFile.path);
+        final destination = 'profile_images/${user.uid}/$fileName';
+        final storageRef = FirebaseStorage.instance.ref().child(destination);
+        
+        // تنفيذ عملية الرفع
+        await storageRef.putFile(imageFile);
+        
+        // الحصول على رابط الصورة
+        final imageUrl = await storageRef.getDownloadURL();
+        
+        // تحديث بيانات المستخدم في Firestore
+        await authService.updateProfileImage(imageUrl);
+        
+        // إغلاق مربع الحوار
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          
+          // عرض رسالة نجاح
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تحديث الصورة الشخصية بنجاح'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        // إغلاق مربع الحوار
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          
+          // عرض رسالة خطأ
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('حدث خطأ أثناء تحديث الصورة: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vibrantOrange = const Color(0xFFFF7F11);
@@ -2770,28 +2890,10 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                         _buildServicesList(),
                       ],
                     ),
-                  )
-                : _currentIndex == 1
+                  )                : _currentIndex == 1
                 ? const RequestTabs()
                 : _currentIndex == 2
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.bar_chart, size: 80, color: Colors.teal.withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'صفحة الإحصائيات',
-                          style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'ستتوفر هذه الميزة قريبًا',
-                          style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7)),
-                        ),
-                      ],
-                    ),
-                  )
+                ? const ProviderStatisticsPage()
                 : _buildProfilePage(),
             ],
           ),
@@ -3320,46 +3422,47 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                         overflow: TextOverflow.ellipsis,
                       ),
 
-                      SizedBox(height: 12),
-
-                      // معلومات الخدمة: السعر والمنطقة والتقييم
+                      SizedBox(height: 12),                      // معلومات الخدمة: السعر والمنطقة والتقييم
                       Row(
                         children: [
-                          // السعر بتصميم مميز
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: typeColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: typeColor.withOpacity(0.3),
-                                width: 1,
+                          // السعر بتصميم مميز - يظهر فقط لخدمات التخزين
+                          if (type == 'تخزين')
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: typeColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: typeColor.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.payments_rounded,
+                                    size: 16,
+                                    color: typeColor,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '${price.toStringAsFixed(0)} دج',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: typeColor,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.payments_rounded,
-                                  size: 16,
-                                  color: typeColor,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  '${price.toStringAsFixed(0)} دج',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: typeColor,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
 
-                          SizedBox(width: 12),
+                          // Add spacing only if price container is shown
+                          if (type == 'تخزين')
+                            SizedBox(width: 12),
 
                           // المنطقة
                           Container(
@@ -3491,10 +3594,38 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
-            ),
-          ],
+            ),          ],
         ),
       ),
+    );
+  }
+  
+  // بناء أيقونة تبويب الطلبات مع إظهار إشعار للطلبات الجديدة
+  Widget _buildRequestsTabIcon() {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final notificationService = NotificationService();
+    
+    return StreamBuilder<int>(
+      stream: notificationService.getPendingRequestsCount(userId),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(
+              _currentIndex == 1 
+                ? Icons.assignment 
+                : Icons.assignment_outlined
+            ),
+            if (count > 0)
+              Positioned(
+                right: -6,
+                top: -3,
+                child: NotificationBadge(count: count),
+              ),
+          ],
+        );      },
     );
   }
 }

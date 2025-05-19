@@ -1,0 +1,452 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bilink/services/fcm_service.dart';
+import 'package:flutter/foundation.dart';
+
+class NotificationService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FcmService _fcmService = FcmService();
+
+  // Collection references
+  final CollectionReference _requestsCollection = 
+      FirebaseFirestore.instance.collection('service_requests');
+  
+  final CollectionReference _notificationsCollection = 
+      FirebaseFirestore.instance.collection('notifications');
+      
+  // Send a service request from client to provider
+  Future<String> sendServiceRequest({
+    required String serviceId,
+    required String providerId,
+    required String serviceName,
+    required String details,
+    required DateTime requestDate,
+    // Add transport-specific optional parameters
+    GeoPoint? originLocation,
+    String? originName,
+    GeoPoint? destinationLocation,
+    String? destinationName,
+    String? distanceText,
+    String? durationText,
+    String? vehicleType,
+    double? price,
+    // Client location information
+    GeoPoint? clientLocation,
+    String? clientAddress,
+    String? serviceType, // <--- أضف هذا السطر
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      // استخدم serviceType إذا تم تمريره، وإلا جلبه من مستند الخدمة
+      String finalServiceType = serviceType ?? 'تخزين';
+      if (serviceType == null) {
+        try {
+          final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            final serviceData = serviceDoc.data() as Map<String, dynamic>;
+            finalServiceType = serviceData['type'] ?? serviceData['serviceType'] ?? 'تخزين';
+          }
+        } catch (e) {
+          print('Error retrieving service type: $e');
+          // Continue with default service type
+        }
+      }
+
+      // Create the request data map
+      Map<String, dynamic> requestData = {
+        'serviceId': serviceId,
+        'serviceName': serviceName,
+        'providerId': providerId,
+        'clientId': currentUser.uid,
+        'clientName': currentUser.displayName ?? 'عميل',
+        'details': details,
+        'requestDate': requestDate,
+        'status': 'pending', // pending, accepted, rejected
+        'serviceType': finalServiceType, // استخدم النوع النهائي
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+        
+      // Add transport-specific data if this is a transport service
+      if (finalServiceType == 'نقل') {
+        if (originLocation != null) requestData['originLocation'] = originLocation;
+        if (originName != null && originName.isNotEmpty) requestData['originName'] = originName;
+        if (destinationLocation != null) requestData['destinationLocation'] = destinationLocation;
+        if (destinationName != null && destinationName.isNotEmpty) requestData['destinationName'] = destinationName;
+        if (distanceText != null && distanceText.isNotEmpty) requestData['distanceText'] = distanceText;
+        if (durationText != null && durationText.isNotEmpty) requestData['durationText'] = durationText;
+        if (vehicleType != null && vehicleType.isNotEmpty) requestData['vehicleType'] = vehicleType;
+        if (price != null) requestData['price'] = price;
+      }
+      // Add storage-specific data if this is a storage service
+      else if (finalServiceType == 'تخزين') {
+        // Get price and other storage details from service document
+        try {
+          final serviceDoc = await _firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            final serviceData = serviceDoc.data() as Map<String, dynamic>;
+            
+            // Add price from service document
+            if (serviceData['price'] != null) {
+              requestData['price'] = serviceData['price'];
+            }
+            
+            // Add storage duration type
+            if (serviceData['storageDurationType'] != null) {
+              requestData['durationType'] = serviceData['storageDurationType'];
+            }
+          }
+        } catch (e) {
+          print('Error retrieving storage service details: $e');
+        }
+        
+        // Use provided price if available
+        if (price != null) {
+          requestData['price'] = price;
+        }
+      }
+
+      // Add client location information if provided
+      if (clientLocation != null) {
+        requestData['clientLocation'] = clientLocation;
+        
+        if (clientAddress != null && clientAddress.isNotEmpty) {
+          requestData['clientAddress'] = clientAddress;
+        }
+        
+        // Add timestamp to track when the location was updated
+        requestData['locationTimestamp'] = FieldValue.serverTimestamp();
+      }
+
+      // Create the request in Firestore
+      final requestDoc = await _requestsCollection.add(requestData);
+
+      // Create a notification for the provider
+      await _notificationsCollection.add({
+        'userId': providerId,
+        'title': 'طلب خدمة جديد',
+        'body': 'لديك طلب ${finalServiceType == 'نقل' ? 'نقل' : 'تخزين'} جديد للخدمة: $serviceName',
+        'type': 'service_request',
+        'data': {
+          'requestId': requestDoc.id,
+          'serviceId': serviceId,
+          'clientId': currentUser.uid,
+          'serviceType': finalServiceType, // Add service type to notification data
+        },
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      return requestDoc.id;
+    } catch (e) {
+      print('Error sending service request: $e');
+      throw Exception('Failed to send service request');
+    }
+  }
+
+  // Send a notification to a specific user
+  Future<void> sendNotification({
+    required String recipientId,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    // تم إلغاء إرسال الإشعارات - مع الاحتفاظ بسجل الإشعارات في قاعدة البيانات
+    debugPrint('تم إلغاء إرسال الإشعار: $title إلى المستخدم: $recipientId');
+    
+    try {
+      // لا نزال نحتفظ بسجل الإشعارات في قاعدة البيانات ولكن بدون ظهور الإشعارات الفعلية
+      await _notificationsCollection.add({
+        'userId': recipientId,
+        'title': title,
+        'body': body,
+        'type': data?['type'] ?? 'general',
+        'data': data ?? {},
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error adding notification to database: $e');
+    }
+  }
+
+  // Update request status (accept or reject) and notify the client
+  Future<void> updateRequestStatus({
+    required String requestId,
+    required String status, // 'accepted' or 'rejected'
+    String? additionalMessage, // رسالة إضافية من مزود الخدمة
+  }) async {
+    try {
+      // Get the request document
+      final requestDoc = await _requestsCollection.doc(requestId).get();
+      if (!requestDoc.exists) {
+        throw Exception('Request not found');
+      }
+      
+      final requestData = requestDoc.data() as Map<String, dynamic>;
+      final clientId = requestData['clientId'];
+      final serviceName = requestData['serviceName'];
+      final serviceId = requestData['serviceId'];
+      final providerId = requestData['providerId'];
+      // Get the service type from the request data
+      final serviceType = requestData['serviceType'] ?? 'تخزين'; // Default to storage if not specified
+      
+      final providerData = await _firestore.collection('users').doc(providerId).get();
+      final providerName = providerData.exists 
+          ? (providerData.data() as Map<String, dynamic>)['displayName'] ?? 'مزود الخدمة'
+          : 'مزود الخدمة';
+      
+      // Update request status with response date
+      Map<String, dynamic> updateData = {
+        'status': status,
+        'responseDate': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'isClientNotified': false, // إضافة هذا الحقل للتتبع في واجهة العميل
+      };
+      
+      // إضافة الرسالة الإضافية إذا كانت موجودة
+      if (additionalMessage != null && additionalMessage.isNotEmpty) {
+        updateData['providerMessage'] = additionalMessage;
+      }
+      
+      await _requestsCollection.doc(requestId).update(updateData);
+
+      // تخصيص عنوان ومحتوى الإشعار بناءً على الحالة
+      String notificationTitle;
+      String notificationBody;
+      
+      // Create a service type text for notifications
+      final serviceTypeText = serviceType == 'نقل' ? 'نقل' : 'تخزين';
+      
+      if (status == 'accepted') {
+        notificationTitle = '🎉 تمت الموافقة على طلبك';
+        notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
+            ? 'تم قبول طلب $serviceTypeText للخدمة: $serviceName\nرسالة من مزود الخدمة: $additionalMessage'
+            : 'تم قبول طلب $serviceTypeText للخدمة: $serviceName\nيمكنك التواصل مع مزود الخدمة الآن';
+      } else {
+        notificationTitle = 'تم رفض طلبك';
+        notificationBody = additionalMessage != null && additionalMessage.isNotEmpty
+            ? 'تم رفض طلب $serviceTypeText للخدمة: $serviceName\nسبب الرفض: $additionalMessage'
+            : 'تم رفض طلب $serviceTypeText للخدمة: $serviceName';
+      }
+      
+      // Create a notification for the client
+      await _notificationsCollection.add({
+        'userId': clientId,
+        'title': notificationTitle,
+        'body': notificationBody,
+        'type': 'request_update',
+        'data': {
+          'requestId': requestId,
+          'serviceId': serviceId,
+          'providerId': providerId,
+          'status': status,
+          'serviceType': serviceType,
+          'isForClient': true,
+        },
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // Send push notification using FCM service
+      await _fcmService.sendNotificationToUser(
+        userId: clientId,
+        title: notificationTitle,
+        body: notificationBody,
+        data: {
+          'type': 'request_update',
+          'requestId': requestId,
+          'serviceId': serviceId,
+          'providerId': providerId,
+          'status': status,
+          'serviceType': serviceType,
+          'isForClient': 'true', // FCM data often stringifies booleans
+        },
+      );
+
+      print('Request status updated and client notified: $status');
+    } catch (e) {
+      print('Error updating request status: $e');
+      throw Exception('Failed to update request status: $e');
+    }
+  }
+  
+  // Get user's unread notifications count as Stream
+  Stream<int> getUnreadNotificationsCount(String userId) {
+    return _notificationsCollection
+        .where('userId', isEqualTo: userId)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // Get provider's pending requests count as Stream
+  Stream<int> getPendingRequestsCount(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // Mark a notification as read
+  Future<void> markNotificationAsRead(String notificationId) async {
+    await _notificationsCollection.doc(notificationId).update({
+      'read': true,
+      'readAt': FieldValue.serverTimestamp(),
+    });
+  }
+  
+  // Get provider's pending service requests
+  Stream<QuerySnapshot> getProviderPendingRequests(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+  
+  // Get provider's accepted service requests
+  Stream<QuerySnapshot> getProviderAcceptedRequests(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'accepted')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  // Get provider's completed service requests
+  Stream<QuerySnapshot> getProviderCompletedRequests(String providerId) {
+    return _requestsCollection
+        .where('providerId', isEqualTo: providerId)
+        .where('status', isEqualTo: 'completed')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+  
+  // Get client details including location
+  Future<Map<String, dynamic>?> getClientDetails(String clientId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(clientId).get();
+      if (!userDoc.exists) {
+        return null;
+      }
+      
+      return userDoc.data() as Map<String, dynamic>;
+    } catch (e) {
+      print('Error getting client details: $e');
+      return null;
+    }
+  }
+
+  // Request client to share their location
+  Future<void> requestClientLocation({
+    required String clientId,
+    required String providerName,
+    required String requestId,
+    required String serviceId,
+  }) async {
+    try {
+      // Create a notification for the client
+      await _notificationsCollection.add({
+        'userId': clientId,
+        'title': 'طلب مشاركة الموقع',
+        'body': 'مزود الخدمة "$providerName" يطلب موقعك الحالي لتقديم الخدمة',
+        'type': 'location_request',
+        'data': {
+          'requestId': requestId,
+          'serviceId': serviceId,
+          'providerName': providerName,
+        },
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Send push notification
+      await _fcmService.sendNotificationToUser(
+        userId: clientId,
+        title: 'طلب مشاركة الموقع',
+        body: 'مزود الخدمة "$providerName" يطلب موقعك الحالي لتقديم الخدمة',
+        data: {
+          'type': 'location_request',
+          'requestId': requestId,
+          'serviceId': serviceId,
+          'targetScreen': 'location_sharing_prompt',
+        },
+      );
+      
+      print('Location request sent to client $clientId');
+    } catch (e) {
+      print('Error requesting client location: $e');
+      throw Exception('Failed to request client location: $e');
+    }
+  }
+
+  // Update client's location in the service request
+  Future<void> updateClientLocation({
+    required String requestId,
+    required GeoPoint location,
+    String? address,
+  }) async {
+    try {
+      // Get the request document
+      final requestQuery = await _requestsCollection
+          .where(FieldPath.documentId, isEqualTo: requestId)
+          .get();
+
+      if (requestQuery.docs.isEmpty) {
+        print('Request not found: $requestId');
+        throw Exception('Request not found');
+      }
+      
+      // Update the request with the new location
+      await _requestsCollection.doc(requestId).update({
+        'clientLocation': location,
+        'clientAddress': address ?? '',
+        'locationTimestamp': FieldValue.serverTimestamp(),
+      });
+      
+      print('Client location updated for request $requestId');
+    } catch (e) {
+      print('Error updating client location: $e');
+      throw Exception('Failed to update client location: $e');
+    }
+  }
+  
+  // Get user notifications as Stream
+  Stream<QuerySnapshot> getUserNotifications(String userId) {
+    return _notificationsCollection
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+  
+  // Get client transport request details
+  Future<List<Map<String, dynamic>>> getClientTransportRequestDetails(String clientId) async {
+    try {
+      final requestsSnapshot = await _requestsCollection
+          .where('clientId', isEqualTo: clientId)
+          .where('serviceType', isEqualTo: 'نقل')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+          
+      final List<Map<String, dynamic>> results = [];
+      
+      for (var doc in requestsSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        results.add(data);
+      }
+      
+      return results;
+    } catch (e) {
+      print('Error getting client transport request details: $e');
+      return [];
+    }
+  }
+}
