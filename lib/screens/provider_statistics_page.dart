@@ -288,19 +288,19 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                           children: [
                             _buildStatCard(
                               title: 'إجمالي الأرباح',
-                              value: '${_summary['totalEarnings']?.toStringAsFixed(0) ?? '0'} دج',
+                              value: '${(_summary['totalEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
                               icon: Icons.monetization_on_rounded,
                               color: Colors.green,
                             ),
                             _buildStatCard(
                               title: 'الطلبات المكتملة',
-                              value: '${_summary['completedRequests'] ?? '0'}',
+                              value: '${_summary['completedRequests'] ?? 0}',
                               icon: Icons.check_circle_outline_rounded,
                               color: vibrantOrange,
                             ),
                             _buildStatCard(
                               title: 'حصة التطبيق',
-                              value: '${(_summary['totalEarnings'] != null ? _summary['totalEarnings'] * 0.2 : 0).toStringAsFixed(0)} دج',
+                              value: '${((_summary['totalEarnings'] ?? 0.0) * 0.2).toStringAsFixed(0)} دج',
                               icon: Icons.account_balance_rounded,
                               color: purpleColor,
                             ),
@@ -312,7 +312,7 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                           children: [
                             _buildStatCard(
                               title: 'أرباح النقل',
-                              value: '${_summary['transportEarnings']?.toStringAsFixed(0) ?? '0'} دج',
+                              value: '${(_summary['transportEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
                               icon: Icons.local_shipping_rounded,
                               color: tealColor,
                               width: 150,
@@ -320,7 +320,7 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                             const SizedBox(width: 15),
                             _buildStatCard(
                               title: 'أرباح التخزين',
-                              value: '${_summary['storageEarnings']?.toStringAsFixed(0) ?? '0'} دج',
+                              value: '${(_summary['storageEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
                               icon: Icons.warehouse_rounded,
                               color: Colors.amber,
                               width: 150,

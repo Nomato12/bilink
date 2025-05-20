@@ -887,22 +887,76 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
     Map<String, dynamic> updateData = {
       'status': newStatus,
       'updatedAt': FieldValue.serverTimestamp(),
-    };    if (newStatus == 'accepted') {
+    };
+    
+    if (newStatus == 'accepted') {
       updateData['isClientNotified'] = false;
       updateData['responseDate'] = FieldValue.serverTimestamp();
       updateData['hasUnreadNotification'] = true;
       updateData['lastStatusChangeBy'] = FirebaseAuth.instance.currentUser?.uid ?? '';
-    }    await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update(updateData);    // Update statistics if request is accepted or completed
+    }
+    
+    await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update(updateData);
+    
+    // Update statistics if request is accepted or completed
     if (newStatus == 'accepted' || newStatus == 'completed') {
       try {
         final String serviceType = requestData['serviceType'] ?? 'تخزين';
-        final double? price = requestData['price'] != null 
-            ? (requestData['price'] is num ? (requestData['price'] as num).toDouble() : 0.0) 
-            : 0.0;
+        
+        // ضمان أن السعر هو قيمة رقمية صحيحة
+        double numericPrice = 0.0;
+        dynamic rawPrice = requestData['price'];
+        
+        if (rawPrice != null) {
+          if (rawPrice is num) {
+            numericPrice = rawPrice.toDouble();
+          } else if (rawPrice is String) {
+            try {
+              numericPrice = double.parse(rawPrice);
+            } catch (e) {
+              print('خطأ في تحويل السعر من نص إلى رقم: $e');
+            }
+          }
+        }
+        
+        // إذا كان السعر لا يزال صفر، نحاول تقدير سعر مناسب حسب نوع الخدمة
+        if (numericPrice <= 0) {
+          if (serviceType == 'نقل') {
+            // محاولة تقدير سعر النقل من المسافة إذا كانت متوفرة
+            String distanceText = requestData['distanceText'] ?? '';
+            if (distanceText.isNotEmpty) {
+              RegExp regex = RegExp(r'(\d+(\.\d+)?)');
+              var match = regex.firstMatch(distanceText);
+              if (match != null) {
+                double distance = double.parse(match.group(1)!);
+                numericPrice = distance * 50; // تقدير 50 دج للكيلومتر
+                print('تم تقدير السعر من المسافة ($distance كم): $numericPrice');
+              }
+            }
             
+            // إذا لم نتمكن من الحصول على سعر من المسافة، نستخدم قيمة افتراضية
+            if (numericPrice <= 0) {
+              numericPrice = 500.0; // قيمة افتراضية لخدمات النقل
+            }
+          } else {
+            // قيمة افتراضية لخدمات التخزين
+            numericPrice = 300.0;
+          }
+          
+          // تحديث السعر في وثيقة الطلب
+          try {
+            await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update({
+              'price': numericPrice
+            });
+            print('تم تحديث السعر في الطلب: $numericPrice');
+          } catch (updateError) {
+            print('خطأ في تحديث السعر في الطلب: $updateError');
+          }
+        }
+        
         print('بدء تحديث إحصائيات الطلب $requestId');
         print('نوع الخدمة: $serviceType');
-        print('السعر في بيانات الطلب: $price');
+        print('السعر النهائي المستخدم: $numericPrice');
         
         final providerStatisticsService = ProviderStatisticsService();
         final bool statsUpdated = await providerStatisticsService.registerServiceEarnings(
@@ -915,38 +969,51 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
         } else {
           print('فشل تحديث الإحصائيات للطلب $requestId');
           
-          // If statistics update failed, try to update price in request and retry
-          if (serviceType == 'تخزين' && price == 0.0) {
-            print('محاولة تحديث سعر طلب التخزين وإعادة المحاولة...');
+          // محاولة ثانية بعد تحديث السعر
+          if (numericPrice > 0) {
+            // إنشاء إحصائيات يدويًا إذا فشلت الطريقة الأولى
             try {
-              // Try to get service price from the service document
-              final String serviceId = requestData['serviceId'] ?? '';
-              if (serviceId.isNotEmpty) {
-                final serviceDoc = await FirebaseFirestore.instance.collection('services').doc(serviceId).get();
-                if (serviceDoc.exists) {
-                  final serviceData = serviceDoc.data();
-                  if (serviceData != null && serviceData['price'] != null) {
-                    final double servicePrice = serviceData['price'] is num ? (serviceData['price'] as num).toDouble() : 0.0;
-                    if (servicePrice > 0) {
-                      // Update price in the request document
-                      await FirebaseFirestore.instance.collection(collectionName).doc(requestId).update({
-                        'price': servicePrice
-                      });
-                      print('تم تحديث سعر الطلب إلى $servicePrice');
-                      
-                      // Try updating statistics again
-                      final bool retryUpdate = await providerStatisticsService.registerServiceEarnings(
-                        requestId,
-                        newStatus,
-                      );
-                      
-                      print('نتيجة إعادة المحاولة: ${retryUpdate ? 'نجاح' : 'فشل'}');
-                    }
-                  }
+              final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+              if (currentUserId != null) {
+                final String serviceId = requestData['serviceId'] ?? '';
+                final String serviceName = requestData['serviceName'] ?? 'خدمة';
+                
+                // حساب حصة المزود وحصة التطبيق
+                final double providerAmount = numericPrice * 0.8; // المزود يأخذ 80%
+                final double appFee = numericPrice * 0.2; // التطبيق يأخذ 20%
+                
+                // تاريخ الطلب
+                DateTime requestDate = DateTime.now();
+                if (requestData['responseDate'] != null) {
+                  requestDate = (requestData['responseDate'] as Timestamp).toDate();
+                } else if (requestData['createdAt'] != null) {
+                  requestDate = (requestData['createdAt'] as Timestamp).toDate();
                 }
+                
+                // تحديد نوع المدة (للتخزين)
+                String durationType = requestData['durationType'] ?? 'شهري';
+                
+                // إنشاء إحصائية جديدة
+                await FirebaseFirestore.instance.collection('provider_statistics').doc(requestId).set({
+                  'providerId': currentUserId,
+                  'requestId': requestId,
+                  'serviceId': serviceId,
+                  'serviceName': serviceName,
+                  'serviceType': serviceType,
+                  'status': newStatus,
+                  'amount': numericPrice,
+                  'providerAmount': providerAmount,
+                  'appFee': appFee,
+                  'date': requestDate,
+                  'durationType': durationType,
+                  'createdAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+                
+                print('تم إنشاء إحصائيات يدوية بنجاح للطلب: $requestId');
               }
-            } catch (e) {
-              print('فشل في إعادة المحاولة لتحديث الإحصائيات: $e');
+            } catch (manualStatError) {
+              print('فشل إنشاء إحصائيات يدوية: $manualStatError');
             }
           }
         }
@@ -959,7 +1026,6 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
     final String clientId = requestData['clientId'] ?? '';
     final String serviceId = requestData['serviceId'] ?? ''; // Used in notification data
     final String serviceNameData = requestData['serviceName'] ?? ''; // Used in notification data
-
 
     if (clientId.isNotEmpty) {
       final FcmService fcmService = FcmService();
@@ -981,19 +1047,19 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
         switch (newStatus) {
           case 'accepted':
             title = 'تم قبول طلبك';
-            body = 'تم قبول طلب الخدمة الخاص بك "$serviceNameData"';
+            body = 'تم قبول طلبك للخدمة: $serviceNameData';
             break;
           case 'rejected':
             title = 'تم رفض طلبك';
-            body = 'نعتذر، تم رفض طلب الخدمة الخاص بك "$serviceNameData"';
+            body = 'نأسف، تم رفض طلبك للخدمة: $serviceNameData';
             break;
           case 'completed':
-            title = 'تم إكمال طلبك';
-            body = 'تم إكمال طلب الخدمة الخاص بك "$serviceNameData" بنجاح';
+            title = 'تم إكمال الخدمة';
+            body = 'تم إكمال خدمة $serviceNameData بنجاح';
             break;
           default:
-            title = 'تحديث حالة الطلب';
-            body = 'تم تحديث حالة طلب الخدمة الخاص بك "$serviceNameData"';
+            title = 'تم تحديث حالة طلبك';
+            body = 'تم تحديث حالة طلبك للخدمة: $serviceNameData';
         }
 
         try {
@@ -1001,19 +1067,16 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
             'userId': clientId,
             'title': title,
             'body': body,
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
             'type': 'request_update',
             'data': {
               'requestId': requestId,
-              'status': newStatus,
               'serviceId': serviceId,
-              'serviceName': serviceNameData,
-              'serviceType': requestData['serviceType'] ?? 'تخزين',
-              'providerName': FirebaseAuth.instance.currentUser?.displayName ?? 'مزود الخدمة',
-              'isForClient': true // Ensure this matches expected client-side logic
+              'status': newStatus,
             },
+            'read': false,
+            'createdAt': FieldValue.serverTimestamp(),
           });
+          
           await fcmService.sendNotificationToUser(
             userId: clientId,
             title: title,
@@ -1022,18 +1085,11 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
               'type': 'request_update',
               'requestId': requestId,
               'status': newStatus,
-              'serviceId': serviceId,
-              'serviceType': requestData['serviceType'] ?? 'تخزين',
-              'targetScreen': 'client_interface', // Ensure this is handled by client
-              'isForClient': 'true', // FCM data often stringifies booleans
-               'userId': clientId
             },
           );
           print('تم إرسال الإشعار اليدوي بنجاح');
         } catch (manualNotificationError) {
-          print('خطأ أثناء إرسال الإشعار اليدوي: $manualNotificationError');
-          successMessage = 'تم تحديث الطلب، ولكن فشل إرسال الإشعار للعميل.';
-          snackbarColor = Colors.orange; // Indicate partial success
+          print('خطأ في إرسال الإشعار اليدوي: $manualNotificationError');
         }
       }
     } else {
