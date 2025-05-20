@@ -249,8 +249,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       // في حالة الخطأ، استخدم قيم تجريبية
       setState(() {
         _totalServices = _servicesList.length;
-        _totalRequests = _servicesList.length > 0 ? _servicesList.length * 2 : 10;
-        _totalEarnings = _servicesList.length > 0 ? _servicesList.length * 1500.0 : 7500.0;
+        _totalRequests = _servicesList.isNotEmpty ? _servicesList.length * 2 : 10;
+        _totalEarnings = _servicesList.isNotEmpty ? _servicesList.length * 1500.0 : 7500.0;
         _averageRating = 4.7;
       });
     }
@@ -1626,72 +1626,73 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           _isLoading = false;
         });
       }
-    }
-  }
+    }  }
 
-  // بطاقة إحصائية عصرية بتصميم لوجستي
+      // بطاقة إحصائية عصرية بتصميم لوجستي
   Widget _buildStatCard({
     required String title,
     required String value,
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withOpacity(0.9),
-            Colors.white.withOpacity(0.7),
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.9),
+              Colors.white.withOpacity(0.7),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+              spreadRadius: 1,
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Icon with circular background
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              shape: BoxShape.circle,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon with circular background
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 10),
-          // Value with larger, bolder text
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              color: const Color(0xFF0A2463),
+            const SizedBox(height: 10),
+            // Value with larger, bolder text
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: const Color(0xFF0A2463),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          // Title with color matching the icon
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13, 
-              color: color.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 4),
+            // Title with color matching the icon
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13, 
+                color: color.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2828,10 +2829,8 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 20),
-                              // إحصائيات سريعة
+                              const SizedBox(height: 20),                              // إحصائيات سريعة
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   _buildStatCard(
                                     title: 'خدماتي',

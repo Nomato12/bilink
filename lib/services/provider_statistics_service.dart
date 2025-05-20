@@ -27,7 +27,7 @@ class ProviderStatisticsService {
       }
       
       // If request still not found, return
-      if (requestDoc == null || !requestDoc.exists) {
+      if (!requestDoc.exists) {
         print('Request $requestId not found in any collection');
         return false;
       }
@@ -230,8 +230,8 @@ class ProviderStatisticsService {
       
       // Clear cache to ensure fresh data on next load
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('provider_statistics_${_providerId}');
-      await prefs.remove('provider_statistics_updated_${_providerId}');
+      await prefs.remove('provider_statistics_$_providerId');
+      await prefs.remove('provider_statistics_updated_$_providerId');
       
       return true;
     } catch (e) {
@@ -363,8 +363,8 @@ class ProviderStatisticsService {
             'date': stat.date.toIso8601String(),
           }).toList();
           
-      await prefs.setString('provider_statistics_${_providerId}', jsonEncode(jsonList));
-      await prefs.setString('provider_statistics_updated_${_providerId}', DateTime.now().toIso8601String());
+      await prefs.setString('provider_statistics_$_providerId', jsonEncode(jsonList));
+      await prefs.setString('provider_statistics_updated_$_providerId', DateTime.now().toIso8601String());
     } catch (e) {
       print('Error caching statistics: $e');
     }
@@ -374,8 +374,8 @@ class ProviderStatisticsService {
   Future<List<ProviderStatistics>> _loadFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? jsonData = prefs.getString('provider_statistics_${_providerId}');
-      final String? lastUpdated = prefs.getString('provider_statistics_updated_${_providerId}');
+      final String? jsonData = prefs.getString('provider_statistics_$_providerId');
+      final String? lastUpdated = prefs.getString('provider_statistics_updated_$_providerId');
       
       // If cache is more than 60 minutes old, don't use it
       if (lastUpdated != null) {

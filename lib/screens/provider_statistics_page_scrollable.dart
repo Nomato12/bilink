@@ -8,7 +8,7 @@ import 'dart:math' as math;
 import 'package:bilink/models/provider_statistics.dart';
 
 class ProviderStatisticsPage extends StatefulWidget {
-  const ProviderStatisticsPage({Key? key}) : super(key: key);
+  const ProviderStatisticsPage({super.key});
 
   @override
   _ProviderStatisticsPageState createState() => _ProviderStatisticsPageState();
@@ -218,7 +218,9 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       final yearStats = statsManager.getMonthlyStatsForYear(_currentDate.year);
       // Calculate total manually to avoid type issues
       double yearlyTotal = 0.0;
-      yearStats.values.forEach((value) => yearlyTotal += value);
+      for (var value in yearStats.values) {
+        yearlyTotal += value;
+      }
       result['totalEarnings'] = yearlyTotal;
       result['totalRequests'] = _statistics.where((s) => s.date.year == _currentDate.year).length;
       result['chartData'] = yearStats;
@@ -835,7 +837,7 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                 
                 if (_selectedPeriod == 'يومي') {
                   // For daily view, show hours
-                  text = '${xValue}:00';
+                  text = '$xValue:00';
                 } else if (_selectedPeriod == 'شهري') {
                   // For monthly view, show days
                   text = '$xValue';
