@@ -511,46 +511,81 @@ class TransportRequestCard extends StatelessWidget {
                       label: 'اتصال',
                       onPressed: () => _callClient(),
                     ),
-                  ],
-                ),
+                  ],                ),
                 
-                // Request status actions (only for pending requests)
-                if (status == 'pending')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _acceptRequest(context),
-                            icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-                            label: const Text('قبول', style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                // Request status actions based on status
+                Padding(                  padding: const EdgeInsets.only(top: 16),
+                  child: status == 'pending' 
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _acceptRequest(context),
+                              icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+                              label: const Text('قبول', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _rejectRequest(context),
-                            icon: const Icon(Icons.cancel_outlined, color: Colors.white),
-                            label: const Text('رفض', style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _rejectRequest(context),
+                              icon: const Icon(Icons.cancel_outlined, color: Colors.white),
+                              label: const Text('رفض', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    : status == 'accepted'
+                      ? Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _completeRequest(context),
+                                icon: const Icon(Icons.task_alt_rounded, color: Colors.white),
+                                label: const Text('إكمال الطلب', style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade600,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _deleteRequest(context),
+                                icon: Icon(Icons.delete_forever_rounded, color: Colors.red.shade600),
+                                label: Text('حذف الطلب', style: TextStyle(color: Colors.red.shade600)),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide(color: Colors.red.shade300),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Container(), // Empty container for other status values
                   ),
               ],
             ),
@@ -1137,6 +1172,146 @@ class TransportRequestCard extends StatelessWidget {
       _showSuccessSnackBar(context, 'تم رفض الطلب');
     } catch (e) {
       _showErrorSnackBar(context, 'حدث خطأ أثناء رفض الطلب');
+    }
+  }
+  // Complete request
+  Future<void> _completeRequest(BuildContext context) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      
+      final notificationService = NotificationService();
+      final fcmService = FcmService();
+      final String requestId = requestData['id'];
+      final String clientId = requestData['clientId'] ?? '';
+      final String providerId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      
+      if (requestId.isEmpty || clientId.isEmpty || providerId.isEmpty) {
+        if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
+        _showErrorSnackBar(context, 'بيانات الطلب غير مكتملة');
+        return;
+      }
+      
+      // Update request status in Firestore
+      await notificationService.updateRequestStatus(
+        requestId: requestId,
+        status: 'completed',
+      );
+      
+      // Send push notification to client
+      await fcmService.sendNotificationToUser(
+        userId: clientId,
+        title: 'تم إكمال طلبك',
+        body: 'تم إكمال طلب النقل الخاص بك من قبل مزود الخدمة',
+        data: {
+          'type': 'request_completed',
+          'requestId': requestId,
+          'providerId': providerId,
+        },
+      );
+      
+      // Close loading dialog
+      if (context.mounted) Navigator.of(context).pop();
+      
+      // Update UI
+      if (onRequestUpdated != null) {
+        onRequestUpdated!();
+      }
+      
+      _showSuccessSnackBar(context, 'تم إكمال الطلب بنجاح');
+    } catch (e) {
+      if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
+      _showErrorSnackBar(context, 'حدث خطأ أثناء إكمال الطلب');
+    }
+  }
+  // Delete request
+  Future<void> _deleteRequest(BuildContext context) async {
+    // Show confirmation dialog
+    bool confirmDelete = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'تأكيد الحذف',
+          style: TextStyle(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.right,
+        ),
+        content: const Text(
+          'هل أنت متأكد من أنك تريد حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+        actionsAlignment: MainAxisAlignment.start,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      ),
+    ) ?? false;
+
+    if (!confirmDelete) return;
+
+    if (!context.mounted) return;
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final String requestId = requestData['id'];
+      if (requestId.isEmpty) {
+        if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
+        _showErrorSnackBar(context, 'خطأ: لا يمكن حذف الطلب، معرف الطلب غير موجود');
+        return;
+      }
+
+      // Check if request exists
+      DocumentSnapshot? docSnapshot;
+      docSnapshot = await FirebaseFirestore.instance.collection('serviceRequests').doc(requestId).get();
+      if (!docSnapshot.exists) {
+        docSnapshot = await FirebaseFirestore.instance.collection('service_requests').doc(requestId).get();
+      }
+      
+      if (!docSnapshot.exists) {
+        if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
+        _showErrorSnackBar(context, 'خطأ: الطلب غير موجود أو تم حذفه مسبقاً');
+        return;
+      }
+      
+      // Delete request from database
+      String collectionName = docSnapshot.reference.parent.id;
+      await FirebaseFirestore.instance.collection(collectionName).doc(requestId).delete();
+
+      // Close loading dialog and show success message
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showSuccessSnackBar(context, 'تم حذف الطلب بنجاح');
+        
+        // Notify parent to update list
+        if (onRequestUpdated != null) {
+          onRequestUpdated!();
+        }
+      }
+      
+    } catch (error) {
+      print('Error deleting request: $error');
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        _showErrorSnackBar(context, 'حدث خطأ أثناء حذف الطلب');
+      }
     }
   }
   // Show error snackbar

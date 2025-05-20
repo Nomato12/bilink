@@ -205,7 +205,11 @@ class ProviderStatisticsManager {
 
     for (var stat in statistics.where((s) =>
         s.status == 'completed' && s.serviceType == 'تخزين')) {
-      durationStats[stat.durationType] = (durationStats[stat.durationType] ?? 0.0) + stat.providerAmount;
+      String type = stat.durationType.trim();
+      if (type != 'يومي' && type != 'شهري' && type != 'سنوي') {
+        type = 'شهري'; // أي قيمة غير معروفة تعامل كشهري
+      }
+      durationStats[type] = (durationStats[type] ?? 0.0) + stat.providerAmount;
     }
 
     return durationStats;

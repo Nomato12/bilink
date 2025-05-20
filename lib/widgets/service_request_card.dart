@@ -594,9 +594,7 @@ class ServiceRequestCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                        ],                      ),                      const SizedBox(height: 8),
                       _buildRouteButton(context, clientLocation, clientName),
                     ] else ...[
                       SizedBox(
@@ -618,13 +616,35 @@ class ServiceRequestCard extends StatelessWidget {
                             foregroundColor: Colors.white,
                             backgroundColor: Colors.blue.shade700,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                    ],
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),                          ),                        ),
+                      ),],
                   ],
                 ),
+              ),
+            ],
+            
+            // Add action buttons for all accepted transport requests outside the client info section
+            if (status == 'accepted' && serviceType == 'نقل') ...[
+              const SizedBox(height: 20),
+              _buildActionButton(
+                context: context,
+                label: 'إكمال الطلب',
+                icon: Icons.task_alt_rounded,
+                backgroundColor: Colors.blue.shade600,
+                textColor: Colors.white,
+                isFullWidth: true,
+                onPressed: () => _updateRequestStatus(context, 'completed'),
+              ),
+              const SizedBox(height: 10),
+              _buildActionButton(
+                context: context,
+                label: 'حذف الطلب',
+                icon: Icons.delete_forever_rounded,
+                backgroundColor: Colors.transparent,
+                textColor: Colors.red.shade600,
+                borderColor: Colors.red.shade300,
+                isFullWidth: true,
+                onPressed: () => _deleteRequest(context),
               ),
             ],
 
@@ -658,11 +678,7 @@ class ServiceRequestCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ],
-
-            const SizedBox(height: 20),
-
-            // Action buttons based on status
+            ],            const SizedBox(height: 20),            // Action buttons based on status
             if (status == 'pending') ...[
               Row(
                 children: [
@@ -688,7 +704,7 @@ class ServiceRequestCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ] else if (status == 'accepted') ...[
+            ] else if (status == 'accepted' && serviceType != 'نقل') ...[
               Column(
                 children: [
                   _buildActionButton(
@@ -1336,67 +1352,68 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
   }
 
   // Enviar solicitud de ubicación al cliente
-  void _sendLocationRequest(BuildContext context, String clientId, String clientName) async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final fcmService = FcmService();
-      final String requestId = requestData['id'] ?? '';
-      final String serviceId = requestData['serviceId'] ?? '';
-
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'userId': clientId,
-        'title': 'طلب الموقع',
-        'body': 'مزود الخدمة يطلب موقعك الحالي لتقديم الخدمة',
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'type': 'location_request', // Ensure client handles this type
-        'data': {
-          'requestId': requestId,
-          'serviceId': serviceId,
-          // Add any other relevant data client might need
-        },
-      });
-
-      await fcmService.sendNotificationToUser(
-        userId: clientId,
-        title: 'طلب الموقع',
-        body: 'مزود الخدمة "$clientName" يطلب موقعك الحالي لتقديم الخدمة', // Provider name can be useful
-        data: {
-          'type': 'location_request',
-          'requestId': requestId,
-          'serviceId': serviceId,
-          // 'providerName': FirebaseAuth.instance.currentUser?.displayName ?? 'مزود الخدمة', // If needed by client
-          'targetScreen': 'location_sharing_prompt', // Example: client navigates here
-        },
-      );
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم إرسال طلب الموقع إلى العميل'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error sending location request: $e');
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء إرسال طلب الموقع: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  // Esta función ya no se utiliza, se ha implementado una solución alternativa
+// void _sendLocationRequest(BuildContext context, String clientId, String clientName) async {
+//     try {
+//       showDialog(
+//         context: context,
+//         barrierDismissible: false,
+//         builder: (context) => const Center(child: CircularProgressIndicator()),
+//       );
+// 
+//       final fcmService = FcmService();
+//       final String requestId = requestData['id'] ?? '';
+//       final String serviceId = requestData['serviceId'] ?? '';
+// 
+//       await FirebaseFirestore.instance.collection('notifications').add({
+//         'userId': clientId,
+//         'title': 'طلب الموقع',
+//         'body': 'مزود الخدمة يطلب موقعك الحالي لتقديم الخدمة',
+//         'isRead': false,
+//         'createdAt': FieldValue.serverTimestamp(),
+//         'type': 'location_request', // Ensure client handles this type
+//         'data': {
+//           'requestId': requestId,
+//           'serviceId': serviceId,
+//           // Add any other relevant data client might need
+//         },
+//       });
+//
+//       await fcmService.sendNotificationToUser(
+//         userId: clientId,
+//         title: 'طلب الموقع',
+//         body: 'مزود الخدمة "$clientName" يطلب موقعك الحالي لتقديم الخدمة', // Provider name can be useful
+//         data: {
+//           'type': 'location_request',
+//           'requestId': requestId,
+//           'serviceId': serviceId,
+//           // 'providerName': FirebaseAuth.instance.currentUser?.displayName ?? 'مزود الخدمة', // If needed by client
+//           'targetScreen': 'location_sharing_prompt', // Example: client navigates here
+//         },
+//       );
+//
+//       if (context.mounted) {
+//         Navigator.pop(context); // Close loading dialog
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('تم إرسال طلب الموقع إلى العميل'),
+//             backgroundColor: Colors.green,
+//           ),
+//         );
+//       }
+//     } catch (e) {
+//       print('Error sending location request: $e');
+//       if (context.mounted) {
+//         Navigator.pop(context); // Close loading dialog
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text('حدث خطأ أثناء إرسال طلب الموقع: $e'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//       }
+//     }
+//   }
 
   // Add a button to directly show the route to bottom of card when client location is available
   Widget _buildRouteButton(BuildContext context, GeoPoint? clientLocation, String clientName) {
@@ -1421,12 +1438,8 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
     _showClientLocationOnMap(context, clientLocation, clientName, showRoute: true, data: requestData);
   }
 
-  // حذف الطلب
+    // حذف الطلب
   Future<void> _deleteRequest(BuildContext context) async {
-    // Store the context reference before any async operations
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    
     // عرض مربع حوار تأكيد قبل الحذف
     bool confirmDelete = await showDialog(
       context: context,
@@ -1482,11 +1495,12 @@ void _updateRequestStatus(BuildContext context, String newStatus) async {
       }
 
       // التحقق من وجود الطلب في أي من المجموعات
-      DocumentSnapshot? docSnapshot;
-      docSnapshot = await FirebaseFirestore.instance.collection('serviceRequests').doc(requestId).get();
+      DocumentSnapshot? docSnapshot;      docSnapshot = await FirebaseFirestore.instance.collection('serviceRequests').doc(requestId).get();
       if (!docSnapshot.exists) {
         docSnapshot = await FirebaseFirestore.instance.collection('service_requests').doc(requestId).get();
-      }      if (!docSnapshot.exists) {
+      }
+      
+      if (!docSnapshot.exists) {
         if (!context.mounted) return;
         
         Navigator.of(context).pop(); // إغلاق مؤشر التحميل

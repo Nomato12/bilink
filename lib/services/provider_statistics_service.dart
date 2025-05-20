@@ -125,7 +125,16 @@ class ProviderStatisticsService {
         }
         
         // Get duration type for storage
-        durationType = serviceData['storageDurationType'] ?? requestData['durationType'] ?? 'شهري';
+        if (serviceType == 'تخزين') {
+          String? rawDurationType = serviceData['storageDurationType'] ?? requestData['durationType'];
+          if (rawDurationType == 'يومي' || rawDurationType == 'شهري' || rawDurationType == 'سنوي') {
+            durationType = rawDurationType ?? 'شهري';
+          } else {
+            durationType = 'شهري';
+          }
+        } else {
+          durationType = '';
+        }
       }
       
       // For transport services, ensure we have a defined price
