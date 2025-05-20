@@ -1,11 +1,9 @@
-// Provider statistics page
+// Provider statistics page with scrollable content
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:provider/provider.dart';
 import 'package:bilink/services/provider_statistics_service.dart';
-import 'package:bilink/services/auth_service.dart';
 import 'dart:math' as math;
 import 'package:bilink/models/provider_statistics.dart';
 
@@ -14,6 +12,32 @@ class ProviderStatisticsPage extends StatefulWidget {
 
   @override
   _ProviderStatisticsPageState createState() => _ProviderStatisticsPageState();
+}
+
+// Helper class for SliverPersistentHeader
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Colors.black,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
+  }
 }
 
 class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with SingleTickerProviderStateMixin {
@@ -59,10 +83,12 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
     setState(() {
       _isLoading = true;
     });
-    
-    try {
+      try {
       final stats = await _statisticsService.getProviderStatistics();
       final summary = await _statisticsService.getStatisticsSummary();
+      
+      print('Loaded ${stats.length} statistics entries');
+      print('Completed transactions: ${stats.where((s) => s.status == 'completed').length}');
       
       setState(() {
         _statistics = stats;
@@ -187,7 +213,8 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       
       // Daily data for the month
       result['chartData'] = statsManager.getDailyStatsForMonth(_currentDate.year, _currentDate.month);
-        } else {      // Yearly view
+    } else {
+      // Yearly view
       final yearStats = statsManager.getMonthlyStatsForYear(_currentDate.year);
       // Calculate total manually to avoid type issues
       double yearlyTotal = 0.0;
@@ -199,8 +226,8 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
     
     return result;
   }
-    @override
-  Widget build(BuildContext context) {
+  
+  @override  Widget build(BuildContext context) {
     final vibrantOrange = const Color(0xFFFF7F11);
     final tealColor = Colors.teal;
     final purpleColor = const Color(0xFF9B59B6);
@@ -210,187 +237,195 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF7F11)))
           : SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Colors.teal.withOpacity(0.3), Colors.black.withOpacity(0.4)],
-                      ),
-                      borderRadius: BorderRadius.circular(0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    // Header
+                    SliverToBoxAdapter(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Colors.teal.withOpacity(0.3), Colors.black.withOpacity(0.4)],
+                          ),
+                          borderRadius: BorderRadius.circular(0),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: purpleColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.bar_chart_rounded,
-                                color: purpleColor,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(
-                                  'الإحصائيات والأرباح',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: purpleColor.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.bar_chart_rounded,
+                                    color: purpleColor,
+                                    size: 24,
                                   ),
                                 ),
-                                Text(
-                                  'تتبع أدائك ومداخيلك',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'الإحصائيات والأرباح',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Text(
+                                      'تتبع أدائك ومداخيلك',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-
-                  // Summary Statistics Cards
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ملخص الأداء',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
+                    
+                    // Summary Statistics Cards
+                    SliverToBoxAdapter(
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ملخص الأداء',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildStatCard(
+                                  title: 'إجمالي الأرباح',
+                                  value: '${(_summary['totalEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
+                                  icon: Icons.monetization_on_rounded,
+                                  color: Colors.green,
+                                ),
+                                _buildStatCard(
+                                  title: 'الطلبات المكتملة',
+                                  value: '${_summary['completedRequests'] ?? 0}',
+                                  icon: Icons.check_circle_outline_rounded,
+                                  color: vibrantOrange,
+                                ),
+                                _buildStatCard(
+                                  title: 'حصة التطبيق',
+                                  value: '${((_summary['totalEarnings'] ?? 0.0) * 0.2).toStringAsFixed(0)} دج',
+                                  icon: Icons.account_balance_rounded,
+                                  color: purpleColor,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildStatCard(
+                                  title: 'أرباح النقل',
+                                  value: '${(_summary['transportEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
+                                  icon: Icons.local_shipping_rounded,
+                                  color: tealColor,
+                                  width: 150,
+                                ),
+                                const SizedBox(width: 15),
+                                _buildStatCard(
+                                  title: 'أرباح التخزين',
+                                  value: '${(_summary['storageEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
+                                  icon: Icons.warehouse_rounded,
+                                  color: Colors.amber,
+                                  width: 150,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        Row(
+                      ),
+                    ),
+                    
+                    // Tabs
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _SliverAppBarDelegate(
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: vibrantOrange,
+                          unselectedLabelColor: Colors.white.withOpacity(0.6),
+                          indicatorColor: vibrantOrange,
+                          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                          tabs: [
+                            const Tab(text: 'يومي'),
+                            const Tab(text: 'شهري'),
+                            const Tab(text: 'سنوي'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    // Period Navigation
+                    SliverToBoxAdapter(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildStatCard(
-                              title: 'إجمالي الأرباح',
-                              value: '${(_summary['totalEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
-                              icon: Icons.monetization_on_rounded,
-                              color: Colors.green,
+                            IconButton(
+                              onPressed: _previousPeriod,
+                              icon: const Icon(Icons.chevron_left, color: Colors.white),
                             ),
-                            _buildStatCard(
-                              title: 'الطلبات المكتملة',
-                              value: '${_summary['completedRequests'] ?? 0}',
-                              icon: Icons.check_circle_outline_rounded,
-                              color: vibrantOrange,
+                            GestureDetector(
+                              onTap: _resetToToday,
+                              child: Text(
+                                _formatCurrentPeriod(),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ),
-                            _buildStatCard(
-                              title: 'حصة التطبيق',
-                              value: '${((_summary['totalEarnings'] ?? 0.0) * 0.2).toStringAsFixed(0)} دج',
-                              icon: Icons.account_balance_rounded,
-                              color: purpleColor,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildStatCard(
-                              title: 'أرباح النقل',
-                              value: '${(_summary['transportEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
-                              icon: Icons.local_shipping_rounded,
-                              color: tealColor,
-                              width: 150,
-                            ),
-                            const SizedBox(width: 15),
-                            _buildStatCard(
-                              title: 'أرباح التخزين',
-                              value: '${(_summary['storageEarnings'] ?? 0.0).toStringAsFixed(0)} دج',
-                              icon: Icons.warehouse_rounded,
-                              color: Colors.amber,
-                              width: 150,
+                            IconButton(
+                              onPressed: _nextPeriod,
+                              icon: Icon(
+                                Icons.chevron_right, 
+                                color: _currentDate.isBefore(DateTime.now()) 
+                                    ? Colors.white 
+                                    : Colors.white.withOpacity(0.3),
+                              ),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-
-                  // Period Tabs
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: vibrantOrange,
-                    unselectedLabelColor: Colors.white.withOpacity(0.6),
-                    indicatorColor: vibrantOrange,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                    tabs: [
-                      const Tab(text: 'يومي'),
-                      const Tab(text: 'شهري'),
-                      const Tab(text: 'سنوي'),
-                    ],
-                  ),
-
-                  // Period Navigation
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: _previousPeriod,
-                          icon: const Icon(Icons.chevron_left, color: Colors.white),
-                        ),
-                        GestureDetector(
-                          onTap: _resetToToday,
-                          child: Text(
-                            _formatCurrentPeriod(),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _nextPeriod,
-                          icon: Icon(
-                            Icons.chevron_right, 
-                            color: _currentDate.isBefore(DateTime.now()) 
-                                ? Colors.white 
-                                : Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Period Statistics
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildPeriodStatisticsView('يومي'),
-                        _buildPeriodStatisticsView('شهري'),
-                        _buildPeriodStatisticsView('سنوي'),
-                      ],
-                    ),
-                  ),
-                ],
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPeriodStatisticsView('يومي'),
+                    _buildPeriodStatisticsView('شهري'),
+                    _buildPeriodStatisticsView('سنوي'),
+                  ],
+                ),
               ),
             ),
       floatingActionButton: FloatingActionButton(
@@ -479,13 +514,12 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
     final vibrantOrange = const Color(0xFFFF7F11);
     final tealColor = Colors.teal.withOpacity(0.8);
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: RefreshIndicator(
-        onRefresh: _loadStatistics,
-        color: vibrantOrange,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Period summary cards
             Padding(
@@ -634,6 +668,7 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // إصلاح: ترتيب المعاملات حسب الأحدث مع معالجة sort void
                   _statistics.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -648,11 +683,16 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
                         ),
                       )
                     : Column(
-                        children: _statistics
-                          .where((stat) => stat.status == 'completed')
-                          .take(5)
-                          .map((stat) => _buildTransactionItem(stat))
-                          .toList(),
+                        children: (() {
+                          final completed = _statistics
+                              .where((stat) => stat.status == 'completed')
+                              .toList();
+                          completed.sort((a, b) => b.date.compareTo(a.date));
+                          return completed
+                              .take(5)
+                              .map((stat) => _buildTransactionItem(stat))
+                              .toList();
+                        })(),
                       ),
                 ],
               ),
@@ -709,6 +749,7 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       ),
     );
   }
+  
   // Build bar chart based on period
   Widget _buildBarChart(Map<int, double> data) {
     // If no data, show placeholder
@@ -736,7 +777,8 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
     
     // Sort keys for proper display
     final sortedKeys = data.keys.toList()..sort();
-      // Find max value for scaling
+    
+    // Find max value for scaling
     final maxValue = data.values.isEmpty ? 10.0 : data.values.reduce(math.max);
     // Ensure maxValue is never zero to prevent FlGridData.horizontalInterval assertion error
     final effectiveMaxValue = maxValue > 0 ? maxValue : 10.0;
@@ -818,7 +860,8 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
             ),
           ),
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),          leftTitles: AxisTitles(
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
@@ -837,7 +880,8 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
               interval: effectiveMaxValue / 5,
             ),
           ),
-        ),        barTouchData: BarTouchData(
+        ),
+        barTouchData: BarTouchData(
           enabled: true,
           touchTooltipData: BarTouchTooltipData(
             getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(

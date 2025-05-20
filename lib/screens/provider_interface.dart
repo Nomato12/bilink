@@ -20,7 +20,7 @@ import 'add_service_screen.dart';
 import 'chat_list_screen.dart';
 import '../models/home_page.dart';
 import 'notifications_screen.dart';
-import 'provider_statistics_page.dart';
+import 'provider_statistics_page_scrollable.dart';
 import '../services/provider_statistics_service.dart';
 
 // Circles painter for logistics network pattern
