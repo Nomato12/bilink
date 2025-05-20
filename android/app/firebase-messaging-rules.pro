@@ -34,6 +34,7 @@
 -keepclasseswithmembers class * {
     @androidx.annotation.Keep <methods>;
 }
+-keepclasseswithmembers class * {
     @androidx.annotation.Keep <fields>;
 }
 -keepclasseswithmembers class * {

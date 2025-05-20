@@ -1628,7 +1628,6 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
       }
     }
   }
-
   // بطاقة إحصائية عصرية بتصميم لوجستي
   Widget _buildStatCard({
     required String title,
@@ -1636,62 +1635,67 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withOpacity(0.9),
-            Colors.white.withOpacity(0.7),
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.9),
+              Colors.white.withOpacity(0.7),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+              spreadRadius: 1,
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Icon with circular background
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              shape: BoxShape.circle,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon with circular background
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 10),
-          // Value with larger, bolder text
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              color: const Color(0xFF0A2463),
+            const SizedBox(height: 10),
+            // Value with larger, bolder text
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: const Color(0xFF0A2463),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          // Title with color matching the icon
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13, 
-              color: color.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 4),
+            // Title with color matching the icon
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13, 
+                color: color.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2774,8 +2778,7 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Dashboard header with wave decoration
+                      children: [                        // Dashboard header with wave decoration
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -2786,6 +2789,13 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                               colors: [Colors.teal.withOpacity(0.2), Colors.black.withOpacity(0.3)],
                             ),
                             borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2797,6 +2807,13 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                     decoration: BoxDecoration(
                                       color: vibrantOrange.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: vibrantOrange.withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
                                     child: Icon(
                                       Icons.dashboard_rounded,
@@ -2829,28 +2846,30 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                               ),
                               const SizedBox(height: 20),
                               // إحصائيات سريعة
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildStatCard(
-                                    title: 'خدماتي',
-                                    value: '$_totalServices',
-                                    icon: Icons.list_alt,
-                                    color: Colors.teal,
-                                  ),
-                                  _buildStatCard(
-                                    title: 'الطلبات',
-                                    value: '$_totalRequests',
-                                    icon: Icons.assignment,
-                                    color: vibrantOrange,
-                                  ),
-                                  _buildStatCard(
-                                    title: 'الإيرادات',
-                                    value: '${_totalEarnings.toStringAsFixed(0)} دج',
-                                    icon: Icons.monetization_on,
-                                    color: const Color(0xFF34D399),
-                                  ),
-                                ],
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: Row(
+                                  children: [
+                                    _buildStatCard(
+                                      title: 'خدماتي',
+                                      value: '$_totalServices',
+                                      icon: Icons.list_alt,
+                                      color: Colors.teal,
+                                    ),
+                                    _buildStatCard(
+                                      title: 'الطلبات',
+                                      value: '$_totalRequests',
+                                      icon: Icons.assignment,
+                                      color: vibrantOrange,
+                                    ),
+                                    _buildStatCard(
+                                      title: 'الإيرادات',
+                                      value: '${_totalEarnings.toStringAsFixed(0)} دج',
+                                      icon: Icons.monetization_on,
+                                      color: const Color(0xFF34D399),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
