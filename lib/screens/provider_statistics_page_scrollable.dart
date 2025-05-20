@@ -54,13 +54,12 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
   
   // Current period
   DateTime _currentDate = DateTime.now();
-  
-  @override
+    @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
+      if (!_tabController.indexIsChanging && mounted) {
         setState(() {
           _selectedPeriod = _periods[_tabController.index];
         });
@@ -78,33 +77,39 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
     _tabController.dispose();
     super.dispose();
   }
-  
-  Future<void> _loadStatistics() async {
+    Future<void> _loadStatistics() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
-      try {
+    
+    try {
       final stats = await _statisticsService.getProviderStatistics();
       final summary = await _statisticsService.getStatisticsSummary();
       
       print('Loaded ${stats.length} statistics entries');
       print('Completed transactions: ${stats.where((s) => s.status == 'completed').length}');
       
-      setState(() {
-        _statistics = stats;
-        _summary = summary;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _statistics = stats;
+          _summary = summary;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error loading statistics: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-  
-  // Navigate to previous period
+    // Navigate to previous period
   void _previousPeriod() {
+    if (!mounted) return;
+    
     setState(() {
       if (_selectedPeriod == 'يومي') {
         _currentDate = _currentDate.subtract(const Duration(days: 1));
@@ -123,9 +128,10 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       }
     });
   }
-  
-  // Navigate to next period
+    // Navigate to next period
   void _nextPeriod() {
+    if (!mounted) return;
+    
     final now = DateTime.now();
     
     // Don't allow navigating beyond current date
@@ -159,9 +165,10 @@ class _ProviderStatisticsPageState extends State<ProviderStatisticsPage> with Si
       }
     });
   }
-  
-  // Reset to current period
+    // Reset to current period
   void _resetToToday() {
+    if (!mounted) return;
+    
     setState(() {
       _currentDate = DateTime.now();
     });

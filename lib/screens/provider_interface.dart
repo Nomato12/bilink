@@ -1626,73 +1626,72 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
           _isLoading = false;
         });
       }
-    }  }
+    }
+  }
 
-      // بطاقة إحصائية عصرية بتصميم لوجستي
+  // بطاقة إحصائية عصرية بتصميم لوجستي
   Widget _buildStatCard({
     required String title,
     required String value,
     required IconData icon,
     required Color color,
   }) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 5),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withOpacity(0.9),
-              Colors.white.withOpacity(0.7),
-            ],
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.9),
+            Colors.white.withOpacity(0.7),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: 1,
           ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-              spreadRadius: 1,
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icon with circular background
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon with circular background
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 10),
+          // Value with larger, bolder text
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: const Color(0xFF0A2463),
             ),
-            const SizedBox(height: 10),
-            // Value with larger, bolder text
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: const Color(0xFF0A2463),
-              ),
+          ),
+          const SizedBox(height: 4),
+          // Title with color matching the icon
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13, 
+              color: color.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 4),
-            // Title with color matching the icon
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13, 
-                color: color.withOpacity(0.8),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2654,10 +2653,9 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
         appBar: AppBar(
           title: Row(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.local_shipping_outlined, color: vibrantOrange),
+            children: [              Icon(Icons.local_shipping_outlined, color: vibrantOrange),
               const SizedBox(width: 8),
-              const Text('لوحة مزود الخدمات اللوجستية',
+              const Text('لوحة الخدمات',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
@@ -2829,8 +2827,10 @@ class _ServiceProviderHomePageState extends State<ServiceProviderHomePage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 20),                              // إحصائيات سريعة
+                              const SizedBox(height: 20),
+                              // إحصائيات سريعة
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   _buildStatCard(
                                     title: 'خدماتي',
