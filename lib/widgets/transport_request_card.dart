@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for Clipboard
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart'; // Added for location services
 import 'package:bilink/screens/client_details_screen.dart';
 import 'package:bilink/services/notification_service.dart';
 import 'package:bilink/services/fcm_service.dart';
@@ -27,13 +29,11 @@ class TransportRequestCard extends StatelessWidget {
     // Define a primary color for consistent theming
     final Color primaryColor = const Color(0xFF7B1FA2); // Vibrant Purple
     final Color darkerPrimaryShade = const Color(0xFF4A148C); // Darker Purple for accents/text
-    final Color lightPrimaryColor = primaryColor.withOpacity(0.1);
-
-    // Extract data from the request
+    final Color lightPrimaryColor = primaryColor.withOpacity(0.1);    // Extract data from the request
     final String status = requestData['status'] ?? 'pending';
     final String serviceName = requestData['serviceName'] ?? 'خدمة نقل';
     final String clientName = requestData['clientName'] ?? 'عميل';
-    final String details = requestData['details'] ?? '';
+    // Details are accessed directly where needed
     final Timestamp? createdAt = requestData['createdAt'] as Timestamp?;
     
     // Transport-specific data
@@ -114,21 +114,9 @@ class TransportRequestCard extends StatelessWidget {
         ),
       );
     }
-
-    // Calculate visible region for static map
-    LatLngBounds? mapBounds;
-    if (originLocation != null && destinationLocation != null) {
-      mapBounds = LatLngBounds(
-        southwest: LatLng(
-          math.min(originLocation.latitude, destinationLocation.latitude),
-          math.min(originLocation.longitude, destinationLocation.longitude),
-        ),
-        northeast: LatLng(
-          math.max(originLocation.latitude, destinationLocation.latitude),
-          math.max(originLocation.longitude, destinationLocation.longitude),
-        ),
-      );
-    }    return Container(
+    
+    // Calculate map bounds done dynamically in the map component
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -481,24 +469,21 @@ class TransportRequestCard extends StatelessWidget {
                       label: 'بيانات العميل',
                       onPressed: () => _viewClientDetails(context),
                     ),
-                    
-                    // Map button
+                      // Map button with directions indication
                     if (originLocation != null && destinationLocation != null)
                       _buildActionButton(
                         context,
                         primaryColor: primaryColor,
-                        icon: Icons.map_rounded, // Updated icon
-                        label: 'عرض الخريطة',
+                        icon: Icons.directions, // Changed to directions icon to indicate navigation
+                        label: 'الملاحة للعميل',
                         onPressed: () => _viewOnMap(context),
-                      ),
-                    
-                    // New navigation button with turn-by-turn directions
+                      ),                      // New navigation button with turn-by-turn directions
                     if (originLocation != null && destinationLocation != null)
                       _buildActionButton(
                         context,
                         primaryColor: primaryColor,
-                        icon: Icons.navigation_rounded, // Updated icon
-                        label: 'ملاحة', // Shortened label
+                        icon: Icons.map_outlined, // Changed icon to map
+                        label: 'الملاحة لوجهة العميل', // Clearer label for client destination
                         onPressed: () => _navigateWithDirections(context),
                       ),
                     
@@ -508,7 +493,7 @@ class TransportRequestCard extends StatelessWidget {
                       primaryColor: primaryColor,
                       icon: Icons.phone_rounded, // Updated icon
                       label: 'اتصال',
-                      onPressed: () => _callClient(),
+                      onPressed: () => _callClient(context),
                     ),
                   ],                ),
                 
@@ -639,70 +624,536 @@ class TransportRequestCard extends StatelessWidget {
     }
   }
   // View locations on map
-  void _viewOnMap(BuildContext context) {
-    final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
+  // View and navigate to client location using your current location
+void _viewOnMap(BuildContext context) {
+    // Get client location from request data
+    final GeoPoint? clientLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
+    final String clientId = requestData['clientId'] ?? '';
     
-    if (originLocation != null && destinationLocation != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RequestLocationMap(
-            location: originLocation,
-            title: requestData['originName'] ?? 'نقطة الانطلاق',
-            destinationLocation: destinationLocation,
-            destinationName: requestData['destinationName'] ?? 'الوجهة',
-            address: requestData['originAddress'] ?? '',
-            enableNavigation: true,
-            showRouteToCurrent: true,
-            requestId: requestData['id'],
-          ),
+    if (clientLocation != null) {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
       );
+      
+      // Get current location permission and navigate to map
+      Geolocator.requestPermission().then((permission) {
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            _showErrorSnackBar(context, 'يجب السماح بالوصول إلى موقعك لاستخدام الملاحة');
+          }
+          return;
+        }
+        
+        // Close loading dialog and navigate to map
+        if (context.mounted) {
+          // Get shortened client name to avoid overflow
+          String clientName = requestData['clientName'] ?? 'العميل';
+          if (clientName.length > 15) {
+            clientName = '${clientName.substring(0, 12)}...';
+          }
+          
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RequestLocationMap(
+                location: clientLocation, // Client location as the main location
+                title: 'موقع العميل: $clientName',
+                destinationLocation: destinationLocation,
+                destinationName: requestData['destinationName'] ?? 'الوجهة',
+                address: requestData['originAddress'] ?? '',
+                enableNavigation: true,
+                showRouteToCurrent: true, // This will show route from provider to client
+                requestId: requestData['id'],
+                clientId: clientId, // Pass client ID for real-time tracking if available
+              ),
+            ),
+          );
+        }
+      }).catchError((error) {
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          _showErrorSnackBar(context, 'حدث خطأ أثناء الحصول على الموقع: $error');
+        }
+      });
     } else {
-      _showErrorSnackBar(context, 'معلومات الموقع غير متوفرة');
+      _showErrorSnackBar(context, 'معلومات موقع العميل غير متوفرة');
     }
   }
-
-  // Navigate with turn-by-turn directions
+  // Navigate with turn-by-turn directions and real-time tracking
   void _navigateWithDirections(BuildContext context) {
     final GeoPoint? originLocation = requestData['originLocation'] as GeoPoint?;
     final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
     
     if (originLocation != null && destinationLocation != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LiveTrackingMapScreen(
-            originLocation: LatLng(originLocation.latitude, originLocation.longitude),
-            originName: requestData['originName'] ?? 'نقطة الانطلاق',
-            destinationLocation: LatLng(destinationLocation.latitude, destinationLocation.longitude),
-            destinationName: requestData['destinationName'] ?? 'الوجهة',
-          ),
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
       );
+      
+      // Get current location permission
+      Geolocator.requestPermission().then((permission) {
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            _showErrorSnackBar(context, 'يجب السماح بالوصول إلى موقعك لاستخدام الملاحة المباشرة');
+          }
+          return;
+        }
+        
+        // Get the current position to start navigation from current location
+        Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+            .then((position) {
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LiveTrackingMapScreen(
+                  originLocation: LatLng(position.latitude, position.longitude), // Use current real position
+                  originName: 'موقعي الحالي',
+                  destinationLocation: LatLng(destinationLocation.latitude, destinationLocation.longitude),
+                  destinationName: requestData['destinationName'] ?? 'وجهة العميل',
+                ),
+              ),
+            );
+          }
+        }).catchError((error) {
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            _showErrorSnackBar(context, 'حدث خطأ أثناء تحديد موقعك: $error');
+          }
+        });
+      });
     } else {
       _showErrorSnackBar(context, 'معلومات الموقع غير متوفرة للملاحة');
     }
-  }
+  }  
+  // فتح الملاحة المتقدمة في تطبيق Google Maps للمسافات الطويلة
+  void _openAdvancedNavigation(BuildContext context) {
+    final GeoPoint? destinationLocation = requestData['destinationLocation'] as GeoPoint?;
+    
+    if (destinationLocation == null) {
+      _showErrorSnackBar(context, 'معلومات وجهة العميل غير متاحة');
+      return;
+    }
 
-  // Call client
-  void _callClient() async {
-    final String clientPhone = requestData['clientPhone'] ?? '';
-    if (clientPhone.isNotEmpty) {
-      final Uri phoneUri = Uri(
-        scheme: 'tel',
-        path: clientPhone,
-      );
-      try {
-        if (await canLaunchUrl(phoneUri)) {
-          await launchUrl(phoneUri);
-        } else {
-          // Consider showing a snackbar if tel scheme is not supported
+    // عرض مؤشر التحميل
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    // الحصول على الموقع الحالي
+    Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+      .then((position) {
+        if (!context.mounted) return;
+        
+        // إغلاق مؤشر التحميل
+        Navigator.pop(context);
+        
+        // بناء رابط لفتح الملاحة في تطبيق خرائط Google
+        final url = 'https://www.google.com/maps/dir/?api=1'
+            '&origin=${position.latitude},${position.longitude}'
+            '&destination=${destinationLocation.latitude},${destinationLocation.longitude}'
+            '&travelmode=driving';
+            
+        final uri = Uri.parse(url);
+        
+        // فتح تطبيق الخرائط
+        launchUrl(uri, mode: LaunchMode.externalApplication).then((launched) {
+          if (!launched && context.mounted) {
+            _showErrorSnackBar(context, 'لا يمكن فتح تطبيق الخرائط، تأكد من تثبيته على جهازك');
+          }
+        });
+      })
+      .catchError((error) {
+        if (context.mounted) {
+          Navigator.pop(context); // إغلاق مؤشر التحميل
+          _showErrorSnackBar(context, 'حدث خطأ أثناء تحديد موقعك: $error');
         }
-      } catch (e) {
-        // Handle error, e.g., show a snackbar
+      });
+  }
+  // Call client - enhanced with clipboard copy option
+  void _callClient(BuildContext context) async {
+    final String clientPhone = requestData['clientPhone'] ?? '';
+    final Color primaryColor = const Color(0xFF7B1FA2); // Using the primary color from the widget
+    
+    if (clientPhone.isEmpty) {
+      // If phone is not available, try to get it from client details
+      final String clientId = requestData['clientId'] ?? '';
+      if (clientId.isNotEmpty) {
+        try {
+          // Try to fetch client details to get the phone number
+          final NotificationService notificationService = NotificationService();
+          final clientDetails = await notificationService.getClientDetails(clientId);
+            // Check if we have a valid phone number in the client details
+          if (clientDetails.containsKey('phone') && clientDetails['phone'] != null && clientDetails['phone'].toString().isNotEmpty) {
+            // We found a phone number, now try to call it
+            _makePhoneCallWithClipboardOption(context, clientDetails['phone'].toString(), primaryColor);
+            return;
+          } else {
+            // Show dialog that phone is not available
+            _showPhoneNotAvailableDialog(context, primaryColor);
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('حدث خطأ أثناء محاولة الحصول على رقم الهاتف: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } else {
+        // Show dialog that phone is not available
+        _showPhoneNotAvailableDialog(context, primaryColor);
       }
+    } else {
+      // We have a phone number directly in requestData
+      _makePhoneCallWithClipboardOption(context, clientPhone, primaryColor);
+    }
+  }
+  
+  // Helper method to make phone call with clipboard option
+  Future<void> _makePhoneCallWithClipboardOption(BuildContext context, String phoneNumber, Color primaryColor) async {
+    try {
+      // Format phone number properly, removing unwanted characters
+      String formattedNumber = phoneNumber.trim();
+      formattedNumber = formattedNumber.replaceAll(RegExp(r'[\s\-)(]+'), '');
+      final url = 'tel:$formattedNumber';
+      final uri = Uri.parse(url);
+
+      // Show a snackbar to indicate calling attempt
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('جاري الاتصال بالرقم $formattedNumber'),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      // If launching the call app failed, show clipboard dialog
+      if (!launched && context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 12,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    primaryColor.withOpacity(0.9),
+                    primaryColor.withOpacity(0.7),
+                    Colors.white,
+                  ],
+                  stops: const [0.0, 0.3, 0.9],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.phone_missed_rounded,
+                          size: 56,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'لا يمكن فتح تطبيق الهاتف',
+                          style: TextStyle(
+                            fontSize: 18, 
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Content
+                  Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'هل تريد نسخ رقم الهاتف إلى الحافظة؟',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF333333),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Phone number in card
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: primaryColor.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.phone_outlined,
+                                size: 24,
+                                color: primaryColor,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  formattedNumber,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                                child: Text(
+                                  'إلغاء',
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  elevation: 2,
+                                ),
+                                onPressed: () {
+                                  // نسخ رقم الهاتف إلى الحافظة
+                                  Clipboard.setData(ClipboardData(text: formattedNumber));
+                                  Navigator.pop(context);
+                                  
+                                  // عرض إشعار بأن الرقم تم نسخه
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('تم نسخ رقم الهاتف إلى الحافظة'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.content_copy, size: 18),
+                                label: const Text(
+                                  'نسخ الرقم',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء محاولة الاتصال: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+  
+  // Show dialog when phone is not available
+  void _showPhoneNotAvailableDialog(BuildContext context, Color primaryColor) {
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 12,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.9),
+                  primaryColor.withOpacity(0.7),
+                  Colors.white,
+                ],
+                stops: const [0.0, 0.3, 0.9],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.phone_disabled_rounded,
+                        size: 56,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'رقم الهاتف غير متوفر',
+                        style: TextStyle(
+                          fontSize: 18, 
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'لا يمكن العثور على رقم هاتف لهذا العميل',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF333333),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // View details button
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _viewClientDetails(context);
+                        },
+                        icon: const Icon(Icons.account_circle_rounded),
+                        label: const Text('عرض بيانات العميل'),
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Cancel button
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('إغلاق'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -1389,42 +1840,7 @@ class TransportCardAnimationController {
 }
 
 // Enhanced path painter for route visualization
-class _RoutePathPainter extends CustomPainter {
-  final Color color;
-  
-  _RoutePathPainter({this.color = const Color(0xFF2196F3)}); // Initialize with default blue color
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(0, size.height);
-    
-    // Draw path with dash effect
-    const dashWidth = 4.0;
-    const dashSpace = 4.0;
-    double distance = 0.0;
-    final pathMetrics = path.computeMetrics().single;
-    
-    while (distance < pathMetrics.length) {
-      final extractPath = pathMetrics.extractPath(
-        distance,
-        distance + dashWidth,
-      );
-      canvas.drawPath(extractPath, paint);
-      distance += dashWidth + dashSpace;
-    }
-  }
-  
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
+// Class removed to fix unused code error
 
 // Animated shimmer effect for loading states
 class ShimmerPainter extends CustomPainter {

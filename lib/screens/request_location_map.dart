@@ -44,8 +44,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
   bool _isTracking = false;
   late GeoPoint _currentLocation;
   bool _showTrackingOptions = false;
-  
-  // For routing
+    // For routing
   GeoPoint? _providerLocation;
   final Map<PolylineId, Polyline> _polylines = {};
   
@@ -53,10 +52,14 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
   GeoPoint? _destinationLocation;
   String? _destinationName;
   bool _showDestination = false;
+  
+  // للتتبع المباشر لموقع المزود
+  StreamSubscription<Position>? _providerLocationSubscription;
+  bool _isTrackingProvider = false;
+  bool _followingProvider = false;
 
   _RequestLocationMapState() : _currentLocation = GeoPoint(0, 0);
-  
-  @override
+    @override
   void initState() {
     super.initState();
     // Set the current location to the initial location provided
@@ -75,15 +78,24 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     // Get provider location if route should be shown
     if (widget.showRouteToCurrent) {
       _getProviderCurrentLocation();
+      // بدء تتبع موقع المزود بشكل مستمر
+      _startProviderTracking();
     }
   }@override
   void dispose() {
-    // إلغاء الاشتراك بشكل آمن دون عرض أي رسائل
+    // إلغاء الاشتراك بتتبع موقع العميل
     if (_locationSubscription != null) {
       _locationSubscription!.cancel();
       _locationSubscription = null;
     }
     _isTracking = false;
+    
+    // إلغاء الاشتراك بتتبع موقع المزود
+    if (_providerLocationSubscription != null) {
+      _providerLocationSubscription!.cancel();
+      _providerLocationSubscription = null;
+    }
+    _isTrackingProvider = false;
     
     // التأكد من إغلاق وحدة تحكم الخريطة
     if (_mapInitialized) {
@@ -204,19 +216,39 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       );
       print('Error getting location: $e');
     }
-  }// Create route between provider and client locations
+  }// إنشاء مسار بين موقع المزود وموقع العميل مع تحسينات بصرية
   Future<void> _createRoute() async {
+    // تأكد من وجود موقع المزود، وإلا قم بالحصول عليه
     if (_providerLocation == null) {
       await _getProviderCurrentLocation();
-      if (_providerLocation == null) return;
+      if (_providerLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لا يمكن تحديد موقعك الحالي، يرجى تفعيل خدمة الموقع'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     }
     
+    // أظهر مؤشر التحميل
+    if (mounted && !_isTrackingProvider) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('جاري إنشاء المسار...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+    
+    // مسح المسارات الموجودة
     setState(() {
       _polylines.clear();
     });
     
     try {
-      // Use DirectionsService to get a proper route instead of a straight line
+      // استخدم DirectionsService للحصول على مسار حقيقي بدلاً من خط مستقيم
       final directionsService = DirectionsHelper();
       final result = await directionsService.getRoute(
         origin: LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
@@ -224,7 +256,7 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
       );
       
       if (result == null) {
-        // If directions service fails, fall back to a straight line
+        // إذا فشلت خدمة الاتجاهات، استخدم خطًا مستقيمًا كبديل
         List<LatLng> polylineCoordinates = [
           LatLng(_providerLocation!.latitude, _providerLocation!.longitude),
           LatLng(_currentLocation.latitude, _currentLocation.longitude),
@@ -233,44 +265,80 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
         final PolylineId id = const PolylineId('route');
         final Polyline polyline = Polyline(
           polylineId: id,
-          color: Colors.blue,
+          color: Colors.blue.shade700,
           points: polylineCoordinates,
           width: 5,
+          patterns: [
+            PatternItem.dot, PatternItem.gap(10)
+          ],
         );
         
         setState(() {
           _polylines[id] = polyline;
         });
         
-        // Set zoom to fit the route
+        // ضبط تكبير/تصغير الخريطة لتناسب المسار
         _fitRouteInMap();
         return;
       }
       
-      // Create polyline with the route from directions service
+      // إنشاء خط المسار باستخدام نتائج خدمة الاتجاهات
       final PolylineId id = const PolylineId('route');
       final Polyline polyline = Polyline(
         polylineId: id,
-        color: Colors.blue,
+        color: Colors.blue.shade700,
         points: result.polylinePoints,
-        width: 5,
+        width: 6,
+        endCap: Cap.roundCap,
+        startCap: Cap.roundCap,
+        jointType: JointType.round,
+      );
+    
+      // إضافة ظل للطريق لجعله أكثر وضوحًا
+      final PolylineId shadowId = const PolylineId('route_shadow');
+      final Polyline shadowPolyline = Polyline(
+        polylineId: shadowId,
+        color: Colors.black.withOpacity(0.3),
+        points: result.polylinePoints,
+        width: 8,
+        endCap: Cap.roundCap,
+        startCap: Cap.roundCap,
+        jointType: JointType.round,
+        zIndex: 1, // جعله خلف المسار الأساسي
       );
     
       setState(() {
+        _polylines[shadowId] = shadowPolyline;
         _polylines[id] = polyline;
       });
       
-      // Set zoom to fit the route
+      // أظهر معلومات المسافة والوقت
+      if (result.distance != null && result.duration != null && mounted && !_isTrackingProvider) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'المسافة: ${result.distance} - الوقت المتوقع: ${result.duration}',
+              textAlign: TextAlign.center,
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      
+      // ضبط تكبير/تصغير الخريطة لتناسب المسار
       _fitRouteInMap();
       
     } catch (e) {
       print('Error creating route: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ أثناء إنشاء المسار: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء إنشاء المسار: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
     // Adjust map to fit the route
@@ -373,13 +441,110 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
     
     // لا نقوم بعرض رسالة Snackbar هنا لأنه قد يكون غير آمن إذا تم استدعاء هذه الدالة من dispose()
     // بدلاً من ذلك، نتحقق ما إذا كان الويدجت نشطاً قبل عرض الرسالة
-  }@override
+  }
+  
+  // بدء تتبع موقع المزود (أنت) بشكل مباشر
+  Future<void> _startProviderTracking() async {
+    // أولاً، تأكد من الحصول على إذن الموقع
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم رفض إذن الموقع، لا يمكن تتبع موقعك'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم رفض إذن الموقع بشكل دائم، يرجى تغيير الإعدادات لاستخدام هذه الميزة'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // إلغاء أي اشتراك موجود قبل إنشاء اشتراك جديد
+    _stopProviderTracking();
+    
+    // تشغيل حالة التتبع
+    _isTrackingProvider = true;
+    _followingProvider = true;
+    
+    // الاشتراك في تحديثات الموقع
+    _providerLocationSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // تحديث كل 10 أمتار من الحركة
+      ),
+    ).listen((Position position) {
+      // تحديث موقع المزود
+      setState(() {
+        _providerLocation = GeoPoint(position.latitude, position.longitude);
+        _updateMarker();
+      });
+      
+      // تحديث المسار إذا كان مفعلاً
+      if (_polylines.isNotEmpty) {
+        _createRoute();
+      }
+      
+      // توجيه الكاميرا لمتابعة حركة المزود إذا كان مفعلاً
+      if (_followingProvider && _mapInitialized) {
+        _mapController.animateCamera(
+          CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
+        );
+      }
+    }, 
+    onError: (error) {
+      print('Error tracking provider location: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ أثناء تتبع موقعك: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      _stopProviderTracking();
+    });
+    
+    // أظهر رسالة تأكيد للمستخدم
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم تفعيل تتبع موقعك بنجاح'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+  
+  // إيقاف تتبع موقع المزود
+  void _stopProviderTracking() {
+    if (_providerLocationSubscription != null) {
+      _providerLocationSubscription!.cancel();
+      _providerLocationSubscription = null;
+    }
+    _isTrackingProvider = false;
+    _followingProvider = false;
+  }
+  
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return Scaffold(      appBar: AppBar(
         title: Row(
           children: [
-            Text(widget.title),
+            Expanded(
+              child: Text(
+                widget.title,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
             if (_isTracking) ...[
               const SizedBox(width: 8),
               Container(
@@ -435,13 +600,13 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
               icon: const Icon(Icons.directions),
               onPressed: _openLocationInMaps,
               tooltip: 'تتبع',
-            ),
-          // Add route toggle button
+            ),          // زر لإظهار/إخفاء المسار
           if (widget.showRouteToCurrent || _providerLocation != null)
             IconButton(
               icon: Icon(_polylines.isNotEmpty ? Icons.route : Icons.add_road),
               onPressed: () {
-                if (_polylines.isNotEmpty) {                  setState(() {
+                if (_polylines.isNotEmpty) {
+                  setState(() {
                     _polylines.clear();
                   });
                 } else {
@@ -451,6 +616,55 @@ class _RequestLocationMapState extends State<RequestLocationMap> {
               tooltip: _polylines.isNotEmpty ? 'إخفاء المسار' : 'إظهار المسار',
               color: _polylines.isNotEmpty ? Colors.blue : null,
             ),
+          
+          // زر لبدء/إيقاف تتبع موقع المزود
+          if (widget.showRouteToCurrent)
+            IconButton(
+              icon: Icon(_isTrackingProvider 
+                ? Icons.location_on : Icons.location_off),
+              onPressed: () {
+                if (_isTrackingProvider) {
+                  _stopProviderTracking();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم إيقاف تتبع موقعك'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } else {
+                  _startProviderTracking();
+                }
+                setState(() {});
+              },
+              tooltip: _isTrackingProvider ? 'إيقاف تتبع موقعك' : 'تتبع موقعك',
+              color: _isTrackingProvider ? Colors.green : null,
+            ),
+            
+          // زر لتفعيل/إيقاف متابعة المزود أثناء التنقل
+          if (_isTrackingProvider)
+            IconButton(
+              icon: Icon(_followingProvider 
+                ? Icons.navigation : Icons.explore),
+              onPressed: () {
+                setState(() {
+                  _followingProvider = !_followingProvider;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(_followingProvider 
+                      ? 'تم تفعيل متابعة موقعك أثناء التنقل' 
+                      : 'تم إيقاف متابعة موقعك أثناء التنقل'),
+                    backgroundColor: _followingProvider ? Colors.green : Colors.orange,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              tooltip: _followingProvider ? 'إيقاف المتابعة' : 'متابعة موقعك',
+              color: _followingProvider ? Colors.green : null,
+            ),
+            
+          // زر لتحديد موقعك على الخريطة
           IconButton(
             icon: const Icon(Icons.my_location),
             onPressed: _centerMap,

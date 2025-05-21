@@ -76,6 +76,9 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
   bool _showRealtimePanel = false;
   final double _arrowSize = 40.0;
 
+  // متغير لتتبع وضع العرض
+  bool _followingMode = true;
+
   @override
   void initState() {
     super.initState();
@@ -155,11 +158,17 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         });
       }
     }
-    
-    // حساب المسار بمجرد توفر نقطة البداية والوجهة
+      // حساب المسار وبدء التتبع المباشر تلقائياً بمجرد توفر نقطة البداية والوجهة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_originPosition != null && _destinationPosition != null) {
-        _calculateAndDisplayRoute();
+        _calculateAndDisplayRoute().then((_) {
+          // بدء التتبع المباشر تلقائياً بعد حساب المسار
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _startTracking();
+            }
+          });
+        });
       }
     });
   }
@@ -266,12 +275,12 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
           );
         }
       }
-    });
-      // الاشتراك في تحديثات الموقع في الوقت الفعلي
+    });      // الاشتراك في تحديثات الموقع في الوقت الفعلي
     final locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.best, 
-      distanceFilter: 5, // تحديث كل 5 أمتار
-    );      
+      accuracy: LocationAccuracy.bestForNavigation, // تحسين الدقة للملاحة
+      distanceFilter: 2, // تحديث كل 2 متر للحصول على تتبع أكثر سلاسة
+      timeLimit: Duration(milliseconds: 500), // تحديث كل 500 مللي ثانية كحد أقصى للوقت
+    );
     _positionStreamSubscription = Geolocator.getPositionStream(locationSettings: locationSettings)
         .listen((Position position) async {
       // تأكد من أن الـ widget لا يزال متاحًا قبل تحديث الحالة
@@ -293,16 +302,39 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
         _positionStreamSubscription?.cancel();
         return;
       }
-        try {
-        // تحريك الخريطة لمتابعة الموقع الحالي بحركة سلسة
+        try {        // تحريك الخريطة لمتابعة الموقع الحالي بحركة سلسة
         if (mounted) {
           final GoogleMapController controller = await _controller.future;
+          
+          // حساب المسافة المتبقية للوجهة
+          final double distanceToDestination = Geolocator.distanceBetween(
+            newPosition.latitude,
+            newPosition.longitude,
+            _destinationPosition!.latitude,
+            _destinationPosition!.longitude,
+          );
+          
+          // تعديل مستوى التكبير ديناميكياً بناءً على المسافة المتبقية
+          double zoomLevel = 17.0; // المستوى الافتراضي للتكبير
+          double tiltAngle = 45.0; // زاوية الميل الافتراضية
+          
+          if (distanceToDestination > 5000) { // أكثر من 5 كم
+            zoomLevel = 14.0;
+            tiltAngle = 30.0;
+          } else if (distanceToDestination > 1000) { // بين 1 و 5 كم
+            zoomLevel = 15.0;
+            tiltAngle = 35.0;
+          } else if (distanceToDestination > 500) { // بين 500 متر و 1 كم
+            zoomLevel = 16.0;
+            tiltAngle = 40.0;
+          }
+          
           controller.animateCamera(
             CameraUpdate.newCameraPosition(
               CameraPosition(
                 target: newPosition,
-                zoom: 17.0,
-                tilt: 45, // إضافة زاوية مائلة لتحسين عرض الملاحة
+                zoom: zoomLevel,
+                tilt: tiltAngle,
                 bearing: position.heading, // توجيه الخريطة حسب اتجاه الحركة
               ),
             ),
@@ -712,8 +744,7 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       }
     }
   }
-  
-  // ضبط حدود الخريطة لتناسب المسار بأكمله
+    // ضبط حدود الخريطة لتناسب المسار بأكمله
   Future<void> _fitBoundsForRoute() async {
     if (_originPosition == null || _destinationPosition == null) {
       return;
@@ -742,8 +773,26 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
       
       // الحصول على تحكم الخريطة وضبط الحدود
       final GoogleMapController controller = await _controller.future;
+      
+      // حساب المسافة بين نقطة البداية والوجهة
+      double distanceBetweenPoints = Geolocator.distanceBetween(
+        _originPosition!.latitude,
+        _originPosition!.longitude,
+        _destinationPosition!.latitude,
+        _destinationPosition!.longitude,
+      );
+      
+      // تعديل نسبة التكبير بناءً على المسافة
+      double padding = 100; // القيمة الافتراضية
+      
+      if (distanceBetweenPoints > 10000) { // أكثر من 10 كم
+        padding = 50; // تقليل التكبير للمسافات الطويلة
+      } else if (distanceBetweenPoints < 1000) { // أقل من 1 كم
+        padding = 150; // زيادة التكبير للمسافات القصيرة
+      }
+      
       controller.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 100),
+        CameraUpdate.newLatLngBounds(bounds, padding),
       );
     } catch (e) {
       print('Error fitting bounds: $e');
@@ -1206,6 +1255,97 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
     return htmlText.replaceAll(exp, ' ').replaceAll('&nbsp;', ' ').trim();
   }
 
+  // إضافة زر لتبديل وضع عرض الخريطة
+  Widget _buildMapViewModeButton() {
+    return Positioned(
+      top: 16,
+      left: 16,
+      child: Column(
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'map_view_mode',
+            backgroundColor: Colors.white,
+            onPressed: _toggleMapViewMode,
+            child: Icon(_followingMode ? Icons.navigation : Icons.map, color: Colors.blue),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              _followingMode ? 'وضع التتبع' : 'كامل المسار',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // تبديل وضع عرض الخريطة
+  void _toggleMapViewMode() {
+    setState(() {
+      _followingMode = !_followingMode;
+    });
+
+    if (_followingMode) {
+      // وضع التتبع المباشر: التركيز على الموقع الحالي
+      if (_currentNavigationPosition != null) {
+        _animateCameraToCurrentLocation();
+      }
+    } else {
+      // وضع عرض المسار الكامل: إظهار المسار بأكمله
+      _fitBoundsForRoute();
+    }
+    
+    // عرض رسالة توضيحية
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_followingMode 
+          ? 'تم التبديل إلى وضع التتبع المباشر' 
+          : 'تم التبديل إلى وضع عرض المسار الكامل'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // الانتقال إلى الموقع الحالي
+  Future<void> _animateCameraToCurrentLocation() async {
+    if (_currentNavigationPosition == null) return;
+    
+    try {
+      final controller = await _controller.future;
+      final position = await Geolocator.getCurrentPosition();
+      final heading = position.heading;
+      
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _currentNavigationPosition!,
+            zoom: 17.0,
+            tilt: 45,
+            bearing: heading,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error animating to current location: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1365,6 +1505,9 @@ class _LiveTrackingMapScreenState extends State<LiveTrackingMapScreen> {
               color: Colors.black45,
               child: const Center(child: CircularProgressIndicator()),
             ),
+
+          // زر تبديل وضع عرض الخريطة
+          _buildMapViewModeButton(),
         ],
       ),
 
