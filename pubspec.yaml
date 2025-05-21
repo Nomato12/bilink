@@ -56,6 +56,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/images/
+    - assets/images/logistics_background.jpg
   fonts:
     - family: Cairo
       fonts:

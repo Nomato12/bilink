@@ -1392,7 +1392,7 @@ class TransportCardAnimationController {
 class _RoutePathPainter extends CustomPainter {
   final Color color;
   
-  _RoutePathPainter({this.color = const Color(0xFF3B82F6)}); // Initialize with default blue color
+  _RoutePathPainter({this.color = const Color(0xFF2196F3)}); // Initialize with default blue color
   
   @override
   void paint(Canvas canvas, Size size) {
